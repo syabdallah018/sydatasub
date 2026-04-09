@@ -105,6 +105,60 @@ vercel env add JWT_SECRET
 
 ---
 
+## Admin Protection
+
+### `ADMIN_PASSWORD`
+**Required:** ✅ Yes  
+**Environment:** Production & Development  
+**Type:** Password String
+
+**Description:**
+A secure password that protects access to admin panel API endpoints. All admin API requests must include this password in the `X-Admin-Password` header. This is an additional layer of security beyond JWT authentication.
+
+**Format:**
+```
+Strong password (12+ characters, mix of uppercase, lowercase, numbers, symbols)
+```
+
+**Example:**
+```
+AdmP@ss2024#Secure!
+```
+
+**How to Generate Securely:**
+
+**Option 1: Using Node.js**
+```bash
+node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
+```
+
+**Option 2: Using a Password Manager**
+- Generate a strong 16+ character password
+- Store in your password manager (1Password, Bitwarden, etc.)
+
+**Usage:**
+When making requests to admin API endpoints, include the header:
+```bash
+curl -H "X-Admin-Password: your_admin_password" \
+  https://sydatasub.vercel.app/api/admin/users
+```
+
+**Vercel Setup:**
+```bash
+vercel env add ADMIN_PASSWORD
+# Paste your strong admin password
+# Select: Production, Preview, Development
+```
+
+**Important:**
+- Use a strong password (12+ chars, mixed case, numbers, symbols)
+- Never share this password
+- Different from user passwords
+- Change periodically in production
+- Store securely in password manager
+
+---
+
 ## Flutterwave Payment Gateway
 
 Flutterwave is the payment processing service for data/airtime purchases. You need a Flutterwave account to get these credentials.
@@ -425,6 +479,7 @@ vercel deploy --prod
 |----------|----------|-------------|------|---------|
 | `DATABASE_URL` | ✅ | All | String | `postgresql://...` |
 | `JWT_SECRET` | ✅ | All | String | 64+ char random string |
+| `ADMIN_PASSWORD` | ✅ | All | String | Strong password 12+ chars |
 | `FLUTTERWAVE_SECRET_KEY` | ✅ | All | String | SK... |
 | `FLUTTERWAVE_PUBLIC_KEY` | ✅ | All | String | PK... |
 | `FLUTTERWAVE_WEBHOOK_SECRET` | ✅ | All | String | Hash string |

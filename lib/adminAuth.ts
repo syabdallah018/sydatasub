@@ -12,11 +12,23 @@ export interface AdminUser {
 
 /**
  * Require admin authentication for API routes
- * Extracts user from JWT, verifies admin role
+ * Checks: JWT validity, Admin role, Admin password from env variable
  * Returns AdminUser or throws error
  */
 export async function requireAdmin(req: NextRequest): Promise<AdminUser> {
   try {
+    // Check admin password header
+    const adminPassword = req.headers.get("X-Admin-Password");
+    const envAdminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!envAdminPassword) {
+      throw new Error("Admin password not configured in server");
+    }
+
+    if (!adminPassword || adminPassword !== envAdminPassword) {
+      throw new Error("Unauthorized: Invalid or missing admin password");
+    }
+
     const jwtPayload = await getSessionUser(req);
 
     if (!jwtPayload) {
