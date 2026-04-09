@@ -144,15 +144,27 @@ export async function POST(req: NextRequest) {
       role: user.role,
     });
 
+    // Get updated user with signup bonus balance
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
+
+    if (!updatedUser) {
+      return NextResponse.json(
+        { error: "Failed to retrieve user data" },
+        { status: 500 }
+      );
+    }
+
     const response = NextResponse.json(
       {
         message: "Account created successfully",
         user: {
-          id: user.id,
-          phone: user.phone,
-          fullName: user.fullName,
-          role: user.role,
-          balance: user.balance,
+          id: updatedUser.id,
+          phone: updatedUser.phone,
+          fullName: updatedUser.fullName,
+          role: updatedUser.role,
+          balance: updatedUser.balance,
         },
         virtualAccount: {
           accountNumber: virtualAccount.account_number,

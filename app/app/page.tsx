@@ -239,13 +239,30 @@ function SignupTab({ setUser, router }: { setUser: (user: any) => void; router: 
 function GuestTab() {
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-  const handleGuestPurchase = () => {
+  const handleGuestPurchase = async () => {
     if (!phone) {
       toast.error("Please enter phone number");
       return;
     }
-    window.location.href = `/?phone=${phone}&guest=true&checkout=true`;
+    // Validate phone format
+    if (!/^0[0-9]{10}$/.test(phone)) {
+      toast.error("Phone number must be 11 digits starting with 0");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      // Store guest phone in localStorage for checkout flow
+      localStorage.setItem("guestPhone", phone);
+      localStorage.setItem("isGuest", "true");
+      // Navigate to checkout/data selection page
+      router.push("/app/checkout?guest=true&phone=" + encodeURIComponent(phone));
+    } catch (error) {
+      toast.error("Navigation error");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -9,12 +9,12 @@ export async function middleware(req: NextRequest) {
   // Admin routes
   if (pathname.startsWith("/admin")) {
     const token = req.cookies.get("sy_session")?.value;
-    if (!token) return NextResponse.redirect(new URL("/api/admin/login", req.url));
+    if (!token) return NextResponse.redirect(new URL("/app", req.url));
     
     try {
       const { payload } = await jwtVerify(token, secret);
       if (payload?.role !== "ADMIN") {
-        return NextResponse.redirect(new URL("/app/dashboard", req.url));
+        return NextResponse.redirect(new URL("/app", req.url));
       }
     } catch {
       return NextResponse.redirect(new URL("/app", req.url));

@@ -10,7 +10,7 @@ export default async function AdminPage() {
   const token = cookieStore.get("sy_session")?.value;
   
   if (!token) {
-    redirect("/api/admin/login");
+    redirect("/app");
   }
   
   try {
@@ -22,5 +22,5 @@ export default async function AdminPage() {
     // Token invalid or expired
   }
   
-  redirect("/api/admin/login");
+  redirect("/app");
 }
