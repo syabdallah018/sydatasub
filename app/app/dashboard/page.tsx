@@ -86,16 +86,28 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // Fetch user data
-  const { data: userData, isLoading: userLoading } = useQuery({
+  const { data: userData, isLoading: userLoading, isError: userError } = useQuery({
     queryKey: ["user"],
     queryFn: async () => {
-      const res = await fetch("/api/auth/me");
+      const res = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
       if (res.ok) {
         return res.json();
+      }
+      if (res.status === 401) {
+        throw new Error("Unauthorized");
       }
       throw new Error("Failed to fetch user");
     },
   });
+
+  // Handle auth errors - redirect to login if unauthorized
+  useEffect(() => {
+    if (userError && userLoading === false) {
+      router.push("/app");
+    }
+  }, [userError, userLoading, router]);
 
   // Update local user state when userData changes
   useEffect(() => {
@@ -104,12 +116,12 @@ export default function DashboardPage() {
     }
   }, [userData, setUser]);
 
-  // Redirect to login if user fetch fails
+  // Redirect to login if user fetch fails or is unauthorized
   useEffect(() => {
-    if (userLoading === false && !userData) {
+    if (userLoading === false && (!userData || userError)) {
       router.push("/app");
     }
-  }, [userLoading, userData, router]);
+  }, [userLoading, userData, userError, router]);
 
   // Fetch transactions with infinite scroll
   const {
@@ -126,7 +138,9 @@ export default function DashboardPage() {
       if (pageParam) params.set("cursor", pageParam);
       params.set("limit", "10");
 
-      const res = await fetch(`/api/transactions?${params}`);
+      const res = await fetch(`/api/transactions?${params}`, {
+        credentials: "include",
+      });
       if (res.ok) {
         return res.json();
       }

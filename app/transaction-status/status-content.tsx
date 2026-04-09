@@ -33,7 +33,9 @@ export default function StatusContent() {
 
     const fetchTransaction = async () => {
       try {
-        const res = await fetch(`/api/transactions/status?reference=${reference}`);
+        const res = await fetch(`/api/transactions/status?reference=${reference}`, {
+          credentials: "include",
+        });
         if (res.ok) {
           const data = await res.json();
           setTransaction(data.transaction);

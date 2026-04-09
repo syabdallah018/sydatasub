@@ -22,12 +22,6 @@ export async function GET(req: NextRequest) {
         role: true,
         balance: true,
         isBanned: true,
-        virtualAccount: {
-          select: {
-            accountNumber: true,
-            bankName: true,
-          },
-        },
       },
     });
 
@@ -38,7 +32,29 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(userData, { status: 200 });
+    // Fetch virtualAccount separately with error handling
+    let virtualAccount = null;
+    try {
+      const va = await prisma.virtualAccount.findUnique({
+        where: { userId: user.userId },
+        select: {
+          accountNumber: true,
+          bankName: true,
+        },
+      });
+      virtualAccount = va;
+    } catch (error) {
+      console.warn("[VIRTUAL ACCOUNT FETCH WARNING]", error);
+      // Continue without virtual account
+    }
+
+    return NextResponse.json(
+      {
+        ...userData,
+        virtualAccount: virtualAccount || null,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("[AUTH ME ERROR]", error);
     return NextResponse.json(

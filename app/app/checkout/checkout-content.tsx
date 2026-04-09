@@ -31,7 +31,9 @@ export default function CheckoutContent() {
     // Fetch available data plans
     const fetchPlans = async () => {
       try {
-        const res = await fetch("/api/data/plans");
+        const res = await fetch("/api/data/plans", {
+          credentials: "include",
+        });
         if (res.ok) {
           const data = await res.json();
           setPlans(data.plans || []);
