@@ -1,8 +1,22 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap");
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+
+:root {
+  --app-bg: #fafafa;
+  --card-bg: #ffffff;
+  --border-subtle: #e5e7eb;
+}
+
+.dark {
+  --app-bg: #0f172a;
+  --card-bg: #1e293b;
+  --border-subtle: #334155;
+}
 
 @theme inline {
   --color-background: var(--background);

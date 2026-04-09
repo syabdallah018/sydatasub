@@ -1,0 +1,180 @@
+// Prisma schema for SY DATA SUB - Nigerian Fintech Data Platform
+// Generated: April 2026
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  USER
+  AGENT
+  ADMIN
+}
+
+enum NetworkType {
+  MTN
+  GLO
+  AIRTEL
+  NINEMOBILE
+}
+
+enum TransactionType {
+  DATA_PURCHASE
+  AIRTIME_PURCHASE
+  WALLET_FUNDING
+  REWARD_CREDIT
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REVERSED
+}
+
+enum ApiSource {
+  API_A
+  API_B
+}
+
+enum RewardType {
+  SIGNUP_BONUS
+  FIRST_DEPOSIT_2K
+  DEPOSIT_10K_UPGRADE
+}
+
+enum RewardStatus {
+  IN_PROGRESS
+  EARNED
+  CLAIMED
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model User {
+  id        String     @id @default(cuid())
+  fullName  String
+  phone     String     @unique
+  pinHash   String?
+  email     String?
+  role      UserRole   @default(USER)
+  balance   Int        @default(0) // in KOBO
+  isBanned  Boolean    @default(false)
+  isActive  Boolean    @default(true)
+  joinedAt  DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  virtualAccount VirtualAccount?
+  transactions   Transaction[]
+  userRewards    UserReward[]
+
+  @@index([phone])
+  @@index([email])
+  @@map("users")
+}
+
+model VirtualAccount {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountNumber String
+  bankName      String
+  flwRef        String
+  orderRef      String   @unique
+  createdAt     DateTime @default(now())
+
+  @@map("virtual_accounts")
+}
+
+model Plan {
+  id                  String     @id @default(cuid())
+  name                String
+  network             NetworkType
+  sizeLabel           String     // e.g. "1GB", "5GB"
+  validity            String     // e.g. "Monthly", "Weekly"
+  price               Int        // in NAIRA
+  apiSource           ApiSource
+  externalPlanId      Int
+  externalNetworkId   Int
+  isActive            Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  transactions Transaction[]
+
+  @@unique([apiSource, externalPlanId, externalNetworkId])
+  @@index([network])
+  @@index([isActive])
+  @@map("plans")
+}
+
+model Transaction {
+  id                 String             @id @default(cuid())
+  userId             String?
+  user               User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestPhone         String?
+  type               TransactionType
+  status             TransactionStatus  @default(PENDING)
+  amount             Int                // in NAIRA
+  balanceBefore      Int?               // in KOBO
+  balanceAfter       Int?               // in KOBO
+  phone              String
+  planId             String?
+  plan               Plan?              @relation(fields: [planId], references: [id])
+  description        String?
+  reference          String             @unique
+  externalReference  String?
+  flwRef             String?
+  tempAccountNumber  String?
+  tempBankName       String?
+  tempTxRef          String?
+  apiUsed            ApiSource?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([phone])
+  @@index([reference])
+  @@index([externalReference])
+  @@map("transactions")
+}
+
+model Reward {
+  id          String      @id @default(cuid())
+  type        RewardType  @unique
+  title       String
+  description String
+  amount      Int         // in NAIRA
+  isActive    Boolean     @default(true)
+  userRewards UserReward[]
+
+  @@map("rewards")
+}
+
+model UserReward {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rewardId  String
+  reward    Reward        @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  status    RewardStatus  @default(IN_PROGRESS)
+  claimedAt DateTime?
+  createdAt DateTime      @default(now())
+
+  @@unique([userId, rewardId])
+  @@index([userId])
+  @@index([status])
+  @@map("user_rewards")
+}
