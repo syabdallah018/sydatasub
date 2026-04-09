@@ -112,7 +112,17 @@ export default function DashboardPage() {
   // Update local user state when userData changes
   useEffect(() => {
     if (userData) {
-      setUser(userData);
+      // Map API response to component state (handle API naming differences)
+      setUser({
+        id: userData.id,
+        name: userData.fullName || userData.name || "User",
+        phone: userData.phone,
+        role: userData.role,
+        balance: userData.balance || 0,
+        virtualAccounts: userData.virtualAccount 
+          ? [userData.virtualAccount]  // Convert single virtualAccount to array
+          : [],
+      });
     }
   }, [userData, setUser]);
 
@@ -311,6 +321,23 @@ export default function DashboardPage() {
               <Skeleton key={i} className="h-16 w-full" />
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && userLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--app-bg,#0A0F0E)] text-white p-4">
+        <div className="space-y-6">
+          <Skeleton className="h-16 w-full rounded-2xl" />
+          <div className="grid grid-cols-4 gap-4">
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+          </div>
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </div>
     );
