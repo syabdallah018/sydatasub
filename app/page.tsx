@@ -42,7 +42,7 @@ export const metadata: Metadata = {
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white overflow-hidden">
+    <main className="min-h-screen bg-white text-gray-900 overflow-hidden">
       {/* Navigation */}
       <Navbar />
 

@@ -22,7 +22,7 @@ export function Navbar() {
     <motion.nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "backdrop-blur-md bg-slate-950/80 border-b border-slate-800/50"
+          ? "backdrop-blur-md bg-white/80 border-b border-gray-200/50"
           : "bg-transparent"
       }`}
       initial={{ y: -100 }}
@@ -36,7 +36,7 @@ export function Navbar() {
             <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">SD</span>
             </div>
-            <span className="font-display font-bold text-white hidden sm:inline">
+            <span className="font-display font-bold text-gray-900 hidden sm:inline">
               SY DATA SUB
             </span>
           </Link>
@@ -47,7 +47,7 @@ export function Navbar() {
               <a
                 key={link}
                 href={`#${link.toLowerCase()}`}
-                className="text-slate-300 hover:text-white transition-colors font-body text-sm"
+                className="text-gray-600 hover:text-gray-900 transition-colors font-body text-sm"
               >
                 {link}
               </a>
@@ -67,7 +67,7 @@ export function Navbar() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-white"
+            className="md:hidden text-gray-900"
           >
             {isOpen ? (
               <X className="w-6 h-6" />
@@ -83,13 +83,13 @@ export function Navbar() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="md:hidden pb-4 space-y-4"
+            className="md:hidden pb-4 space-y-4 bg-white/95 backdrop-blur-sm rounded-b-lg"
           >
             {["Features", "Plans", "FAQ"].map((link) => (
               <a
                 key={link}
                 href={`#${link.toLowerCase()}`}
-                className="block text-slate-300 hover:text-white transition-colors font-body text-sm py-2"
+                className="block text-gray-600 hover:text-gray-900 transition-colors font-body text-sm py-2 px-4"
                 onClick={() => setIsOpen(false)}
               >
                 {link}
@@ -97,7 +97,7 @@ export function Navbar() {
             ))}
             <Link
               href="/app"
-              className="block w-full px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-full font-body font-semibold text-center"
+              className="block w-full mx-4 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-full font-body font-semibold text-center"
               onClick={() => setIsOpen(false)}
             >
               Get App
