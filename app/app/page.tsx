@@ -935,6 +935,7 @@ export default function DashboardPage() {
   const [airtimeNetwork, setAirtimeNetwork] = useState<string | null>(null);
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
+  const [airtimePin, setAirtimePin] = useState(["", "", "", "", "", ""]);
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
   const [activeTab, setActiveTab] = useState<"home" | "rewards" | "history" | "settings">("home");
   const [syncingBalance, setSyncingBalance] = useState(false);
@@ -1022,7 +1023,7 @@ export default function DashboardPage() {
   };
 
   const handleDataPurchase = async () => {
-    if (!selectedPlan || !phoneNumber || pin.some((p) => !p)) {
+    if (!selectedPlan || !phoneNumber || pin.some((p) => !p) || !user) {
       toast.error("Complete all fields");
       return;
     }
@@ -1031,9 +1032,13 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/data/purchase", { 
         method: "POST", 
-        credentials: "include",
         headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ planId: selectedPlan.id, phone: phoneNumber, pin: pin.join("") }) 
+        body: JSON.stringify({ 
+          planId: selectedPlan.id, 
+          buyerPhone: user.phone,
+          recipientPhone: phoneNumber, 
+          pin: pin.join("") 
+        }) 
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -1053,16 +1058,33 @@ export default function DashboardPage() {
   };
 
   const handleAirtimePurchase = async () => {
-    if (!airtimeNetwork || !airtimeAmount || !airtimePhone) { toast.error("Complete all fields"); return; }
-    if (airtimePhone.length !== 11) { toast.error("Enter valid 11-digit phone"); return; }
+    if (!airtimeNetwork || !airtimeAmount || !airtimePhone || airtimePin.some((p) => !p) || !user) { 
+      toast.error("Complete all fields"); 
+      return; 
+    }
+    if (airtimePhone.length !== 11) { 
+      toast.error("Enter valid 11-digit phone"); 
+      return; 
+    }
     setPurchasingAirtime(true);
     try {
-      const res = await fetch("/api/airtime/purchase", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ network: airtimeNetwork, amount: airtimeAmount, phone: airtimePhone }) });
+      const res = await fetch("/api/airtime/purchase", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ 
+          buyerPhone: user.phone,
+          recipientPhone: airtimePhone, 
+          amount: airtimeAmount,
+          network: airtimeNetwork,
+          pin: airtimePin.join("")
+        }) 
+      });
       const data = await res.json();
       if (data.success) {
         toast.success("Airtime purchased successfully!");
         setAirtimeOpen(false);
-        fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json()).then((d) => d.success && setUser(d.data));
+        setAirtimePin(["", "", "", "", "", ""]);
+        fetch("/api/auth/me").then((r) => r.json()).then((d) => d.success && setUser(d.data));
       } else { 
         toast.error(data.error || "Purchase failed");
         console.error("[AIRTIME PURCHASE ERROR]", res.status, data);
@@ -1303,7 +1325,7 @@ export default function DashboardPage() {
           )}
         </BottomSheet>
 
-        <BottomSheet open={airtimeOpen} onClose={() => { setAirtimeOpen(false); setAirtimeNetwork(null); setAirtimeAmount(null); setAirtimePhone(""); }} title="Buy Airtime" accentColor={T.green}>
+        <BottomSheet open={airtimeOpen} onClose={() => { setAirtimeOpen(false); setAirtimeNetwork(null); setAirtimeAmount(null); setAirtimePhone(""); setAirtimePin(["", "", "", "", "", ""]); }} title="Buy Airtime" accentColor={T.green}>
           <div>
             <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, marginBottom: 20, fontWeight: 500 }}>Select network and amount</p>
 
@@ -1361,6 +1383,43 @@ export default function DashboardPage() {
                   (e.target as HTMLInputElement).style.boxShadow = "none";
                 }}
               />
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>Transaction PIN</label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {airtimePin.map((d, i) => (
+                  <input
+                    key={i}
+                    id={`airtime-pin-${i}`}
+                    type="password"
+                    maxLength={1}
+                    value={d}
+                    onChange={(e) => {
+                      const nap = [...airtimePin];
+                      nap[i] = e.target.value;
+                      setAirtimePin(nap);
+                      if (e.target.value && i < 5) document.getElementById(`airtime-pin-${i + 1}`)?.focus();
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: "12px 0",
+                      textAlign: "center",
+                      borderRadius: 12,
+                      background: d ? `${T.green}15` : T.surface,
+                      border: `2px solid ${d ? T.green : T.border}`,
+                      fontFamily: T.mono,
+                      fontSize: 20,
+                      fontWeight: 700,
+                      color: T.text,
+                      outline: "none",
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                ))}
+              </div>
             </div>
 
             <motion.button
