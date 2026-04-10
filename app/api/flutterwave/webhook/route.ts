@@ -10,64 +10,94 @@ export async function OPTIONS(req: NextRequest) {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, verif-hash',
+      'Access-Control-Allow-Headers': 'Content-Type, verif-hash, authorization',
+      'Access-Control-Max-Age': '86400',
     },
+  });
+}
+
+// Diagnostic endpoint to test webhook connectivity
+export async function GET(req: NextRequest) {
+  return NextResponse.json({
+    status: "webhook_endpoint_active",
+    timestamp: new Date().toISOString(),
+    secretConfigured: !!process.env.FLUTTERWAVE_WEBHOOK_SECRET,
+    message: "This endpoint is ready to receive Flutterwave webhooks",
   });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Verify webhook signature
+    // Log incoming request details
     const signature = req.headers.get("verif-hash");
     const body = await req.text();
     const secret = process.env.FLUTTERWAVE_WEBHOOK_SECRET || "";
 
-    console.log("[WEBHOOK] Received webhook from Flutterwave", {
-      timestamp: new Date().toISOString(),
-      hasSignature: !!signature,
-      secretConfigured: !!secret,
+    console.log("[WEBHOOK] ========== NEW WEBHOOK REQUEST ==========");
+    console.log("[WEBHOOK] Timestamp:", new Date().toISOString());
+    console.log("[WEBHOOK] Content-Length:", body.length);
+    console.log("[WEBHOOK] Has verif-hash header:", !!signature);
+    console.log("[WEBHOOK] Secret configured:", !!secret);
+    console.log("[WEBHOOK] Headers:", {
+      "content-type": req.headers.get("content-type"),
+      "user-agent": req.headers.get("user-agent"),
+      "x-forwarded-for": req.headers.get("x-forwarded-for"),
     });
 
-    // Verify webhook signature using raw secret (no hashing)
+    // Verify webhook signature using raw secret
     const hash = crypto
       .createHmac("sha256", secret)
       .update(body)
       .digest("base64");
 
-    if (hash !== signature) {
-      console.warn("[WEBHOOK] Invalid signature", {
-        expected: hash,
-        received: signature,
-      });
-      return NextResponse.json({ received: true });
-    }
-
-    console.log("[WEBHOOK] Signature verified successfully");
-
-    // 2. Parse body
-    const data = JSON.parse(body);
-    const { event, data: eventData } = data;
-
-    console.log("[WEBHOOK] Parsed payload", {
-      event,
-      txRef: eventData.tx_ref,
-      flwRef: eventData.flw_ref,
-      amount: eventData.amount,
-      currency: eventData.currency,
-      paymentType: eventData.payment_type,
-      customer: eventData.customer?.email || eventData.customer?.phone_number,
+    console.log("[WEBHOOK] Signature comparison:", {
+      computed: hash?.substring(0, 20) + "...",
+      received: signature?.substring(0, 20) + "...",
+      match: hash === signature,
     });
 
-    // 3. Only process charge.completed events with NGN currency
+    if (!signature || hash !== signature) {
+      console.warn("[WEBHOOK] ❌ Invalid or missing signature");
+      return NextResponse.json({ 
+        received: true,
+        note: "Signature verification failed"
+      }, { status: 200 });
+    }
+
+    console.log("[WEBHOOK] ✓ Signature verified successfully");
+
+    // Parse body
+    let data;
+    try {
+      data = JSON.parse(body);
+    } catch (e) {
+      console.error("[WEBHOOK] Failed to parse JSON body:", e);
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+
+    const { event, data: eventData } = data;
+
+    console.log("[WEBHOOK] Event received:", event);
+    console.log("[WEBHOOK] Event data:", {
+      txRef: eventData?.tx_ref,
+      flwRef: eventData?.flw_ref,
+      amount: eventData?.amount,
+      currency: eventData?.currency,
+      status: eventData?.status,
+    });
+
+    // Only process charge.completed events with NGN currency
     if (event !== "charge.completed") {
       console.log("[WEBHOOK] Skipping non-charge.completed event:", event);
       return NextResponse.json({ received: true });
     }
 
-    if (eventData.currency !== "NGN") {
-      console.log("[WEBHOOK] Skipping non-NGN currency:", eventData.currency);
+    if (eventData?.currency !== "NGN") {
+      console.log("[WEBHOOK] Skipping non-NGN currency:", eventData?.currency);
       return NextResponse.json({ received: true });
     }
+
+    // Continue with existing processing...
 
     // 4. Check idempotency - if this flwRef already processed successfully, skip
     const existingTx = await prisma.transaction.findFirst({

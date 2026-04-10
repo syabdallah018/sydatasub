@@ -270,14 +270,12 @@ export default function DashboardPage() {
       <div style={{ minHeight: "100vh", background: T.bg, fontFamily: T.font, paddingBottom: 40 }}>
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ position: "sticky", top: 0, zIndex: 40, background: `rgba(255,255,255,0.9)`, backdropFilter: "blur(12px)", borderBottom: `1px solid ${T.blueBorder}`, boxShadow: `0 4px 12px ${T.blue}15` }}>
           <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 14, background: `linear-gradient(135deg, ${T.blue}, ${T.gold})`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.font, fontWeight: 800, fontSize: 15, color: "#fff", boxShadow: T.blueShadow }}>{initials}</div>
-              <div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 14, background: `linear-gradient(135deg, ${T.blue}, ${T.gold})`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.font, fontWeight: 800, fontSize: 15, color: "#fff", boxShadow: T.blueShadow, flexShrink: 0 }}>{initials}</div>
+              <div style={{ flex: 1 }}>
                 <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0, fontWeight: 600, textTransform: "uppercase" }}>Welcome</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>{user.fullName}</p>
-                  <span style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.blue, background: T.blueLight, padding: "4px 8px", borderRadius: 6, textTransform: "uppercase" }}>{user.tier}</span>
-                </div>
+                <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 700, color: T.text, margin: "2px 0" }}>{user.fullName}</p>
+                <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 700, color: T.blue, background: T.blueLight, padding: "3px 6px", borderRadius: 4, textTransform: "uppercase", display: "inline-block", marginTop: "3px" }}>{user.tier}</span>
               </div>
             </div>
             <motion.button whileTap={{ scale: 0.95 }} onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 11, background: T.surface, border: `1.5px solid ${T.blueBorder}`, fontFamily: T.font, fontWeight: 600, fontSize: 12, color: T.blue, cursor: "pointer", transition: "all 0.2s" }}>
