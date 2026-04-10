@@ -20,21 +20,29 @@ export async function POST(req: NextRequest) {
     // 1. Verify webhook signature
     const signature = req.headers.get("verif-hash");
     const body = await req.text();
+    const secret = process.env.FLUTTERWAVE_WEBHOOK_SECRET || "";
 
     console.log("[WEBHOOK] Received webhook from Flutterwave", {
       timestamp: new Date().toISOString(),
       hasSignature: !!signature,
+      secretConfigured: !!secret,
     });
 
+    // Verify webhook signature using raw secret (no hashing)
     const hash = crypto
-      .createHmac("sha256", process.env.FLUTTERWAVE_WEBHOOK_SECRET || "")
+      .createHmac("sha256", secret)
       .update(body)
       .digest("base64");
 
     if (hash !== signature) {
-      console.warn("[WEBHOOK] Invalid signature");
-      return NextResponse.json({ received: true }); // Always return 200
+      console.warn("[WEBHOOK] Invalid signature", {
+        expected: hash,
+        received: signature,
+      });
+      return NextResponse.json({ received: true });
     }
+
+    console.log("[WEBHOOK] Signature verified successfully");
 
     // 2. Parse body
     const data = JSON.parse(body);

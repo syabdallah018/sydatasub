@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const payload = await verifyToken(token)
     console.log("[TRANSACTIONS API] Token verified:", !!payload, payload?.userId);
     
-    if (!payload?.userId) {
+    if (!payload || !payload.userId) {
       console.log("[TRANSACTIONS API] Invalid payload or no userId");
       return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 })
     }

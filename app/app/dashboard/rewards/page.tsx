@@ -22,15 +22,16 @@ interface Reward {
 export default function RewardsPage() {
   const router = useRouter();
 
-  const { data: rewards, isLoading } = useQuery({
+  const { data: rewards, isLoading, error } = useQuery({
     queryKey: ["rewards"],
     queryFn: async () => {
       const res = await fetch("/api/rewards");
-      if (res.ok) {
-        return res.json();
-      }
-      throw new Error("Failed to fetch rewards");
+      if (!res.ok) throw new Error(`Failed to fetch rewards: ${res.statusText}`);
+      const data = await res.json();
+      console.log("[REWARDS] Fetched:", data);
+      return Array.isArray(data) ? data : data.rewards || [];
     },
+    retry: 2,
   });
 
   const getRewardIcon = (type: string) => {

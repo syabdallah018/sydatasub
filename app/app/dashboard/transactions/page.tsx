@@ -31,12 +31,21 @@ export default function TransactionsPage() {
   async function fetchTransactions() {
     try {
       setLoading(true);
+      setError(null);
       const res = await fetch('/api/transactions');
-      if (!res.ok) throw new Error('Failed to fetch transactions');
+      console.log('[TRANSACTIONS PAGE] Response status:', res.status);
+      if (!res.ok) throw new Error(`Failed to fetch transactions: ${res.statusText}`);
       const data = await res.json();
-      setTransactions(data.transactions || []);
+      console.log('[TRANSACTIONS PAGE] Data:', data);
+      if (data.success) {
+        setTransactions(data.transactions || []);
+      } else {
+        throw new Error(data.error || 'Failed to load transactions');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load transactions');
+      const message = err instanceof Error ? err.message : 'Failed to load transactions';
+      setError(message);
+      console.error('[TRANSACTIONS PAGE] Error:', message);
     } finally {
       setLoading(false);
     }
