@@ -1,6 +1,768 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useTheme } from "next-themes";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Zap, Phone, Gift, Settings2, Sun, Moon, Copy, Bell, Clock, CheckCircle, XCircle } from "lucide-react";
+import { BuyDataSheet, DataPlan, Network } from "@/components/app/BuyDataSheet";
+import { AppButton } from "@/components/app/AppButton";
+import { getTxIcon, getTxLabel, formatRelativeDate } from "@/lib/txIcon";
+
+interface User {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  balance: number;
+  virtualAccounts: Array<{ accountNumber: string; bankName: string }>;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  status: string;
+  description: string;
+  createdAt: string;
+}
+
+const NETWORKS: Network[] = [
+  { id: "mtn", name: "MTN", code: "920", color: "#FFCC00", initial: "M" },
+  { id: "airtel", name: "Airtel", code: "901", color: "#FF0000", initial: "A" },
+  { id: "glo", name: "Glo", code: "902", color: "#00D084", initial: "G" },
+  { id: "9mobile", name: "9mobile", code: "903", color: "#00A651", initial: "9" },
+];
+
+export default function DashboardPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showBuyDataSheet, setShowBuyDataSheet] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const router = useRouter();
+
+  // Fetch user data
+  const { data: userData, isLoading: userLoading, isError: userError } = useQuery({
+    queryKey: ["user"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.ok) return res.json();
+      if (res.status === 401) throw new Error("Unauthorized");
+      throw new Error("Failed");
+    },
+  });
+
+  useEffect(() => {
+    if (userError && !userLoading) router.push("/app");
+  }, [userError, userLoading, router]);
+
+  useEffect(() => {
+    if (userData) {
+      setUser({
+        id: userData.id,
+        name: userData.fullName || userData.name || "User",
+        phone: userData.phone,
+        role: userData.role,
+        balance: userData.balance || 0,
+        virtualAccounts: userData.virtualAccount ? [userData.virtualAccount] : [],
+      });
+      setIsLoading(false);
+    }
+  }, [userData]);
+
+  const { data: transactionsData, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: transactionsLoading } = useInfiniteQuery({
+    queryKey: ["transactions"],
+    initialPageParam: null,
+    queryFn: async ({ pageParam = null }) => {
+      const params = new URLSearchParams();
+      if (pageParam) params.set("cursor", pageParam);
+      params.set("limit", "10");
+      const res = await fetch(`/api/transactions?${params}`, { credentials: "include" });
+      if (res.ok) return res.json();
+      throw new Error("Failed");
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
+
+  const transactions = transactionsData?.pages.flatMap((page) => page.transactions) || [];
+
+  const formatBalance = (balance: number) => {
+    const naira = Math.floor(balance / 100);
+    const kobo = balance % 100;
+    return `₦${naira.toLocaleString()}.${kobo.toString().padStart(2, "0")}`;
+  };
+
+  const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+
+  const handleDataPurchase = async (plan: DataPlan, phone: string, pin: string) => {
+    setIsPurchasing(true);
+    try {
+      const res = await fetch("/api/data/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ planId: plan.id, phone, pin }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("✨ Data purchased successfully!");
+        return;
+      }
+      throw new Error(data.error || "Failed");
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const { data: plansData } = useQuery({
+    queryKey: ["plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/data/plans");
+      if (res.ok) return res.json();
+      throw new Error("Failed");
+    },
+    enabled: showBuyDataSheet,
+  });
+
+  const plans: DataPlan[] = (plansData?.plans || []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    dataSize: p.dataSize,
+    validity: p.validity,
+    networkId: p.networkId || NETWORKS.find((n) => n.name.toLowerCase() === p.network?.toLowerCase())?.id || "",
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-app-bg pt-safe pb-safe px-5">
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-32 rounded-lg" />
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-app-bg pt-safe pb-safe px-5">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="space-y-6">
+        {/* TOP BAR */}
+        <motion.div className="flex items-center justify-between" initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <div className="flex items-center gap-3">
+            <Avatar className="w-12 h-12 bg-gradient-brand">
+              <AvatarFallback className="bg-gradient-brand text-white font-bold">{getInitials(user?.name || "User")}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm text-text-tertiary">Welcome</p>
+              <h2 className="text-lg font-heading font-bold text-text-primary">{user?.name?.split(" ")[0]}</h2>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2.5 rounded-lg bg-card-elevated border border-border-primary hover:border-brand transition-colors">
+              {theme === "dark" ? <Sun className="w-5 h-5 text-text-secondary" /> : <Moon className="w-5 h-5 text-text-secondary" />}
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.95 }} className="p-2.5 rounded-lg bg-card-elevated border border-border-primary hover:border-brand transition-colors relative">
+              <Bell className="w-5 h-5 text-text-secondary" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-brand rounded-full" />
+            </motion.button>
+          </div>
+        </motion.div>
+
+        {/* WALLET CARD */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{delay: 0.2 }} className="relative overflow-hidden rounded-3xl p-6 bg-gradient-brand text-white shadow-lg">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+          <div className="relative z-10 space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-semibold opacity-90 mb-1">Available Balance</p>
+                <h3 className="text-4xl font-heading font-bold">{formatBalance(user?.balance || 0)}</h3>
+              </div>
+              <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 3, repeat: Infinity }} className="text-3xl">💳</motion.div>
+            </div>
+
+            {user?.virtualAccounts && user.virtualAccounts.length > 0 && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="pt-4 border-t border-white/20">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm">
+                    <p className="opacity-75 text-xs mb-1">Account Number</p>
+                    <p className="font-mono font-semibold">{user.virtualAccounts[0].accountNumber}</p>
+                  </div>
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => { navigator.clipboard.writeText(user.virtualAccounts[0].accountNumber); toast.success("Copied!"); }} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                    <Copy className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* QUICK ACTIONS */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="grid grid-cols-4 gap-3">
+          {[
+            { icon: Zap, label: "Buy Data", color: "bg-blue-500/10 text-blue-500", onClick: () => setShowBuyDataSheet(true) },
+            { icon: Phone, label: "Airtime", color: "bg-green-500/10 text-green-500", onClick: () => toast.info("Coming soon") },
+            { icon: Gift, label: "Rewards", color: "bg-amber-500/10 text-amber-500", onClick: () => router.push("/app/dashboard/rewards") },
+            { icon: Settings2, label: "Settings", color: "bg-purple-500/10 text-purple-500", onClick: () => router.push("/app/dashboard/settings") },
+          ].map((action, idx) => {
+            const Icon = action.icon;
+            return (
+              <motion.button
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + idx * 0.05 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={action.onClick}
+                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-card-elevated border border-border-primary hover:border-brand transition-colors ${action.color}`}
+              >
+                <Icon className="w-6 h-6" />
+                <span className="text-xs font-semibold text-center">{action.label}</span>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        {/* TRANSACTIONS */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="space-y-3">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-heading font-bold text-text-primary">Transactions</h3>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => router.push("/app/dashboard?tab=transactions")} className="text-sm text-brand hover:text-brand-light transition-colors">
+              View all →
+            </motion.button>
+          </div>
+
+          <AnimatePresence>
+            {transactionsLoading && !transactions.length ? (
+              <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
+            ) : transactions.length === 0 ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-8">
+                <p className="text-text-tertiary">No transactions yet</p>
+              </motion.div>
+            ) : (
+              <motion.div className="space-y-2">
+                {transactions.slice(0, 5).map((tx: Transaction, idx) => {
+                  const isCredit = (tx.type || "").includes("CREDIT") || tx.type === "REWARD_CREDIT";
+                  const StatusIcon = tx.status === "SUCCESS" ? CheckCircle : tx.status === "FAILED" ? XCircle : Clock;
+                  const Icon = getTxIcon(tx.type as any);
+
+                  return (
+                    <motion.div
+                      key={tx.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 + idx * 0.05 }}
+                      className="p-4 rounded-xl bg-card-elevated border border-border-primary hover:border-brand transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-full ${isCredit ? "bg-success/10 text-success" : "bg-info/10 text-info"}`}>
+                          {Icon}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-text-primary text-sm">{getTxLabel(tx.type as any)}</p>
+                          <p className="text-xs text-text-tertiary">{formatRelativeDate(tx.createdAt)}</p>
+                        </div>
+
+                        <div className="text-right flex items-center gap-2">
+                          <span className={`font-heading font-bold text-sm ${isCredit ? "text-success" : "text-text-primary"}`}>
+                            {isCredit ? "+" : "-"}₦{(tx.amount / 100).toFixed(2)}
+                          </span>
+                          <StatusIcon
+                            className={`w-4 h-4 ${
+                              tx.status === "SUCCESS" ? "text-success" : tx.status === "FAILED" ? "text-error" : "text-warning"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {hasNextPage && !isFetchingNextPage && (
+            <AppButton onClick={() => fetchNextPage()} variant="secondary" fullWidth size="md">
+              Load more
+            </AppButton>
+          )}
+        </motion.div>
+      </motion.div>
+
+      <BuyDataSheet isOpen={showBuyDataSheet} onClose={() => setShowBuyDataSheet(false)} onPurchase={handleDataPurchase} networks={NETWORKS} plans={plans} isLoading={isPurchasing} />
+    </div>
+  );
+}
+"use client";
+
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useTheme } from "next-themes";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import {
+  Zap,
+  Phone,
+  Gift,
+  Settings2,
+  Sun,
+  Moon,
+  Copy,
+  Bell,
+  Clock,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { BuyDataSheet, DataPlan, Network } from "@/components/app/BuyDataSheet";
+import { AppButton } from "@/components/app/AppButton";
+import { getTxIcon, getTxLabel, formatRelativeDate } from "@/lib/txIcon";
+
+interface User {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  balance: number;
+  virtualAccounts: Array<{
+    accountNumber: string;
+    bankName: string;
+  }>;
+}
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  status: string;
+  description: string;
+  createdAt: string;
+}
+
+const NETWORKS: Network[] = [
+  { id: "mtn", name: "MTN", code: "920", color: "#FFCC00", initial: "M" },
+  { id: "airtel", name: "Airtel", code: "901", color: "#FF0000", initial: "A" },
+  { id: "glo", name: "Glo", code: "902", color: "#00D084", initial: "G" },
+  { id: "9mobile", name: "9mobile", code: "903", color: "#00A651", initial: "9" },
+];
+
+export default function DashboardPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showBuyDataSheet, setShowBuyDataSheet] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const router = useRouter();
+
+  const { data: userData, isLoading: userLoading, isError: userError } = useQuery({
+    queryKey: ["user"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (res.ok) return res.json();
+      if (res.status === 401) throw new Error("Unauthorized");
+      throw new Error("Failed to fetch user");
+    },
+  });
+
+  useEffect(() => {
+    if (userError && !userLoading) router.push("/app");
+  }, [userError, userLoading, router]);
+
+  useEffect(() => {
+    if (userData) {
+      setUser({
+        id: userData.id,
+        name: userData.fullName || userData.name || "User",
+        phone: userData.phone,
+        role: userData.role,
+        balance: userData.balance || 0,
+        virtualAccounts: userData.virtualAccount ? [userData.virtualAccount] : [],
+      });
+      setIsLoading(false);
+    }
+  }, [userData]);
+
+  const {
+    data: transactionsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: transactionsLoading,
+  } = useInfiniteQuery({
+    queryKey: ["transactions"],
+    initialPageParam: null,
+    queryFn: async ({ pageParam = null }) => {
+      const params = new URLSearchParams();
+      if (pageParam) params.set("cursor", pageParam);
+      params.set("limit", "10");
+      const res = await fetch(`/api/transactions?${params}`, { credentials: "include" });
+      if (res.ok) return res.json();
+      throw new Error("Failed to fetch transactions");
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
+
+  const transactions = transactionsData?.pages.flatMap((page) => page.transactions) || [];
+
+  const formatBalance = (balance: number) => {
+    const naira = Math.floor(balance / 100);
+    const kobo = balance % 100;
+    return `₦${naira.toLocaleString()}.${kobo.toString().padStart(2, "0")}`;
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
+  const handleDataPurchase = async (plan: DataPlan, phone: string, pin: string) => {
+    setIsPurchasing(true);
+    try {
+      const res = await fetch("/api/data/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ planId: plan.id, phone, pin }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("✨ Data purchased successfully!");
+        return;
+      }
+      throw new Error(data.error || "Purchase failed");
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const { data: plansData } = useQuery({
+    queryKey: ["plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/data/plans");
+      if (res.ok) return res.json();
+      throw new Error("Failed to fetch plans");
+    },
+    enabled: showBuyDataSheet,
+  });
+
+  const plans: DataPlan[] = (plansData?.plans || []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    dataSize: p.dataSize,
+    validity: p.validity,
+    networkId: p.networkId || NETWORKS.find((n) => n.name.toLowerCase() === p.network?.toLowerCase())?.id || "",
+  }));
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-app-bg pt-safe pb-safe px-5">
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-32 rounded-lg" />
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-app-bg pt-safe pb-safe px-5">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="space-y-6">
+        {/* TOP BAR */}
+        <motion.div
+          className="flex items-center justify-between"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex items-center gap-3">
+            <Avatar className="w-12 h-12 bg-gradient-brand">
+              <AvatarFallback className="bg-gradient-brand text-white font-bold">
+                {getInitials(user?.name || "User")}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-sm text-text-tertiary">Welcome back</p>
+              <h2 className="text-lg font-heading font-bold text-text-primary">
+                {user?.name?.split(" ")[0]}
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="p-2.5 rounded-lg bg-card-elevated border border-border-primary hover:border-brand transition-colors"
+            >
+              {theme === "dark" ? (
+                <Sun className="w-5 h-5 text-text-secondary" />
+              ) : (
+                <Moon className="w-5 h-5 text-text-secondary" />
+              )}
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              className="p-2.5 rounded-lg bg-card-elevated border border-border-primary hover:border-brand transition-colors relative"
+            >
+              <Bell className="w-5 h-5 text-text-secondary" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-brand rounded-full" />
+            </motion.button>
+          </div>
+        </motion.div>
+
+        {/* WALLET CARD */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="relative overflow-hidden rounded-3xl p-6 bg-gradient-brand text-white shadow-lg"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+
+          <div className="relative z-10 space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-semibold opacity-90 mb-1">Available Balance</p>
+                <h3 className="text-4xl font-heading font-bold">
+                  {formatBalance(user?.balance || 0)}
+                </h3>
+              </div>
+              <motion.div
+                animate={{ rotate: [0, 10, -10, 0] }}
+                transition={{ duration: 3, repeat: Infinity }}
+                className="text-3xl"
+              >
+                💳
+              </motion.div>
+            </div>
+
+            {user?.virtualAccounts && user.virtualAccounts.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="pt-4 border-t border-white/20"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="text-sm">
+                    <p className="opacity-75 text-xs mb-1">Account Number</p>
+                    <p className="font-mono font-semibold">
+                      {user.virtualAccounts[0].accountNumber}
+                    </p>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(user.virtualAccounts[0].accountNumber);
+                      toast.success("Account number copied!");
+                    }}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* QUICK ACTIONS */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="grid grid-cols-4 gap-3"
+        >
+          {[
+            {
+              icon: Zap,
+              label: "Buy Data",
+              color: "bg-blue-500/10 text-blue-500",
+              onClick: () => setShowBuyDataSheet(true),
+            },
+            {
+              icon: Phone,
+              label: "Airtime",
+              color: "bg-green-500/10 text-green-500",
+              onClick: () => toast.info("Airtime coming soon"),
+            },
+            {
+              icon: Gift,
+              label: "Rewards",
+              color: "bg-amber-500/10 text-amber-500",
+              onClick: () => router.push("/app/dashboard/rewards"),
+            },
+            {
+              icon: Settings2,
+              label: "Settings",
+              color: "bg-purple-500/10 text-purple-500",
+              onClick: () => router.push("/app/dashboard/settings"),
+            },
+          ].map((action, idx) => {
+            const Icon = action.icon;
+            return (
+              <motion.button
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + idx * 0.05 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={action.onClick}
+                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-card-elevated border border-border-primary hover:border-brand transition-colors ${action.color}`}
+              >
+                <Icon className="w-6 h-6" />
+                <span className="text-xs font-semibold text-center">{action.label}</span>
+              </motion.button>
+            );
+          })}
+        </motion.div>
+
+        {/* TRANSACTIONS */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="space-y-3"
+        >
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-heading font-bold text-text-primary">Transactions</h3>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.push("/app/dashboard?tab=transactions")}
+              className="text-sm text-brand hover:text-brand-light transition-colors"
+            >
+              View all →
+            </motion.button>
+          </div>
+
+          <AnimatePresence>
+            {transactionsLoading && !transactions.length ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : transactions.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-8"
+              >
+                <p className="text-text-tertiary">No transactions yet</p>
+                <p className="text-xs text-text-disabled mt-1">
+                  Your transactions will appear here
+                </p>
+              </motion.div>
+            ) : (
+              <motion.div className="space-y-2">
+                {transactions.slice(0, 5).map((tx: Transaction, idx) => {
+                  const isCredit = (tx.type || "").includes("CREDIT") || tx.type === "REWARD_CREDIT";
+                  const statusIcon =
+                    tx.status === "SUCCESS"
+                      ? CheckCircle
+                      : tx.status === "FAILED"
+                        ? XCircle
+                        : Clock;
+                  const StatusIcon = statusIcon;
+                  const Icon = getTxIcon(tx.type as any) as any;
+
+                  return (
+                    <motion.div
+                      key={tx.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 + idx * 0.05 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="p-4 rounded-xl bg-card-elevated border border-border-primary hover:border-brand transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`p-2.5 rounded-full ${
+                            isCredit ? "bg-success/10 text-success" : "bg-info/10 text-info"
+                          }`}
+                        >
+                          {Icon}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-text-primary text-sm">
+                            {getTxLabel(tx.type as any)}
+                          </p>
+                          <p className="text-xs text-text-tertiary">
+                            {formatRelativeDate(tx.createdAt)}
+                          </p>
+                        </div>
+
+                        <div className="text-right flex items-center gap-2">
+                          <span
+                            className={`font-heading font-bold text-sm ${
+                              isCredit ? "text-success" : "text-text-primary"
+                            }`}
+                          >
+                            {isCredit ? "+" : "-"}₦{(tx.amount / 100).toFixed(2)}
+                          </span>
+                          <StatusIcon
+                            className={`w-4 h-4 ${
+                              tx.status === "SUCCESS"
+                                ? "text-success"
+                                : tx.status === "FAILED"
+                                  ? "text-error"
+                                  : "text-warning"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {hasNextPage && !isFetchingNextPage && (
+            <AppButton
+              onClick={() => fetchNextPage()}
+              variant="secondary"
+              fullWidth
+              size="md"
+            >
+              Load more
+            </AppButton>
+          )}
+        </motion.div>
+      </motion.div>
+
+      <BuyDataSheet
+        isOpen={showBuyDataSheet}
+        onClose={() => setShowBuyDataSheet(false)}
+        onPurchase={handleDataPurchase}
+        networks={NETWORKS}
+        plans={plans}
+        isLoading={isPurchasing}
+      />
+    </div>
+  );
+}
+"use client";
+
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
