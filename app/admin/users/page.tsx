@@ -23,6 +23,7 @@ interface User {
   phone: string;
   email: string;
   role: string;
+  tier: 'user' | 'agent';
   balance: number;
   isBanned: boolean;
   accountNumber?: string;
@@ -111,7 +112,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleUserAction = async (userId: string, role?: string, banned?: boolean) => {
+  const handleUserAction = async (userId: string, role?: string, banned?: boolean, tier?: 'user' | 'agent') => {
     try {
       const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${userId}`, {
@@ -120,6 +121,7 @@ export default function UsersPage() {
         body: JSON.stringify({
           ...(role && { role }),
           ...(banned !== undefined && { isBanned: banned }),
+          ...(tier && { tier }),
         }),
       });
       if (!response.ok) throw new Error("Failed to update user");
@@ -203,6 +205,7 @@ export default function UsersPage() {
                 <th className="px-4 py-3 text-left font-semibold">Name</th>
                 <th className="px-4 py-3 text-left font-semibold">Phone</th>
                 <th className="px-4 py-3 text-left font-semibold">Role</th>
+                <th className="px-4 py-3 text-left font-semibold">Tier</th>
                 <th className="px-4 py-3 text-left font-semibold">Balance</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-left font-semibold">Txns</th>
@@ -217,6 +220,11 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-sm">{user.phone}</td>
                   <td className="px-4 py-3">
                     <Badge variant="outline">{user.role}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge className={user.tier === 'agent' ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}>
+                      {user.tier === 'agent' ? 'Agent' : 'User'}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 font-semibold">
                     ₦{(user.balance / 100).toLocaleString()}
@@ -334,6 +342,22 @@ export default function UsersPage() {
                       <SelectItem value="USER">User</SelectItem>
                       <SelectItem value="AGENT">Agent</SelectItem>
                       <SelectItem value="ADMIN">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-sm mb-2">Tier (Pricing)</Label>
+                  <Select
+                    value={selectedUser.tier}
+                    onValueChange={(tier) => handleUserAction(selectedUser.id, undefined, undefined, tier as 'user' | 'agent')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">Standard User</SelectItem>
+                      <SelectItem value="agent">Bulk Agent (5% discount)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

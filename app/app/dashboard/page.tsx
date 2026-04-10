@@ -15,7 +15,8 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  ArrowRight
+  ArrowRight,
+  CreditCard
 } from "lucide-react"
 import { toast } from "react-hot-toast"
 
@@ -24,6 +25,7 @@ interface User {
   fullName: string
   phone: string
   balance: number
+  tier: 'user' | 'agent'
   pinHash?: string
   virtualAccount?: { accountNumber: string; bankName: string } | null
 }
@@ -41,6 +43,8 @@ interface DataPlan {
   id: string
   name: string
   price: number
+  user_price: number
+  agent_price: number
   sizeLabel: string
   validity: string
   network: string
@@ -54,6 +58,18 @@ const NETWORKS = [
 ]
 
 const AIRTIME_AMOUNTS = [100, 200, 500, 1000, 2000, 5000]
+
+// Helper to get correct price based on user tier
+const getPriceForTier = (plan: DataPlan, tier: string = 'user'): number => {
+  if (tier === 'agent' && plan.agent_price > 0) {
+    return plan.agent_price
+  }
+  if (plan.user_price > 0) {
+    return plan.user_price
+  }
+  // Fallback to old price column for backward compatibility
+  return plan.price
+}
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -271,7 +287,12 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-xs text-slate-500">Welcome back,</p>
-              <p className="text-sm font-semibold text-slate-900">{user.fullName.split(" ")[0]}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-900">{user.fullName.split(" ")[0]}</p>
+                {user.tier === "agent" && (
+                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-700">Agent</span>
+                )}
+              </div>
             </div>
           </div>
           <button
@@ -369,6 +390,21 @@ export default function DashboardPage() {
             </div>
             <p className="text-left font-semibold text-slate-900">Rewards</p>
             <p className="text-left text-sm text-slate-500 mt-1">Earn & claim rewards</p>
+          </button>
+
+          {/* Transactions */}
+          <button
+            onClick={() => router.push("/app/dashboard/transactions")}
+            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-purple-500 hover:shadow-lg transition active:scale-95"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                <CreditCard size={24} className="text-purple-600" />
+              </div>
+              <ChevronRight size={20} className="text-slate-400" />
+            </div>
+            <p className="text-left font-semibold text-slate-900">Transactions</p>
+            <p className="text-left text-sm text-slate-500 mt-1">View all activity</p>
           </button>
 
           {/* Settings */}
@@ -493,7 +529,7 @@ export default function DashboardPage() {
                         >
                           <div className="flex justify-between items-start mb-2">
                             <span className="font-semibold text-slate-900">{plan.sizeLabel}</span>
-                            <span className="text-blue-600 font-bold">₦{(plan.price / 100).toLocaleString()}</span>
+                              <span className="text-blue-600 font-bold">₦{getPriceForTier(plan, user.tier).toLocaleString()}</span>
                           </div>
                           <p className="text-sm text-slate-500">{plan.validity}</p>
                         </button>

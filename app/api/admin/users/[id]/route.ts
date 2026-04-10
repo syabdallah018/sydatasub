@@ -5,6 +5,7 @@ import { z } from "zod";
 
 const updateUserSchema = z.object({
   role: z.enum(["USER", "AGENT", "ADMIN"]).optional(),
+  tier: z.enum(["user", "agent"]).optional(),
   isBanned: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });
@@ -29,6 +30,7 @@ export async function GET(
         fullName: true,
         phone: true,
         role: true,
+        tier: true,
         balance: true,
         isBanned: true,
         joinedAt: true,
@@ -118,6 +120,7 @@ export async function PATCH(
         fullName: true,
         phone: true,
         role: true,
+        tier: true,
         isBanned: true,
         balance: true,
       },

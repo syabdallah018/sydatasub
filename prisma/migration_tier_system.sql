@@ -5,17 +5,17 @@
 
 -- 1. Add tier column to users table
 -- Values: 'user' (default customer) or 'agent' (reseller/bulk buyer)
-ALTER TABLE "user" 
+ALTER TABLE "users" 
 ADD COLUMN IF NOT EXISTS "tier" TEXT NOT NULL DEFAULT 'user' 
 CHECK ("tier" IN ('user', 'agent'));
 
 -- Add index for querying by tier
-CREATE INDEX IF NOT EXISTS "idx_user_tier" ON "user"("tier");
+CREATE INDEX IF NOT EXISTS "idx_user_tier" ON "users"("tier");
 
 -- 2. Add dual pricing columns to plans table
 -- user_price: Standard customer price
 -- agent_price: Lower bulk/reseller price (must be < user_price)
-ALTER TABLE "plan"
+ALTER TABLE "plans"
 ADD COLUMN IF NOT EXISTS "user_price" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN IF NOT EXISTS "agent_price" INTEGER NOT NULL DEFAULT 0;
 
@@ -24,18 +24,18 @@ ADD COLUMN IF NOT EXISTS "agent_price" INTEGER NOT NULL DEFAULT 0;
 
 -- 3. Add constraint to ensure agent_price < user_price
 -- (After migration, ensure all data satisfies this)
--- ALTER TABLE "plan" ADD CONSTRAINT "chk_agent_price_less_than_user_price" 
+-- ALTER TABLE "plans" ADD CONSTRAINT "chk_agent_price_less_than_user_price" 
 -- CHECK ("agent_price" < "user_price");
 
 -- 4. Migrate existing prices to user_price for backward compatibility
 -- This assumes existing 'price' column contains user (standard) pricing
-UPDATE "plan" 
+UPDATE "plans" 
 SET "user_price" = COALESCE("price", 0)
 WHERE "user_price" = 0;
 
 -- Set agent price to 5% less than user price (base migration)
 -- Adjust percentage as needed
-UPDATE "plan"
+UPDATE "plans"
 SET "agent_price" = FLOOR("user_price" * 0.95)
 WHERE "agent_price" = 0 AND "user_price" > 0;
 
@@ -44,11 +44,11 @@ WHERE "agent_price" = 0 AND "user_price" > 0;
 -- SELECT COUNT(*) as total_users, 
 --        SUM(CASE WHEN tier = 'user' THEN 1 ELSE 0 END) as standard_users,
 --        SUM(CASE WHEN tier = 'agent' THEN 1 ELSE 0 END) as agent_users
--- FROM "user";
+-- FROM "users";
 
 -- SELECT id, name, user_price, agent_price,
 --        ROUND((((user_price - agent_price)::float / user_price) * 100)::numeric, 1) as discount_percent
--- FROM "plan"
+-- FROM "plans"
 -- WHERE user_price > 0
 -- ORDER BY user_price DESC
 -- LIMIT 10;
