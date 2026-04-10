@@ -34,7 +34,11 @@ export async function GET(req: NextRequest) {
     const items = hasMore ? transactions.slice(0, -1) : transactions
     const nextCursor = hasMore ? items[items.length - 1].id : null
 
-    return NextResponse.json({ success: true, data: { transactions: items, nextCursor } })
+    return NextResponse.json({ 
+      success: true, 
+      transactions: items, 
+      nextCursor 
+    })
   } catch (error) {
     console.error("[transactions]", error)
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })

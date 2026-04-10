@@ -446,7 +446,7 @@ export default function DashboardPage() {
                     <p className="text-sm text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-semibold text-slate-900">₦{(tx.amount / 100).toLocaleString()}</p>
+                    <p className="font-semibold text-slate-900">₦{tx.amount.toLocaleString()}</p>
                     <span className={`text-xs font-medium px-3 py-1 rounded-full ${
                       tx.status === "SUCCESS" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
                     }`}>
