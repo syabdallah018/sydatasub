@@ -1,89 +1,25 @@
 ﻿"use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast, Toaster } from "sonner";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
 
-export default function AppPage() {
-  const [activeTab, setActiveTab] = useState("login");
-  const [user, setUser] = useState(null);
+export default function LoginPage() {
   const router = useRouter();
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-white to-gray-50/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Premium Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-10"
-        >
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg">
-              <img
-                src="/logo.jpeg"
-                alt="SY DATA"
-                className="h-12 w-12 object-contain"
-              />
-            </div>
-          </div>
-          <h1 className="text-4xl font-black text-gray-900 mb-3 tracking-tight">
-            SY DATA SUB
-          </h1>
-          <p className="text-gray-600 text-base font-medium">
-            Premium data & airtime in seconds
-          </p>
-        </motion.div>
-
-        {/* Premium Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-xl p-1.5 mb-8">
-            <TabsTrigger value="login" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-md data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent transition">
-              Login
-            </TabsTrigger>
-            <TabsTrigger value="signup" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-md data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent transition">
-              Sign Up
-            </TabsTrigger>
-            <TabsTrigger value="guest" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-md data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent transition text-xs">
-              Guest
-            </TabsTrigger>
-          </TabsList>
-
-          <AnimatePresence mode="wait">
-            <TabsContent value="login" className="mt-0">
-              <LoginTab setActiveTab={setActiveTab} setUser={setUser} router={router} />
-            </TabsContent>
-            <TabsContent value="signup" className="mt-0">
-              <SignupTab setUser={setUser} router={router} />
-            </TabsContent>
-            <TabsContent value="guest" className="mt-0">
-              <GuestTab />
-            </TabsContent>
-          </AnimatePresence>
-        </Tabs>
-      </div>
-      <Toaster position="top-center" />
-    </div>
-  );
-}
-
-function LoginTab({ setActiveTab, setUser, router }: { setActiveTab: (tab: string) => void; setUser: (user: any) => void; router: any }) {
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"login" | "signup" | "guest">("login");
 
   const handlePinChange = (index: number, value: string) => {
-    const digitOnly = value.replace(/[^0-9]/g, '');
+    const digitOnly = value.replace(/[^0-9]/g, "");
     if (digitOnly.length > 1) return;
+
     const newPin = [...pin];
     newPin[index] = digitOnly;
     setPin(newPin);
+
     if (digitOnly && index < 5) {
       document.getElementById(`pin-${index + 1}`)?.focus();
     }
@@ -96,10 +32,11 @@ function LoginTab({ setActiveTab, setUser, router }: { setActiveTab: (tab: strin
   };
 
   const handleLogin = async () => {
-    if (!phone || pin.some(d => !d)) {
+    if (!phone || pin.some((d) => !d)) {
       toast.error("Please fill all fields");
       return;
     }
+
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
@@ -107,9 +44,9 @@ function LoginTab({ setActiveTab, setUser, router }: { setActiveTab: (tab: strin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, pin: pin.join("") }),
       });
+
       const data = await res.json();
       if (res.ok) {
-        setUser(data.user);
         toast.success("Login successful!");
         router.push("/app/dashboard");
       } else {
@@ -123,117 +60,240 @@ function LoginTab({ setActiveTab, setUser, router }: { setActiveTab: (tab: strin
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-5"
-    >
-      <div>
-        <Label htmlFor="phone" className="text-sm font-semibold text-gray-900 block mb-2">
-          Phone Number
-        </Label>
-        <Input
-          id="phone"
-          type="tel"
-          placeholder="08012345678"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
-        />
-      </div>
+    <div style={{ background: "linear-gradient(135deg, #FFFFFF 0%, #F5F7FF 100%)" }} className="min-h-screen flex flex-col items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-sm"
+      >
+        {/* Logo */}
+        <motion.div
+          className="flex justify-center mb-6"
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+        >
+          <div
+            style={{
+              width: "64px",
+              height: "64px",
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #1E3A8A, #2563EB)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 8px 32px rgba(37,99,235,0.18)",
+            }}
+          >
+            <img src="/logo.jpeg" alt="SY DATA" style={{ width: "40px", height: "40px", borderRadius: "50%" }} />
+          </div>
+        </motion.div>
 
-      <div>
-        <Label className="text-sm font-semibold text-gray-900 block mb-3">PIN</Label>
-        <div className="flex gap-2.5">
-          {pin.map((digit, index) => (
-            <input
-              key={index}
-              id={`pin-${index}`}
-              type="password"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={(e) => handlePinChange(index, e.target.value)}
-              onKeyDown={(e) => handlePinKeyDown(index, e)}
-              className="flex-1 aspect-square text-center bg-gray-50 border-2 border-gray-200 rounded-xl text-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-blue-500 transition"
-            />
+        {/* Header */}
+        <motion.div
+          className="text-center mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
+        >
+          <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#0F172A", marginBottom: "8px", fontFamily: "Inter" }}>
+            SY DATA SUB
+          </h1>
+          <p style={{ fontSize: "14px", fontWeight: 500, color: "#64748B", fontFamily: "Inter" }}>
+            Fast, reliable data in seconds
+          </p>
+        </motion.div>
+
+        {/* Tab Picker */}
+        <div style={{ display: "flex", gap: "8px", marginBottom: "24px", background: "#F8FAFF", padding: "4px", borderRadius: "12px" }}>
+          {(["login", "signup", "guest"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                flex: 1,
+                padding: "8px 12px",
+                fontSize: "14px",
+                fontWeight: activeTab === tab ? 600 : 500,
+                color: activeTab === tab ? "#2563EB" : "#64748B",
+                background: activeTab === tab ? "#FFFFFF" : "transparent",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                fontFamily: "Inter",
+              }}
+            >
+              {tab === "login" ? "Login" : tab === "signup" ? "Sign Up" : "Guest"}
+            </button>
           ))}
         </div>
-      </div>
 
-      <button
-        onClick={handleLogin}
-        disabled={isLoading}
-        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white font-bold rounded-xl mt-8 py-3.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-      >
-        {isLoading ? "Logging in..." : "Login"}
-      </button>
+        {/* Login Tab */}
+        {activeTab === "login" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
+            <div>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "#0F172A", marginBottom: "8px", fontFamily: "Inter" }}>
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                placeholder="08012345678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  fontSize: "16px",
+                  fontWeight: 500,
+                  color: "#0F172A",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "12px",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                  boxSizing: "border-box",
+                  fontFamily: "Inter",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#2563EB")}
+                onBlur={(e) => (e.target.style.borderColor = "#E2E8F0")}
+              />
+            </div>
 
-      <div className="text-center pt-2">
-        <button
-          onClick={() => setActiveTab("signup")}
-          className="text-sm text-gray-600 hover:text-gray-900 font-medium transition"
-        >
-          Don't have an account? <span className="text-blue-600 font-semibold">Sign up</span>
-        </button>
-      </div>
-    </motion.div>
+            {/* PIN Input - 6 circular dots */}
+            <div>
+              <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "#0F172A", marginBottom: "12px", fontFamily: "Inter" }}>
+                PIN
+              </label>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+                {pin.map((digit, idx) => (
+                  <motion.input
+                    key={idx}
+                    id={`pin-${idx}`}
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handlePinChange(idx, e.target.value)}
+                    onKeyDown={(e) => handlePinKeyDown(idx, e)}
+                    whileTap={{ scale: 0.9 }}
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "50%",
+                      fontSize: "20px",
+                      fontWeight: 700,
+                      color: digit ? "#2563EB" : "#E2E8F0",
+                      background: digit ? "#F0F4FF" : "#F8FAFF",
+                      border: "2px solid #E2E8F0",
+                      textAlign: "center",
+                      outline: "none",
+                      transition: "all 0.2s ease",
+                      cursor: "text",
+                      fontFamily: "Inter",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#2563EB";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "#E2E8F0";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <motion.button
+              onClick={handleLogin}
+              disabled={isLoading}
+              whileTap={{ scale: 0.98 }}
+              whileHover={{ y: -2 }}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                marginTop: "24px",
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "#FFFFFF",
+                background: isLoading ? "#94A3B8" : "#2563EB",
+                border: "none",
+                borderRadius: "14px",
+                cursor: isLoading ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                fontFamily: "Inter",
+              }}
+            >
+              {isLoading ? "Logging in..." : "Login"}
+            </motion.button>
+
+            <p style={{ textAlign: "center", fontSize: "14px", color: "#64748B", fontFamily: "Inter" }}>
+              Don't have an account?{" "}
+              <button
+                onClick={() => setActiveTab("signup")}
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#2563EB",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  fontFamily: "Inter",
+                }}
+              >
+                Sign up
+              </button>
+            </p>
+          </motion.div>
+        )}
+
+        {/* Signup Tab */}
+        {activeTab === "signup" && <SignupTab onComplete={() => router.push("/app/dashboard")} />}
+
+        {/* Guest Tab */}
+        {activeTab === "guest" && <GuestTab />}
+      </motion.div>
+    </div>
   );
 }
 
-function SignupTab({ setUser, router }: { setUser: (user: any) => void; router: any }) {
+function SignupTab({ onComplete }: { onComplete: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState(["", "", "", "", "", ""]);
   const [confirmPin, setConfirmPin] = useState(["", "", "", "", "", ""]);
-  const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handlePinChange = (index: number, value: string) => {
-    const digitOnly = value.replace(/[^0-9]/g, '');
-    if (digitOnly.length > 1) return;
-    const newPin = [...pin];
-    newPin[index] = digitOnly;
-    setPin(newPin);
-    if (digitOnly && index < 5) {
-      document.getElementById(`signup-pin-${index + 1}`)?.focus();
-    }
-  };
-
-  const handleConfirmPinChange = (index: number, value: string) => {
-    const digitOnly = value.replace(/[^0-9]/g, '');
-    if (digitOnly.length > 1) return;
-    const newPin = [...confirmPin];
-    newPin[index] = digitOnly;
-    setConfirmPin(newPin);
-    if (digitOnly && index < 5) {
-      document.getElementById(`confirm-pin-${index + 1}`)?.focus();
-    }
-  };
-
   const handleSignup = async () => {
-    if (!name || !phone || pin.some(d => !d) || confirmPin.some(d => !d) || !acceptTerms) {
-      toast.error("Please fill all fields and accept terms");
+    if (!name || !phone || pin.some((d) => !d) || confirmPin.some((d) => !d)) {
+      toast.error("Please fill all fields");
       return;
     }
     if (pin.join("") !== confirmPin.join("")) {
       toast.error("PINs don't match");
       return;
     }
+
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, pin: pin.join(""), confirmPin: confirmPin.join(""), acceptTerms }),
+        body: JSON.stringify({ name, phone, pin: pin.join(""), confirmPin: confirmPin.join(""), acceptTerms: true }),
       });
+
       const data = await res.json();
       if (res.ok) {
-        setUser(data.user);
         toast.success("Account created!");
-        router.push("/app/dashboard");
+        onComplete();
       } else {
         toast.error(data.error || "Signup failed");
       }
@@ -246,93 +306,142 @@ function SignupTab({ setUser, router }: { setUser: (user: any) => void; router: 
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.3 }}
-      className="space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto"
+      className="space-y-4 max-h-96 overflow-y-auto"
     >
+      <input
+        type="text"
+        placeholder="Full Name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "12px 16px",
+          fontSize: "16px",
+          fontWeight: 500,
+          color: "#0F172A",
+          border: "1px solid #E2E8F0",
+          borderRadius: "12px",
+          outline: "none",
+          boxSizing: "border-box",
+          fontFamily: "Inter",
+        }}
+      />
+      <input
+        type="tel"
+        placeholder="08012345678"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+        style={{
+          width: "100%",
+          padding: "12px 16px",
+          fontSize: "16px",
+          fontWeight: 500,
+          color: "#0F172A",
+          border: "1px solid #E2E8F0",
+          borderRadius: "12px",
+          outline: "none",
+          boxSizing: "border-box",
+          fontFamily: "Inter",
+        }}
+      />
       <div>
-        <Label htmlFor="name" className="text-sm font-semibold text-gray-900 block mb-2">
-          Full Name
-        </Label>
-        <Input
-          id="name"
-          type="text"
-          placeholder="John Doe"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="phone" className="text-sm font-semibold text-gray-900 block mb-2">
-          Phone Number
-        </Label>
-        <Input
-          id="phone"
-          type="tel"
-          placeholder="08012345678"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
-        />
-      </div>
-
-      <div>
-        <Label className="text-sm font-semibold text-gray-900 block mb-3">PIN</Label>
-        <div className="flex gap-2.5">
-          {pin.map((digit, index) => (
+        <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "#0F172A", marginBottom: "8px", fontFamily: "Inter" }}>
+          PIN
+        </label>
+        <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+          {pin.map((digit, idx) => (
             <input
-              key={index}
-              id={`signup-pin-${index}`}
+              key={idx}
               type="password"
               inputMode="numeric"
               maxLength={1}
               value={digit}
-              onChange={(e) => handlePinChange(index, e.target.value)}
-              className="flex-1 aspect-square text-center bg-gray-50 border-2 border-gray-200 rounded-xl text-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-blue-500 transition"
+              onChange={(e) => {
+                const newPin = [...pin];
+                newPin[idx] = e.target.value.slice(0, 1);
+                setPin(newPin);
+                if (e.target.value && idx < 5) {
+                  document.getElementById(`signup-pin-${idx + 1}`)?.focus();
+                }
+              }}
+              id={`signup-pin-${idx}`}
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "8px",
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "#0F172A",
+                background: "#F8FAFF",
+                border: "1px solid #E2E8F0",
+                textAlign: "center",
+                outline: "none",
+                boxSizing: "border-box",
+                fontFamily: "Inter",
+              }}
             />
           ))}
         </div>
       </div>
-
       <div>
-        <Label className="text-sm font-semibold text-gray-900 block mb-3">Confirm PIN</Label>
-        <div className="flex gap-2.5">
-          {confirmPin.map((digit, index) => (
+        <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "#0F172A", marginBottom: "8px", fontFamily: "Inter" }}>
+          Confirm PIN
+        </label>
+        <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+          {confirmPin.map((digit, idx) => (
             <input
-              key={index}
-              id={`confirm-pin-${index}`}
+              key={idx}
               type="password"
               inputMode="numeric"
               maxLength={1}
               value={digit}
-              onChange={(e) => handleConfirmPinChange(index, e.target.value)}
-              className="flex-1 aspect-square text-center bg-gray-50 border-2 border-gray-200 rounded-xl text-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-blue-500 transition"
+              onChange={(e) => {
+                const newPin = [...confirmPin];
+                newPin[idx] = e.target.value.slice(0, 1);
+                setConfirmPin(newPin);
+                if (e.target.value && idx < 5) {
+                  document.getElementById(`confirm-pin-${idx + 1}`)?.focus();
+                }
+              }}
+              id={`confirm-pin-${idx}`}
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "8px",
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "#0F172A",
+                background: "#F8FAFF",
+                border: "1px solid #E2E8F0",
+                textAlign: "center",
+                outline: "none",
+                boxSizing: "border-box",
+                fontFamily: "Inter",
+              }}
             />
           ))}
         </div>
       </div>
-
-      <div className="flex items-start gap-3 pt-2">
-        <input
-          type="checkbox"
-          id="terms"
-          checked={acceptTerms}
-          onChange={(e) => setAcceptTerms(e.target.checked)}
-          className="w-5 h-5 rounded border-gray-300 accent-blue-600 mt-0.5"
-        />
-        <Label htmlFor="terms" className="text-xs text-gray-600 font-medium leading-tight">
-          I agree to the terms and conditions
-        </Label>
-      </div>
-
       <button
         onClick={handleSignup}
         disabled={isLoading}
-        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white font-bold rounded-xl mt-8 py-3.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+        style={{
+          width: "100%",
+          padding: "14px 16px",
+          marginTop: "24px",
+          fontSize: "14px",
+          fontWeight: 600,
+          color: "#FFFFFF",
+          background: isLoading ? "#94A3B8" : "#2563EB",
+          border: "none",
+          borderRadius: "14px",
+          cursor: isLoading ? "not-allowed" : "pointer",
+          fontFamily: "Inter",
+        }}
       >
         {isLoading ? "Creating..." : "Create Account"}
       </button>
@@ -342,67 +451,65 @@ function SignupTab({ setUser, router }: { setUser: (user: any) => void; router: 
 
 function GuestTab() {
   const [phone, setPhone] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleGuestPurchase = async () => {
-    if (!phone) {
-      toast.error("Please enter phone number");
+  const handleGuestContinue = () => {
+    if (!phone || !/^0[0-9]{10}$/.test(phone)) {
+      toast.error("Enter valid 11-digit phone number");
       return;
     }
-    if (!/^0[0-9]{10}$/.test(phone)) {
-      toast.error("Phone number must be 11 digits starting with 0");
-      return;
-    }
-    setIsLoading(true);
-    try {
-      localStorage.setItem("guestPhone", phone);
-      localStorage.setItem("isGuest", "true");
-      router.push("/app/checkout?guest=true&phone=" + encodeURIComponent(phone));
-    } catch (error) {
-      toast.error("Navigation error");
-    } finally {
-      setIsLoading(false);
-    }
+    localStorage.setItem("guestPhone", phone);
+    router.push("/app/checkout?guest=true");
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.3 }}
-      className="space-y-5"
+      className="space-y-4"
     >
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p className="text-sm text-blue-900 font-medium">
-          👤 No account needed
-        </p>
-        <p className="text-xs text-blue-700 mt-2">
-          Buy data instantly without creating an account
+      <div style={{ background: "#F0F4FF", border: "1px solid #DBEAFE", borderRadius: "12px", padding: "12px 16px" }}>
+        <p style={{ fontSize: "14px", fontWeight: 500, color: "#1E40AF", fontFamily: "Inter" }}>
+          👤 No account needed — buy instantly
         </p>
       </div>
-
-      <div>
-        <Label htmlFor="phone" className="text-sm font-semibold text-gray-900 block mb-2">
-          Phone Number
-        </Label>
-        <Input
-          id="phone"
-          type="tel"
-          placeholder="08012345678"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
-        />
-      </div>
-
+      <input
+        type="tel"
+        placeholder="08012345678"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+        style={{
+          width: "100%",
+          padding: "12px 16px",
+          fontSize: "16px",
+          fontWeight: 500,
+          color: "#0F172A",
+          border: "1px solid #E2E8F0",
+          borderRadius: "12px",
+          outline: "none",
+          boxSizing: "border-box",
+          fontFamily: "Inter",
+        }}
+      />
       <button
-        onClick={handleGuestPurchase}
-        disabled={isLoading}
-        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white font-bold rounded-xl mt-8 py-3.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+        onClick={handleGuestContinue}
+        style={{
+          width: "100%",
+          padding: "14px 16px",
+          marginTop: "24px",
+          fontSize: "14px",
+          fontWeight: 600,
+          color: "#FFFFFF",
+          background: "#2563EB",
+          border: "none",
+          borderRadius: "14px",
+          cursor: "pointer",
+          fontFamily: "Inter",
+        }}
       >
-        {isLoading ? "Loading..." : "Continue as Guest"}
+        Continue as Guest
       </button>
     </motion.div>
   );
