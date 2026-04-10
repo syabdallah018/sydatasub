@@ -160,20 +160,9 @@ export default function DashboardPage() {
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedPhone = localStorage.getItem("saved_phone");
-      if (savedPhone) localStorage.setItem("saved_phone_backup", savedPhone);
-    }
-    
-    // Always hide splash after 2 seconds regardless of loading
-    const splashTimer = setTimeout(() => setShowSplash(false), 2000);
-    
     fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
-    
-    return () => clearTimeout(splashTimer);
   }, [router]);
 
   const formatBalance = (kobo: number) => {
@@ -191,12 +180,20 @@ export default function DashboardPage() {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    // Clear saved phone when user manually logs out
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("saved_phone");
+    try {
+      // Clear localStorage completely
+      if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      // Call logout endpoint
+      await fetch("/api/auth/logout", { method: "POST" });
+      // Hard redirect to login
+      window.location.href = "/app/auth";
+    } catch (error) {
+      console.error("Logout error:", error);
+      window.location.href = "/app/auth";
     }
-    router.push("/app/auth");
   };
 
   const handleNetworkSelect = async (networkId: string) => {
@@ -269,99 +266,6 @@ export default function DashboardPage() {
     <>
       <style>{fontStyle}</style>
       
-      {/* Splash Screen */}
-      {showSplash && (
-        <motion.div
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5, delay: 1.5 }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: `linear-gradient(135deg, ${T.blue} 0%, ${T.purple} 100%)`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-            flexDirection: "column",
-            gap: 24
-          }}
-        >
-          {/* Logo Container */}
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            style={{
-              width: 100,
-              height: 100,
-              borderRadius: 24,
-              background: T.bg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: `0 20px 50px rgba(0,0,0,0.3)`
-            }}
-          >
-            <img
-              src="/logo.jpeg"
-              alt="SY Data Sub Logo"
-              style={{
-                width: 80,
-                height: 80,
-                objectFit: "contain",
-                borderRadius: 16
-              }}
-            />
-          </motion.div>
-
-          {/* Branding Text */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
-            style={{
-              textAlign: "center",
-              color: T.bg
-            }}
-          >
-            <h1 style={{
-              fontFamily: T.font,
-              fontSize: 28,
-              fontWeight: 800,
-              margin: "0 0 8px",
-              letterSpacing: "-0.02em"
-            }}>
-              SY Data Sub
-            </h1>
-            <p style={{
-              fontFamily: T.font,
-              fontSize: 13,
-              fontWeight: 500,
-              margin: 0,
-              opacity: 0.9,
-              letterSpacing: "0.05em"
-            }}>
-              Fast • Reliable • Affordable
-            </p>
-          </motion.div>
-
-          {/* Loading Indicator */}
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: "50%",
-              border: `3px solid rgba(255,255,255,0.3)`,
-              borderTopColor: T.bg,
-              marginTop: 12
-            }}
-          />
-        </motion.div>
-      )}
       
       <div style={{ minHeight: "100vh", background: T.bg, fontFamily: T.font, paddingBottom: 40 }}>
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ position: "sticky", top: 0, zIndex: 40, background: `rgba(255,255,255,0.9)`, backdropFilter: "blur(12px)", borderBottom: `1px solid ${T.blueBorder}`, boxShadow: `0 4px 12px ${T.blue}15` }}>

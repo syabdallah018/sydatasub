@@ -5,10 +5,20 @@ import { verifyToken } from "@/lib/auth"
 export async function GET(req: NextRequest) {
   try {
     const token = req.cookies.get("sy_session")?.value
-    if (!token) return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
+    console.log("[TRANSACTIONS API] Token received:", !!token);
+    
+    if (!token) {
+      console.log("[TRANSACTIONS API] No token provided");
+      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
+    }
 
     const payload = await verifyToken(token)
-    if (!payload?.userId) return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 })
+    console.log("[TRANSACTIONS API] Token verified:", !!payload, payload?.userId);
+    
+    if (!payload?.userId) {
+      console.log("[TRANSACTIONS API] Invalid payload or no userId");
+      return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 })
+    }
 
     const { searchParams } = new URL(req.url)
     const cursor = searchParams.get("cursor")

@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
 
     // FALLBACK: If transaction not found, attempt phone-based user lookup
     if (!transaction && !isGuestTransaction) {
-      console.log("[WEBHOOK] Transaction not found by normal lookup, attempting phone-based lookup...");
+      console.log("[WEBHOOK PHONE LOOKUP] Transaction not found by normal lookup, attempting phone-based lookup...");
       
       // Extract phone number from various possible locations in Flutterwave payload
       const phoneFromPayload = 
@@ -132,11 +132,14 @@ export async function POST(req: NextRequest) {
         eventData.meta?.phone ||
         data.data?.customer?.phone_number;
 
-      console.log("[WEBHOOK] Extracted phone number:", phoneFromPayload);
+      console.log("[WEBHOOK PHONE LOOKUP] Raw phone extracted from payload:", phoneFromPayload);
+      console.log("[WEBHOOK PHONE LOOKUP] Full customer data:", JSON.stringify(eventData.customer || {}));
 
       if (phoneFromPayload) {
         // Normalize phone number (remove +234, 0, etc. and format as 11 digits starting with 0)
         let normalizedPhone = phoneFromPayload.toString().trim();
+        console.log("[WEBHOOK PHONE LOOKUP] Raw phone before normalization:", normalizedPhone);
+        
         if (normalizedPhone.startsWith('+234')) {
           normalizedPhone = '0' + normalizedPhone.slice(4);
         } else if (normalizedPhone.startsWith('234')) {
@@ -145,15 +148,16 @@ export async function POST(req: NextRequest) {
           normalizedPhone = '0' + normalizedPhone;
         }
 
-        console.log("[WEBHOOK] Normalized phone for lookup:", normalizedPhone);
+        console.log("[WEBHOOK PHONE LOOKUP] Normalized phone number:", normalizedPhone, "Length:", normalizedPhone.length);
 
         const userByPhone = await prisma.user.findUnique({
           where: { phone: normalizedPhone },
         });
 
-        console.log("[WEBHOOK] Phone-based user lookup result:", {
+        console.log("[WEBHOOK PHONE LOOKUP] User lookup result:", {
           found: !!userByPhone,
           userId: userByPhone?.id,
+          phone: userByPhone?.phone,
         });
 
         if (userByPhone) {
@@ -166,14 +170,16 @@ export async function POST(req: NextRequest) {
               status: "PENDING",
               amount: eventData.amount,
               reference: eventData.tx_ref || eventData.flw_ref,
-              description: "Wallet top-up via Flutterwave",
+              description: "Wallet top-up via Flutterwave (phone-based match)",
             },
           });
 
-          console.log("[WEBHOOK] Created transaction via phone lookup:", {
+          console.log("[WEBHOOK PHONE LOOKUP] Created transaction via phone lookup:", {
             transactionId: transaction.id,
             userId: userByPhone.id,
+            userPhone: userByPhone.phone,
             amount: eventData.amount,
+            normalizedPhone: normalizedPhone,
           });
 
           isWalletFunding = true;
@@ -182,17 +188,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (!transaction) {
-      console.warn("[WEBHOOK] Transaction not found - giving up on lookup for ref:", eventData.tx_ref);
+      console.warn("[WEBHOOK ERROR] Transaction not found - giving up on lookup for ref:", eventData.tx_ref);
+      console.log("[WEBHOOK ERROR DETAILS]", {
+        txRef: eventData.tx_ref,
+        flwRef: eventData.flw_ref,
+        amount: eventData.amount,
+        timestamp: new Date().toISOString(),
+      });
       return NextResponse.json({ received: true }); // Don't process unknown transactions
     }
 
     // 6a. GUEST TRANSACTION - deliver data
     if (isGuestTransaction) {
-      console.log("[WEBHOOK] Processing guest DATA_PURCHASE:", transaction.reference);
+      console.log("[WEBHOOK GUEST] Processing guest DATA_PURCHASE:", transaction.reference);
 
       // Verify amount matches
       if (transaction.amount !== eventData.amount) {
-        console.warn("[WEBHOOK] Amount mismatch for guest transaction:", {
+        console.warn("[WEBHOOK GUEST] Amount mismatch for guest transaction:", {
           stored: transaction.amount,
           flw: eventData.amount,
         });
@@ -221,7 +233,7 @@ export async function POST(req: NextRequest) {
 
     // 6b. USER WALLET FUNDING - credit balance and award rewards
     else if (isWalletFunding) {
-      console.log("[WEBHOOK] Processing WALLET_FUNDING for user:", transaction.userId);
+      console.log("[WEBHOOK WALLET] Processing WALLET_FUNDING for user:", transaction.userId);
 
       await prisma.$transaction(async (tx) => {
         const user = await tx.user.findUnique({
@@ -229,11 +241,11 @@ export async function POST(req: NextRequest) {
         });
 
         if (!user) {
-          console.error("[WEBHOOK] User not found during wallet funding:", transaction.userId);
+          console.error("[WEBHOOK WALLET ERROR] User not found during wallet funding:", transaction.userId);
           return;
         }
 
-        console.log("[WEBHOOK] User found for wallet funding:", {
+        console.log("[WEBHOOK WALLET] User found for wallet funding:", {
           userId: user.id,
           phone: user.phone,
           currentBalance: user.balance,
@@ -242,21 +254,24 @@ export async function POST(req: NextRequest) {
 
         // Credit balance in kobo (amount is in naira)
         const amountInKobo = eventData.amount * 100;
-        console.log("[WEBHOOK] Crediting balance in kobo:", {
+        console.log("[WEBHOOK WALLET] Crediting balance in kobo:", {
           amountInKobo,
+          currentBalance: user.balance,
           newBalance: user.balance + amountInKobo,
         });
 
-        await tx.user.update({
+        const updatedUser = await tx.user.update({
           where: { id: transaction.userId || "" },
           data: {
             balance: { increment: amountInKobo },
           },
         });
 
-        console.log("[WEBHOOK] Balance updated successfully", {
+        console.log("[WEBHOOK WALLET] ✅ Balance updated successfully", {
           userId: transaction.userId,
-          newBalance: user.balance + amountInKobo,
+          oldBalance: user.balance,
+          amountAdded: amountInKobo,
+          newBalance: updatedUser.balance,
         });
 
         // Update transaction to SUCCESS
@@ -265,28 +280,29 @@ export async function POST(req: NextRequest) {
           data: {
             status: "SUCCESS",
             flwRef: eventData.flw_ref,
-            balanceAfter: user.balance + amountInKobo,
+            balanceAfter: updatedUser.balance,
           },
         });
 
-        console.log("[WEBHOOK] Transaction marked as SUCCESS", {
+        console.log("[WEBHOOK WALLET] ✅ Transaction marked as SUCCESS", {
           transactionId: transaction.id,
           flwRef: eventData.flw_ref,
+          finalBalance: updatedUser.balance,
         });
       });
 
       // Award rewards for wallet funding
       if (transaction.userId) {
-        console.log("[WEBHOOK] Checking rewards for wallet funding:", transaction.userId);
+        console.log("[WEBHOOK WALLET] Checking rewards for wallet funding:", transaction.userId);
         await checkAndAwardRewards(transaction.userId, eventData.amount, "DEPOSIT");
       }
     }
 
     // 7. Always return 200 to acknowledge receipt
-    console.log("[WEBHOOK] Successfully processed, returning 200");
+    console.log("[WEBHOOK SUCCESS] ✅ Webhook fully processed, returning 200 OK");
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("[WEBHOOK CRITICAL ERROR]", {
+    console.error("[WEBHOOK CRITICAL ERROR] ❌ Webhook processing failed with exception:", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       timestamp: new Date().toISOString(),
