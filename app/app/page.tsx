@@ -15,51 +15,27 @@ export default function AppPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl" />
-      <div className="hidden md:block absolute inset-0 bg-white/40 blur-2xl rounded-[2.5rem] max-w-sm mx-auto" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-sm bg-white rounded-3xl border border-gray-200 p-8 shadow-lg"
-      >
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mb-4 flex justify-center"
-          >
-            <img 
-              src="/logo.jpeg" 
-              alt="SY DATA" 
-              className="h-20 w-20 object-contain"
-            />
-          </motion.div>
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-2xl font-bold text-gray-900 mb-2"
-          >
+          <img 
+            src="/logo.jpeg" 
+            alt="SY DATA" 
+            className="h-16 w-16 object-contain mx-auto mb-4"
+          />
+          <h1 className="text-2xl font-bold text-black mb-2">
             SY DATA SUB
-          </motion.div>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-gray-600 text-sm"
-          >
-            Affordable, always connected.
-          </motion.p>
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Fast, reliable, affordable data
+          </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-100 backdrop-blur-sm rounded-xl p-1 mb-6">
-            <TabsTrigger value="login" className="rounded-lg data-[state=active]:bg-teal-500 data-[state=active]:text-white transition-all text-gray-700">Login</TabsTrigger>
-            <TabsTrigger value="signup" className="rounded-lg data-[state=active]:bg-teal-500 data-[state=active]:text-white transition-all text-gray-700">Sign Up</TabsTrigger>
-            <TabsTrigger value="guest" className="rounded-lg data-[state=active]:bg-teal-500 data-[state=active]:text-white transition-all text-xs text-gray-700">Buy Without Account</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-lg p-1 mb-6">
+            <TabsTrigger value="login" className="rounded-md data-[state=active]:bg-black data-[state=active]:text-white data-[state=inactive]:text-gray-700 data-[state=inactive]:bg-transparent">Login</TabsTrigger>
+            <TabsTrigger value="signup" className="rounded-md data-[state=active]:bg-black data-[state=active]:text-white data-[state=inactive]:text-gray-700 data-[state=inactive]:bg-transparent">Sign Up</TabsTrigger>
+            <TabsTrigger value="guest" className="rounded-md data-[state=active]:bg-black data-[state=active]:text-white data-[state=inactive]:text-gray-700 data-[state=inactive]:bg-transparent text-xs">Guest</TabsTrigger>
           </TabsList>
 
           <AnimatePresence mode="wait">
@@ -74,7 +50,7 @@ export default function AppPage() {
             </TabsContent>
           </AnimatePresence>
         </Tabs>
-      </motion.div>
+      </div>
       <Toaster position="top-center" />
     </div>
   );
@@ -131,22 +107,22 @@ function LoginTab({ setActiveTab, setUser, router }: { setActiveTab: (tab: strin
   return (
     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
       <div>
-        <Label htmlFor="phone" className="text-gray-700 text-sm font-medium">Phone Number</Label>
-        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-white border-gray-300 text-gray-900 focus:border-teal-500" />
+        <Label htmlFor="phone" className="text-sm font-medium text-black">Phone Number</Label>
+        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
       </div>
       <div>
-        <Label className="text-gray-700 text-sm font-medium">PIN</Label>
+        <Label className="text-sm font-medium text-black">PIN</Label>
         <div className="flex gap-2 mt-2">
           {pin.map((digit, index) => (
-            <input key={index} id={`pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(index, e.target.value)} onKeyDown={(e) => handlePinKeyDown(index, e)} className="w-10 h-10 text-center bg-white border border-gray-300 rounded-lg text-gray-900 focus:border-teal-500" />
+            <input key={index} id={`pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(index, e.target.value)} onKeyDown={(e) => handlePinKeyDown(index, e)} className="w-10 h-10 text-center bg-gray-50 border-gray-300 rounded text-black focus:border-black focus:ring-0" />
           ))}
         </div>
       </div>
-      <Button onClick={handleLogin} disabled={isLoading} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium">
+      <Button onClick={handleLogin} disabled={isLoading} className="w-full bg-black hover:bg-gray-900 text-white font-medium rounded-lg mt-6">
         {isLoading ? "Logging in..." : "Login"}
       </Button>
-      <div className="text-center">
-        <button onClick={() => setActiveTab("signup")} className="text-teal-600 hover:text-teal-700 text-sm font-medium">Sign Up</button>
+      <div className="text-center pt-2">
+        <button onClick={() => setActiveTab("signup")} className="text-sm text-gray-600 hover:text-black font-medium">Don't have an account? Sign up</button>
       </div>
     </motion.div>
   );
@@ -214,34 +190,34 @@ function SignupTab({ setUser, router }: { setUser: (user: any) => void; router: 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
       <div>
-        <Label htmlFor="name" className="text-gray-700 text-sm font-medium">Full Name</Label>
-        <Input id="name" type="text" placeholder="Enter your name" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 bg-white border-gray-300 text-gray-900 focus:border-teal-500" />
+        <Label htmlFor="name" className="text-sm font-medium text-black">Full Name</Label>
+        <Input id="name" type="text" placeholder="Enter your name" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
       </div>
       <div>
-        <Label htmlFor="phone" className="text-gray-700 text-sm font-medium">Phone Number</Label>
-        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-white border-gray-300 text-gray-900 focus:border-teal-500" />
+        <Label htmlFor="phone" className="text-sm font-medium text-black">Phone Number</Label>
+        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
       </div>
       <div>
-        <Label className="text-gray-700 text-sm font-medium">PIN</Label>
+        <Label className="text-sm font-medium text-black">PIN</Label>
         <div className="flex gap-2 mt-2">
           {pin.map((digit, index) => (
-            <input key={index} id={`signup-pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(index, e.target.value)} className="w-10 h-10 text-center bg-white border border-gray-300 rounded-lg text-gray-900 focus:border-teal-500" />
+            <input key={index} id={`signup-pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(index, e.target.value)} className="w-10 h-10 text-center bg-gray-50 border-gray-300 rounded text-black focus:border-black focus:ring-0" />
           ))}
         </div>
       </div>
       <div>
-        <Label className="text-gray-700 text-sm font-medium">Confirm PIN</Label>
+        <Label className="text-sm font-medium text-black">Confirm PIN</Label>
         <div className="flex gap-2 mt-2">
           {confirmPin.map((digit, index) => (
-            <input key={index} id={`confirm-pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handleConfirmPinChange(index, e.target.value)} className="w-10 h-10 text-center bg-white border border-gray-300 rounded-lg text-gray-900 focus:border-teal-500" />
+            <input key={index} id={`confirm-pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handleConfirmPinChange(index, e.target.value)} className="w-10 h-10 text-center bg-gray-50 border-gray-300 rounded text-black focus:border-black focus:ring-0" />
           ))}
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <input type="checkbox" id="terms" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500" />
-        <Label htmlFor="terms" className="text-gray-700 text-xs">I accept the terms and conditions</Label>
+        <input type="checkbox" id="terms" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="w-4 h-4 rounded border-gray-300 accent-black" />
+        <Label htmlFor="terms" className="text-xs text-gray-600">I accept the terms and conditions</Label>
       </div>
-      <Button onClick={handleSignup} disabled={isLoading} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium">
+      <Button onClick={handleSignup} disabled={isLoading} className="w-full bg-black hover:bg-gray-900 text-white font-medium rounded-lg mt-6">
         {isLoading ? "Creating..." : "Create Account"}
       </Button>
     </motion.div>
@@ -280,11 +256,14 @@ function GuestTab() {
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
       <div>
-        <Label htmlFor="phone" className="text-gray-700 text-sm font-medium">Phone Number</Label>
-        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-white border-gray-300 text-gray-900 focus:border-teal-500" />
+        <Label htmlFor="phone" className="text-sm font-medium text-black">Phone Number</Label>
+        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
       </div>
-      <Button onClick={handleGuestPurchase} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium">
-        Continue as Guest
+      <p className="text-xs text-gray-600 py-2">
+        Buy data without creating an account. Fast and simple.
+      </p>
+      <Button onClick={handleGuestPurchase} disabled={isLoading} className="w-full bg-black hover:bg-gray-900 text-white font-medium rounded-lg mt-6">
+        {isLoading ? "Loading..." : "Continue as Guest"}
       </Button>
     </motion.div>
   );
