@@ -51,10 +51,10 @@ interface DataPlan {
 }
 
 const NETWORKS = [
-  { id: "mtn", name: "MTN", color: "#FFCC00", bg: "#fef9c3" },
-  { id: "airtel", name: "Airtel", color: "#FF3333", bg: "#fee2e2" },
-  { id: "glo", name: "Glo", color: "#22C55E", bg: "#dcfce7" },
-  { id: "9mobile", name: "9mobile", color: "#00A859", bg: "#d1fae5" },
+  { id: "mtn", name: "MTN", color: "#FFCC00", bg: "#fef9c3", logo: "/mtn.jpg" },
+  { id: "airtel", name: "Airtel", color: "#FF3333", bg: "#fee2e2", logo: "/airtel.jpg" },
+  { id: "glo", name: "Glo", color: "#22C55E", bg: "#dcfce7", logo: "/glo.jpg" },
+  { id: "9mobile", name: "9mobile", color: "#00A859", bg: "#d1fae5", logo: "/9mobile.jpg" },
 ];
 
 const AIRTIME_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
@@ -94,13 +94,13 @@ function NetworkPill({ net, selected, onSelect }: any) {
       whileTap={{ scale: 0.95 }} 
       onClick={onSelect} 
       style={{ 
-        padding: "16px 12px", 
+        padding: "14px 12px", 
         borderRadius: 16, 
         border: `2.5px solid ${selected ? net.color : T.border}`, 
         background: selected ? net.bg : T.surface, 
         fontFamily: T.font, 
         fontWeight: 700, 
-        fontSize: 16, 
+        fontSize: 15, 
         color: selected ? net.color : T.textMid, 
         cursor: "pointer", 
         transition: "all 0.2s",
@@ -109,11 +109,16 @@ function NetworkPill({ net, selected, onSelect }: any) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8
+        gap: 10,
+        flexDirection: "column"
       }} 
     >
-      <div style={{ width: 12, height: 12, borderRadius: "50%", background: net.color }} />
-      {net.name}
+      {net.logo ? (
+        <img src={net.logo} alt={net.name} style={{ height: 32, maxWidth: 60, objectFit: "contain" }} />
+      ) : (
+        <div style={{ width: 14, height: 14, borderRadius: "50%", background: net.color }} />
+      )}
+      <span>{net.name}</span>
     </motion.button>
   );
 }
@@ -182,7 +187,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/data/plans?network=${networkId}`);
       const data = await res.json();
-      setDataPlans(data.plans || []);
+      setDataPlans(data.data || []);
       setBuyDataStep(2);
     } catch {
       toast.error("Failed to load plans");

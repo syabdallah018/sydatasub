@@ -20,11 +20,6 @@ enum UserRole {
   ADMIN
 }
 
-enum UserTier {
-  user
-  agent
-}
-
 enum NetworkType {
   MTN
   GLO
@@ -74,7 +69,7 @@ model User {
   pinHash   String?
   email     String?
   role      UserRole   @default(USER)
-  tier      UserTier   @default(user)
+  tier      String     @default("user") // "user" or "agent"
   balance   Int        @default(0) // in KOBO
   isBanned  Boolean    @default(false)
   isActive  Boolean    @default(true)
