@@ -25,12 +25,21 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       throw new Error("SMEPlug API key not configured");
     }
 
+    // Format phone number: convert 08XXX to 234XXX if needed
+    let formattedPhone = phone;
+    if (phone.startsWith("0")) {
+      formattedPhone = "234" + phone.substring(1);
+    } else if (!phone.startsWith("234")) {
+      // Assume it's already in correct format or needs 234 prefix
+      formattedPhone = "234" + phone;
+    }
+
     const response = await axios.post(
       `${SMEPLUG_API_URL}/data/purchase`,
       {
         network_id: externalNetworkId,
         plan_id: externalPlanId,
-        phone,
+        phone: formattedPhone,
         customer_reference: reference,
       },
       {
@@ -52,7 +61,7 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
     } else {
       return {
         success: false,
-        message: response.data?.data?.msg || response.data?.message || "Data purchase failed",
+        message: response.data?.data?.msg || response.data?.msg || response.data?.message || "Data purchase failed",
       };
     }
   } catch (error: any) {
@@ -60,9 +69,10 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
 
     if (error.response) {
       // API returned an error response
+      const errorMessage = error.response.data?.msg || error.response.data?.message || `API Error: ${error.response.status}`;
       return {
         success: false,
-        message: error.response.data?.message || `API Error: ${error.response.status}`,
+        message: errorMessage,
       };
     } else if (error.code === "ECONNABORTED") {
       // Timeout
