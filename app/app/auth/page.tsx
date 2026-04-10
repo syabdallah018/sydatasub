@@ -43,7 +43,7 @@ export default function AuthPage() {
       try {
         const res = await fetch("/api/auth/me");
         if (res.ok) {
-          router.push("/app/app");
+          router.push("/app");
         }
       } catch {}
     };
@@ -72,7 +72,7 @@ export default function AuthPage() {
       const data = await res.json();
       if (res.ok && data.message) {
         toast.success("Login successful!");
-        router.push("/app/app");
+        router.push("/app");
       } else {
         toast.error(data.error || "Login failed");
       }
@@ -123,7 +123,7 @@ export default function AuthPage() {
       const data = await res.json();
       if (res.ok && data.message) {
         toast.success("Account created! Logging you in...");
-        router.push("/app/app");
+        router.push("/app");
       } else {
         toast.error(data.error || "Signup failed");
       }

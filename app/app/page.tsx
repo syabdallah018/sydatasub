@@ -205,9 +205,9 @@ export default function DashboardPage() {
       .then((r) => r.json())
       .then((data) => {
         if (data?.success && data?.data) setUser(data.data);
-        else router.push("/app/app/auth");
+        else router.push("/app/auth");
       })
-      .catch(() => router.push("/app/app/auth"))
+      .catch(() => router.push("/app/auth"))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -234,7 +234,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/app/app/auth");
+    router.push("/app/auth");
   };
 
   const handleNetworkSelect = async (networkId: string) => {
@@ -451,9 +451,9 @@ export default function DashboardPage() {
           >
             <ActionTile icon={<Zap size={20} color={T.blue} />} label="Buy Data" sub="All networks" color={T.blue} dimColor={T.blueDim} onClick={() => setBuyDataOpen(true)} />
             <ActionTile icon={<Phone size={20} color={T.green} />} label="Buy Airtime" sub="All networks" color={T.green} dimColor={T.greenDim} onClick={() => setAirtimeOpen(true)} />
-            <ActionTile icon={<Gift size={20} color={T.amber} />} label="Rewards" sub="Earn points" color={T.amber} dimColor={T.amberDim} onClick={() => router.push("/app/app/dashboard/rewards")} />
-            <ActionTile icon={<CreditCard size={20} color={T.purple} />} label="History" sub="View transactions" color={T.purple} dimColor={T.purpleDim} onClick={() => router.push("/app/app/dashboard/transactions")} />
-            <ActionTile icon={<Settings size={20} color={T.gold} />} label="Settings" sub="Account & security" color={T.gold} dimColor={T.goldDim} onClick={() => router.push("/app/app/dashboard/settings")} />
+            <ActionTile icon={<Gift size={20} color={T.amber} />} label="Rewards" sub="Earn points" color={T.amber} dimColor={T.amberDim} onClick={() => router.push("/app/dashboard/rewards")} />
+            <ActionTile icon={<CreditCard size={20} color={T.purple} />} label="History" sub="View transactions" color={T.purple} dimColor={T.purpleDim} onClick={() => router.push("/app/dashboard/transactions")} />
+            <ActionTile icon={<Settings size={20} color={T.gold} />} label="Settings" sub="Account & security" color={T.gold} dimColor={T.goldDim} onClick={() => router.push("/app/dashboard/settings")} />
           </motion.div>
 
           {/* ── Recent Transactions ── */}
@@ -466,7 +466,7 @@ export default function DashboardPage() {
             <div style={{ padding: "18px 20px 14px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 15, color: T.text, margin: 0 }}>Recent Activity</p>
               <button
-                onClick={() => router.push("/app/app/dashboard/transactions")}
+                onClick={() => router.push("/app/dashboard/transactions")}
                 style={{ fontFamily: T.font, fontWeight: 600, fontSize: 12, color: T.blue, background: "none", border: "none", cursor: "pointer" }}
               >
                 See all
