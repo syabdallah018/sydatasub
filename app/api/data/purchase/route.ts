@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
@@ -33,14 +33,14 @@ export async function POST(req: NextRequest) {
 
     if (!userData) {
       return NextResponse.json(
-        { error: "User not found" },
+        { success: false, error: "User not found" },
         { status: 404 }
       );
     }
 
     if (userData.isBanned) {
       return NextResponse.json(
-        { error: "Account is banned" },
+        { success: false, error: "Account is banned" },
         { status: 403 }
       );
     }
@@ -48,14 +48,14 @@ export async function POST(req: NextRequest) {
     // Verify PIN
     if (!userData.pinHash) {
       return NextResponse.json(
-        { error: "PIN not set" },
+        { success: false, error: "PIN not set" },
         { status: 400 }
       );
     }
     const isPinValid = await bcryptjs.compare(pin, userData.pinHash);
     if (!isPinValid) {
       return NextResponse.json(
-        { error: "Invalid PIN" },
+        { success: false, error: "Invalid PIN" },
         { status: 401 }
       );
     }
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     if (!plan) {
       return NextResponse.json(
-        { error: "Plan not found" },
+        { success: false, error: "Plan not found" },
         { status: 404 }
       );
     }
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     const planPriceInKobo = plan.price * 100;
     if (userData.balance < planPriceInKobo) {
       return NextResponse.json(
-        { error: "Insufficient balance" },
+        { success: false, error: "Insufficient balance" },
         { status: 400 }
       );
     }
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
         });
 
         return NextResponse.json(
-          { error: apiResult.message || "Purchase failed" },
+          { success: false, error: apiResult.message || "Purchase failed" },
           { status: 400 }
         );
       }
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: "Purchase failed, balance refunded" },
+        { success: false, error: "Purchase failed, balance refunded" },
         { status: 500 }
       );
     }
@@ -189,12 +189,12 @@ export async function POST(req: NextRequest) {
     console.error("[DATA PURCHASE ERROR]", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.issues[0].message },
+        { success: false, error: error.issues[0].message },
         { status: 400 }
       );
     }
     return NextResponse.json(
-      { error: "Internal server error" },
+      { success: false, error: "Internal server error" },
       { status: 500 }
     );
   }

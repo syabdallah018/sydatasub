@@ -4,11 +4,22 @@ import { prisma } from "@/lib/db";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const network = searchParams.get("network");
+    let network = searchParams.get("network");
 
-    const whereClause = {
+    // Convert network string to uppercase enum (mtn -> MTN)
+    if (network) {
+      const networkMap: { [key: string]: string } = {
+        "mtn": "MTN",
+        "airtel": "AIRTEL",
+        "glo": "GLO",
+        "9mobile": "NINEMOBILE",
+      };
+      network = networkMap[network.toLowerCase()] || network.toUpperCase();
+    }
+
+    const whereClause: any = {
       isActive: true,
-      ...(network && { network: network as any }),
+      ...(network && { network }),
     };
 
     const plans = await prisma.plan.findMany({
@@ -16,7 +27,7 @@ export async function GET(req: NextRequest) {
       orderBy: { price: "asc" },
     });
 
-    return NextResponse.json(plans, { status: 200 });
+    return NextResponse.json({ success: true, data: plans }, { status: 200 });
   } catch (error) {
     console.error("[DATA PLANS ERROR]", error);
     return NextResponse.json(

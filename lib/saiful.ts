@@ -25,13 +25,23 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
       throw new Error("Saiful API key not configured");
     }
 
+    // Convert network enum to number for API
+    const networkMap: { [key: string]: number } = {
+      "MTN": 1,
+      "GLO": 2,
+      "NINEMOBILE": 3,
+      "AIRTEL": 4,
+    };
+    
+    const networkId = networkMap[network.toUpperCase()] || 1;
+
     // Append reference to URL for idempotency
     const response = await axios.post(
       `${SAIFUL_API_URL}/data/${reference}`,
       {
         plan,
         mobile_number: mobileNumber,
-        network,
+        network: networkId,
       },
       {
         headers: {
@@ -42,17 +52,26 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
       }
     );
 
-    // Saiful typically returns success/error in response
-    if (response.data && response.data.status === "success") {
+    // Parse response - check for success in various formats
+    const responseData = response.data?.data || response.data;
+    
+    if (responseData && (responseData.status === "successful" || responseData.Status === "successful")) {
       return {
         success: true,
-        message: response.data.message || "Data purchase successful",
-        externalReference: response.data.reference,
+        message: responseData.description || "Data purchase successful",
+        externalReference: responseData.ident,
+      };
+    } else if (responseData?.status === "pending" || responseData?.Status === "pending") {
+      // Pending is acceptable
+      return {
+        success: true,
+        message: responseData.description || "Data purchase pending",
+        externalReference: responseData.ident,
       };
     } else {
       return {
         success: false,
-        message: response.data?.message || "Data purchase failed",
+        message: responseData?.description || responseData?.message || "Data purchase failed",
       };
     }
   } catch (error: any) {
@@ -102,7 +121,7 @@ export async function purchaseAirtime(params: AirtimePurchaseParams): Promise<Sa
       `${SAIFUL_API_URL}/topup`,
       {
         mobile_number: mobileNumber,
-        amount: amount.toString(),
+        amount,
         network,
       },
       {
@@ -114,17 +133,27 @@ export async function purchaseAirtime(params: AirtimePurchaseParams): Promise<Sa
       }
     );
 
-    // Saiful typically returns success/error in response
-    if (response.data && response.data.status === "success") {
+    // Parse response - Saiful returns data nested under 'data' key
+    const responseData = response.data?.data || response.data;
+    
+    // Check for successful status - can be "successful" or "pending"
+    if (responseData && (responseData.Status === "successful" || responseData.status === "successful")) {
       return {
         success: true,
-        message: response.data.message || "Airtime purchase successful",
-        externalReference: response.data.reference,
+        message: responseData.description || "Airtime purchase successful",
+        externalReference: responseData.ident,
+      };
+    } else if (responseData?.Status === "pending") {
+      // Pending transactions should be treated as success for now
+      return {
+        success: true,
+        message: responseData.description || "Airtime purchase pending",
+        externalReference: responseData.ident,
       };
     } else {
       return {
         success: false,
-        message: response.data?.message || "Airtime purchase failed",
+        message: responseData?.description || responseData?.message || "Airtime purchase failed",
       };
     }
   } catch (error: any) {

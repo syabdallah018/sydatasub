@@ -356,10 +356,10 @@ export default function DashboardPage() {
             <p className="text-left text-sm text-slate-500 mt-1">All networks</p>
           </button>
 
-          {/* Rewards - Coming Soon */}
+          {/* Rewards */}
           <button
-            disabled
-            className="bg-slate-100 rounded-2xl p-6 border-2 border-slate-200 opacity-50 cursor-not-allowed"
+            onClick={() => router.push("/app/dashboard/rewards")}
+            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-amber-500 hover:shadow-lg transition active:scale-95"
           >
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -368,22 +368,22 @@ export default function DashboardPage() {
               <ChevronRight size={20} className="text-slate-400" />
             </div>
             <p className="text-left font-semibold text-slate-900">Rewards</p>
-            <p className="text-left text-sm text-slate-500 mt-1">Coming soon</p>
+            <p className="text-left text-sm text-slate-500 mt-1">Earn & claim rewards</p>
           </button>
 
           {/* Settings */}
           <button
-            disabled
-            className="bg-slate-100 rounded-2xl p-6 border-2 border-slate-200 opacity-50 cursor-not-allowed"
+            onClick={() => router.push("/app/dashboard/settings")}
+            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-slate-400 hover:shadow-lg transition active:scale-95"
           >
             <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-slate-300 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center">
                 <Settings size={24} className="text-slate-600" />
               </div>
               <ChevronRight size={20} className="text-slate-400" />
             </div>
             <p className="text-left font-semibold text-slate-900">Settings</p>
-            <p className="text-left text-sm text-slate-500 mt-1">Coming soon</p>
+            <p className="text-left text-sm text-slate-500 mt-1">Manage your account</p>
           </button>
         </div>
 
