@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "SY DATA SUB - Dashboard",
   description: "Buy data, airtime, and manage your account",
   themeColor: "#ffffff",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no",
 };
 
 export default function AppLayout({

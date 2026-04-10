@@ -9,6 +9,9 @@ const loginSchema = z.object({
   pin: z.string().regex(/^\d{6}$/, "Invalid PIN"),
 });
 
+// Smart login - save phone number to localStorage on client side
+// This endpoint returns user data for authenticated requests
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

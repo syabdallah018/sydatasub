@@ -8,6 +8,18 @@ export default function AppLayoutClient({
   children: React.ReactNode;
 }) {
   useEffect(() => {
+    // Detect if running in webview and add class for styling
+    const isWebView = /Android|iPhone|iPad|Mac/i.test(navigator.userAgent) && 
+                     getComputedStyle(document.documentElement).getPropertyValue('--is-webview') !== '';
+    if (isWebView || (window as any).cordova || (window as any).Capacitor) {
+      document.documentElement.classList.add("is-webview");
+    }
+
+    // Disable elastic scroll for webview (iOS)
+    if (navigator.userAgent.includes('WebKit')) {
+      document.body.style.overscrollBehavior = 'none';
+    }
+
     // Prevent pull-to-refresh on Android
     const preventPullRefresh = (e: TouchEvent) => {
       if ((e.touches as any).length > 1) {

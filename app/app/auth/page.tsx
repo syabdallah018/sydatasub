@@ -37,6 +37,7 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+  const [savedPhone, setSavedPhone] = useState("");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -47,6 +48,15 @@ export default function AuthPage() {
           return;
         }
       } catch {}
+      
+      // Load saved phone for smart login
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("saved_phone");
+        if (saved) {
+          setSavedPhone(saved);
+          setPhone(saved);
+        }
+      }
       setHasCheckedAuth(true);
     };
     checkAuth();
@@ -72,6 +82,10 @@ export default function AuthPage() {
       });
 
       if (res.ok) {
+        // Save phone number for smart login next time
+        if (typeof window !== "undefined") {
+          localStorage.setItem("saved_phone", phone);
+        }
         toast.success("Login successful!");
         router.push("/app");
       } else {

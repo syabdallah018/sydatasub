@@ -89,6 +89,7 @@ function BottomSheet({ open, onClose, title, accentColor = T.blue, children }: a
 }
 
 function NetworkPill({ net, selected, onSelect }: any) {
+  const [imageError, setImageError] = useState(false);
   return (
     <motion.button 
       whileTap={{ scale: 0.95 }} 
@@ -113,10 +114,10 @@ function NetworkPill({ net, selected, onSelect }: any) {
         flexDirection: "column"
       }} 
     >
-      {net.logo ? (
-        <img src={net.logo} alt={net.name} style={{ height: 32, maxWidth: 60, objectFit: "contain" }} />
+      {net.logo && !imageError ? (
+        <img src={net.logo} alt={net.name} style={{ height: 36, maxWidth: 64, objectFit: "contain" }} onError={() => setImageError(true)} />
       ) : (
-        <div style={{ width: 14, height: 14, borderRadius: "50%", background: net.color }} />
+        <div style={{ width: 16, height: 16, borderRadius: "50%", background: net.color }} />
       )}
       <span>{net.name}</span>
     </motion.button>
@@ -159,6 +160,10 @@ export default function DashboardPage() {
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedPhone = localStorage.getItem("saved_phone");
+      if (savedPhone) localStorage.setItem("saved_phone_backup", savedPhone);
+    }
     fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
   }, [router]);
 
@@ -178,6 +183,10 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    // Clear saved phone when user manually logs out
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("saved_phone");
+    }
     router.push("/app/auth");
   };
 
