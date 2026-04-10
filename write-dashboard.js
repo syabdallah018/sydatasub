@@ -1,4 +1,6 @@
-"use client"
+const fs = require('fs');
+
+const code = `"use client"
 
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
@@ -15,4 +17,7 @@ export default function DashboardPage() {
       </div>
     </div>
   )
-}
+}`;
+
+fs.writeFileSync('app/app/dashboard/page.tsx', code, 'utf8');
+console.log('File written: ' + fs.statSync('app/app/dashboard/page.tsx').size + ' bytes');

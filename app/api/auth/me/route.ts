@@ -1,20 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/db"
+import { verifyToken } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-
-    if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const token = req.cookies.get("sy_session")?.value
+    if (!token) {
+      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const userData = await prisma.user.findUnique({
-      where: { id: user.userId },
+    const payload = await verifyToken(token)
+    if (!payload || !payload.userId) {
+      return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId as string },
       select: {
         id: true,
         fullName: true,
@@ -22,44 +23,25 @@ export async function GET(req: NextRequest) {
         role: true,
         balance: true,
         isBanned: true,
-      },
-    });
-
-    if (!userData) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
-    // Fetch virtualAccount separately with error handling
-    let virtualAccount = null;
-    try {
-      const va = await prisma.virtualAccount.findUnique({
-        where: { userId: user.userId },
-        select: {
-          accountNumber: true,
-          bankName: true,
+        isActive: true,
+        joinedAt: true,
+        virtualAccount: {
+          select: { accountNumber: true, bankName: true, flwRef: true }
         },
-      });
-      virtualAccount = va;
-    } catch (error) {
-      console.warn("[VIRTUAL ACCOUNT FETCH WARNING]", error);
-      // Continue without virtual account
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json(
-      {
-        ...userData,
-        virtualAccount: virtualAccount || null,
-      },
-      { status: 200 }
-    );
+    if (user.isBanned) {
+      return NextResponse.json({ success: false, error: "Account suspended" }, { status: 403 })
+    }
+
+    return NextResponse.json({ success: true, data: user })
   } catch (error) {
-    console.error("[AUTH ME ERROR]", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("[me]", error)
+    return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })
   }
 }
