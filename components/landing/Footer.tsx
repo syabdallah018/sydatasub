@@ -127,12 +127,7 @@ export function Footer() {
             transition={{ duration: 0.6, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            <div className="flex items-center gap-2">
-              <img 
-                src="/logo.jpeg" 
-                alt="Anjal Ventures" 
-                className="h-5 w-5 object-contain"
-              />
+            <div>
               <span>
                 Built by{" "}
                 <a 
