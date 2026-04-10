@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Eye, EyeOff, Loader2, LogOut, Zap, Phone, Gift, CreditCard, X, ChevronLeft, ArrowUpRight } from "lucide-react";
+import { Copy, Check, Eye, EyeOff, Loader2, LogOut, Zap, Phone, Gift, CreditCard, X, ChevronLeft, ArrowUpRight, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 // ─── Google Fonts injected via style tag ──────────────────────────────────────
@@ -197,15 +197,17 @@ export default function DashboardPage() {
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
+  const [transactionCursor, setTransactionCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((data) => {
         if (data?.success && data?.data) setUser(data.data);
-        else router.replace("/app");
+        else router.push("/app/app/auth");
       })
-      .catch(() => router.replace("/app"))
+      .catch(() => router.push("/app/app/auth"))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -232,7 +234,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
-    router.replace("/app");
+    router.push("/app/app/auth");
   };
 
   const handleNetworkSelect = async (networkId: string) => {
@@ -288,6 +290,26 @@ export default function DashboardPage() {
         fetch("/api/auth/me").then((r) => r.json()).then((d) => d.success && setUser(d.data));
       } else { toast.error(data.error || "Purchase failed"); }
     } finally { setPurchasingAirtime(false); }
+  };
+
+  const loadMoreTransactions = async () => {
+    if (loadingMore || transactions.length < 5) return;
+    setLoadingMore(true);
+    try {
+      const url = transactionCursor 
+        ? `/api/transactions?limit=5&cursor=${transactionCursor}`
+        : "/api/transactions?limit=5";
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data?.success && data.data.transactions) {
+        setTransactions([...transactions, ...data.data.transactions]);
+        setTransactionCursor(data.data.nextCursor || null);
+      }
+    } catch {
+      toast.error("Error loading more transactions");
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   if (loading) {
@@ -429,8 +451,9 @@ export default function DashboardPage() {
           >
             <ActionTile icon={<Zap size={20} color={T.blue} />} label="Buy Data" sub="All networks" color={T.blue} dimColor={T.blueDim} onClick={() => setBuyDataOpen(true)} />
             <ActionTile icon={<Phone size={20} color={T.green} />} label="Buy Airtime" sub="All networks" color={T.green} dimColor={T.greenDim} onClick={() => setAirtimeOpen(true)} />
-            <ActionTile icon={<Gift size={20} color={T.amber} />} label="Rewards" sub="Earn points" color={T.amber} dimColor={T.amberDim} onClick={() => router.push("/app/dashboard/rewards")} />
-            <ActionTile icon={<CreditCard size={20} color={T.purple} />} label="History" sub="View transactions" color={T.purple} dimColor={T.purpleDim} onClick={() => router.push("/app/dashboard/transactions")} />
+            <ActionTile icon={<Gift size={20} color={T.amber} />} label="Rewards" sub="Earn points" color={T.amber} dimColor={T.amberDim} onClick={() => router.push("/app/app/dashboard/rewards")} />
+            <ActionTile icon={<CreditCard size={20} color={T.purple} />} label="History" sub="View transactions" color={T.purple} dimColor={T.purpleDim} onClick={() => router.push("/app/app/dashboard/transactions")} />
+            <ActionTile icon={<Settings size={20} color={T.gold} />} label="Settings" sub="Account & security" color={T.gold} dimColor={T.goldDim} onClick={() => router.push("/app/app/dashboard/settings")} />
           </motion.div>
 
           {/* ── Recent Transactions ── */}
@@ -443,7 +466,7 @@ export default function DashboardPage() {
             <div style={{ padding: "18px 20px 14px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 15, color: T.text, margin: 0 }}>Recent Activity</p>
               <button
-                onClick={() => router.push("/app/dashboard/transactions")}
+                onClick={() => router.push("/app/app/dashboard/transactions")}
                 style={{ fontFamily: T.font, fontWeight: 600, fontSize: 12, color: T.blue, background: "none", border: "none", cursor: "pointer" }}
               >
                 See all
@@ -455,7 +478,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div>
-                {transactions.slice(0, 5).map((tx, i) => (
+                {transactions.map((tx, i) => (
                   <motion.div
                     key={tx.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -463,7 +486,7 @@ export default function DashboardPage() {
                     transition={{ delay: 0.18 + i * 0.04 }}
                     style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "14px 20px", borderBottom: i < Math.min(transactions.length, 5) - 1 ? `1px solid ${T.border}` : "none",
+                      padding: "14px 20px", borderBottom: i < transactions.length - 1 ? `1px solid ${T.border}` : "none",
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -482,6 +505,21 @@ export default function DashboardPage() {
                     </p>
                   </motion.div>
                 ))}
+                {transactions.length >= 5 && (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={loadMoreTransactions}
+                    disabled={loadingMore}
+                    style={{
+                      width: "100%", padding: "14px 20px", background: "none", border: `1px dashed ${T.border}`,
+                      fontFamily: T.font, fontWeight: 600, fontSize: 13, color: T.blue, cursor: loadingMore ? "not-allowed" : "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                      opacity: loadingMore ? 0.5 : 1,
+                    }}
+                  >
+                    {loadingMore ? <><Loader2 size={14} className="animate-spin" /> Loading…</> : "Load More"}
+                  </motion.button>
+                )}
               </div>
             )}
           </motion.div>
