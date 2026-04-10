@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { verifyToken } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,11 +11,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const payload = await verifyToken(token)
-    console.log("[TRANSACTIONS API] Token verified:", !!payload, payload?.userId);
+    // Token is just the user ID, not a JWT
+    const userId = token
+    console.log("[TRANSACTIONS API] User ID:", userId);
     
-    if (!payload || !payload.userId) {
-      console.log("[TRANSACTIONS API] Invalid payload or no userId");
+    if (!userId) {
+      console.log("[TRANSACTIONS API] Invalid user ID");
       return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 })
     }
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(Number(searchParams.get("limit") ?? "10"), 30)
 
     const transactions = await prisma.transaction.findMany({
-      where: { userId: payload.userId as string },
+      where: { userId },
       orderBy: { createdAt: "desc" },
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

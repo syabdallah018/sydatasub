@@ -138,6 +138,148 @@ function ActionTile({ icon, label, sub, color, dimColor, onClick }: any) {
   );
 }
 
+function TransactionHistory() {
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/transactions")
+      .then(r => r.json())
+      .then(d => {
+        if (d?.success && d?.data) {
+          setTransactions(d.data);
+        }
+      })
+      .catch(e => console.error("Transaction fetch error:", e))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>Transaction History</h3>
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+          <Loader2 size={28} className="animate-spin" color={T.blue} />
+        </div>
+      ) : transactions.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 20px", background: T.surface, borderRadius: 16 }}>
+          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0 }}>No transactions yet</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {transactions.map((tx) => (
+            <motion.div key={tx.id} whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>{tx.type === "data" ? "Data Purchase" : tx.type === "airtime" ? "Airtime Purchase" : tx.description}</p>
+                <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>{tx.phone} • {new Date(tx.createdAt).toLocaleDateString()}</p>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ fontFamily: T.mono, fontWeight: 700, fontSize: 14, color: T.blue, margin: "0 0 4px" }}>-₦{tx.amount?.toLocaleString()}</p>
+                <span style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 6, background: tx.status === "success" ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)", color: tx.status === "success" ? T.green : "#ef4444", textTransform: "capitalize" }}>{tx.status}</span>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function RewardsTab() {
+  const [rewards, setRewards] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalPoints, setTotalPoints] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/rewards")
+      .then(r => r.json())
+      .then(d => {
+        if (d?.success && d?.data) {
+          setRewards(d.data);
+          setTotalPoints(d.data.reduce((sum: number, r: any) => sum + (r.points || 0), 0));
+        }
+      })
+      .catch(e => console.error("Rewards fetch error:", e))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>Rewards & Points</h3>
+      
+      <motion.div style={{ background: `linear-gradient(135deg, ${T.amber}20, rgba(245,158,11,0.1))`, borderRadius: 16, padding: "20px", border: `2px solid ${T.amber}30`, marginBottom: 20, textAlign: "center" }}>
+        <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 8px", fontWeight: 600, textTransform: "uppercase" }}>Total Points</p>
+        <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 32, color: T.amber, margin: 0 }}>{totalPoints.toLocaleString()}</p>
+      </motion.div>
+
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+          <Loader2 size={28} className="animate-spin" color={T.amber} />
+        </div>
+      ) : rewards.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "40px 20px", background: T.surface, borderRadius: 16 }}>
+          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0 }}>No rewards yet</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {rewards.map((reward) => (
+            <motion.div key={reward.id} whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>{reward.reason || "Purchase Reward"}</p>
+                <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>{new Date(reward.createdAt).toLocaleDateString()}</p>
+              </div>
+              <p style={{ fontFamily: T.mono, fontWeight: 700, fontSize: 14, color: T.amber, margin: 0 }}>+{reward.points}</p>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function SettingsTab() {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 20 }}>Account Settings</h3>
+      
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Profile</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>View and edit your profile</p>
+          </div>
+          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
+        </motion.div>
+
+        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Security</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Change PIN and password</p>
+          </div>
+          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
+        </motion.div>
+
+        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Notifications</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Manage alert preferences</p>
+          </div>
+          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
+        </motion.div>
+
+        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Help & Support</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Contact our support team</p>
+          </div>
+          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -160,6 +302,7 @@ export default function DashboardPage() {
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
+  const [activeTab, setActiveTab] = useState<"home" | "rewards" | "history" | "settings">("home");
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
@@ -314,13 +457,25 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
-            <ActionTile icon={<Zap size={22} color={T.blue} />} label="Buy Data" sub="All networks" color={T.blue} dimColor="rgba(37,99,235,0.12)" onClick={() => setBuyDataOpen(true)} />
-            <ActionTile icon={<Phone size={22} color={T.green} />} label="Buy Airtime" sub="All networks" color={T.green} dimColor="rgba(16,185,129,0.12)" onClick={() => setAirtimeOpen(true)} />
-            <ActionTile icon={<Gift size={22} color={T.amber} />} label="Rewards" sub="Earn points" color={T.amber} dimColor="rgba(245,158,11,0.12)" onClick={() => router.push("/app/dashboard/rewards")} />
-            <ActionTile icon={<CreditCard size={22} color={T.purple} />} label="History" sub="Transactions" color={T.purple} dimColor="rgba(139,92,246,0.12)" onClick={() => router.push("/app/dashboard/transactions")} />
-            <ActionTile icon={<Settings size={22} color={T.gold} />} label="Settings" sub="Account" color={T.gold} dimColor="rgba(251,191,36,0.12)" onClick={() => router.push("/app/dashboard/settings")} />
-          </motion.div>
+          {activeTab === "home" ? (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
+              <ActionTile icon={<Zap size={22} color={T.blue} />} label="Buy Data" sub="All networks" color={T.blue} dimColor="rgba(37,99,235,0.12)" onClick={() => setBuyDataOpen(true)} />
+              <ActionTile icon={<Phone size={22} color={T.green} />} label="Buy Airtime" sub="All networks" color={T.green} dimColor="rgba(16,185,129,0.12)" onClick={() => setAirtimeOpen(true)} />
+              <ActionTile icon={<Gift size={22} color={T.amber} />} label="Rewards" sub="Earn points" color={T.amber} dimColor="rgba(245,158,11,0.12)" onClick={() => setActiveTab("rewards")} />
+              <ActionTile icon={<CreditCard size={22} color={T.purple} />} label="History" sub="Transactions" color={T.purple} dimColor="rgba(139,92,246,0.12)" onClick={() => setActiveTab("history")} />
+              <ActionTile icon={<Settings size={22} color={T.gold} />} label="Settings" sub="Account" color={T.gold} dimColor="rgba(251,191,36,0.12)" onClick={() => setActiveTab("settings")} />
+            </motion.div>
+          ) : (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <button onClick={() => setActiveTab("home")} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, background: "none", border: "none", cursor: "pointer", marginBottom: 20, padding: 0 }}>
+                <ChevronLeft size={18} /> Back to Home
+              </button>
+
+              {activeTab === "history" && <TransactionHistory />}
+              {activeTab === "rewards" && <RewardsTab />}
+              {activeTab === "settings" && <SettingsTab />}
+            </motion.div>
+          )}
         </div>
 
         <BottomSheet open={buyDataOpen} onClose={() => { setBuyDataOpen(false); setBuyDataStep(1); setSelectedNetwork(null); setSelectedPlan(null); }} title="Buy Data" accentColor={T.blue}>
