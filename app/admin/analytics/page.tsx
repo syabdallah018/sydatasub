@@ -60,7 +60,14 @@ export default function AnalyticsPage() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const response = await fetch("/api/admin/analytics");
+        // Get admin password from sessionStorage
+        const adminPassword = sessionStorage.getItem("adminPassword");
+        
+        const response = await fetch("/api/admin/analytics", {
+          headers: {
+            "X-Admin-Password": adminPassword || "",
+          },
+        });
         if (!response.ok) {
           throw new Error("Failed to fetch analytics");
         }

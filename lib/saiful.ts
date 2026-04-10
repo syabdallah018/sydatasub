@@ -1,7 +1,7 @@
 import axios from "axios";
 
 interface SaifulPurchaseParams {
-  plan: string;
+  plan: number;  // Plan ID as integer
   mobileNumber: string;
   network: string;
   reference: string;
@@ -17,7 +17,6 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
   try {
     const { plan, mobileNumber, network, reference } = params;
 
-    // Saiful API endpoint and authentication
     const SAIFUL_API_URL = process.env.SAIFUL_API_URL || "https://app.saifulegendconnect.com/api";
     const SAIFUL_API_KEY = process.env.SAIFUL_API_KEY;
 
@@ -39,7 +38,7 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
     const response = await axios.post(
       `${SAIFUL_API_URL}/data/${reference}`,
       {
-        plan,
+        plan: plan,  // Send plan as integer ID, not string
         mobile_number: mobileNumber,
         network: networkId,
       },
@@ -48,21 +47,20 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
           "Authorization": `Bearer ${SAIFUL_API_KEY}`,
           "Content-Type": "application/json",
         },
-        timeout: 30000, // 30 seconds
+        timeout: 30000,
       }
     );
 
-    // Parse response - check for success in various formats
+    // Parse response - Saiful returns data nested under 'data' key
     const responseData = response.data?.data || response.data;
     
-    if (responseData && (responseData.status === "successful" || responseData.Status === "successful")) {
+    if (responseData && (responseData.Status === "successful" || responseData.status === "successful")) {
       return {
         success: true,
         message: responseData.description || "Data purchase successful",
         externalReference: responseData.ident,
       };
-    } else if (responseData?.status === "pending" || responseData?.Status === "pending") {
-      // Pending is acceptable
+    } else if (responseData?.Status === "pending" || responseData?.status === "pending") {
       return {
         success: true,
         message: responseData.description || "Data purchase pending",

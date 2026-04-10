@@ -34,9 +34,9 @@ export async function deliverGuestData(transaction: Transaction) {
       });
     } else {
       result = await saiful.purchaseData({
-        plan: plan.externalPlanId.toString(),
+        plan: plan.externalPlanId,
         mobileNumber: transaction.phone,
-        network: plan.externalNetworkId.toString(),
+        network: plan.network,
         reference: transaction.reference,
       });
     }

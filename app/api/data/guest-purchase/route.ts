@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         });
       } else if (plan.apiSource === "API_B") {
         apiResult = await purchaseFromSaiful({
-          plan: plan.name,
+          plan: plan.externalPlanId,
           mobileNumber: phone,
           network: plan.network,
           reference,

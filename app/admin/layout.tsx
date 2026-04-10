@@ -41,7 +41,9 @@ export default function AdminLayout({
 
       const data = await res.json();
       if (data.success) {
+        // Store password in sessionStorage for use in API headers
         sessionStorage.setItem("adminAuthenticated", "true");
+        sessionStorage.setItem("adminPassword", password);
         setAuthenticated(true);
         toast.success("Admin authenticated");
       } else {

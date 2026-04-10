@@ -38,21 +38,21 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
           "Authorization": `Bearer ${SMEPLUG_API_KEY}`,
           "Content-Type": "application/json",
         },
-        timeout: 30000, // 30 seconds
+        timeout: 30000,
       }
     );
 
-    // SMEPlug typically returns success/error in response
-    if (response.data && response.data.status === "success") {
+    // SMEPlug returns status as boolean (true/false)
+    if (response.data && response.data.status === true && response.data.data) {
       return {
         success: true,
-        message: response.data.message || "Data purchase successful",
-        externalReference: response.data.reference,
+        message: response.data.data.msg || "Data purchase successful",
+        externalReference: response.data.data.reference,
       };
     } else {
       return {
         success: false,
-        message: response.data?.message || "Data purchase failed",
+        message: response.data?.data?.msg || response.data?.message || "Data purchase failed",
       };
     }
   } catch (error: any) {

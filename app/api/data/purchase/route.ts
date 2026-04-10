@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
     let apiResult;
     try {
       if (plan.apiSource === "API_A") {
+        // Smeplug API
         apiResult = await purchaseFromSmeplug({
           externalNetworkId: plan.externalNetworkId,
           externalPlanId: plan.externalPlanId,
@@ -117,8 +118,9 @@ export async function POST(req: NextRequest) {
           reference,
         });
       } else if (plan.apiSource === "API_B") {
+        // Saiful API - pass externalPlanId as integer
         apiResult = await purchaseFromSaiful({
-          plan: plan.name,
+          plan: plan.externalPlanId,  // Send plan ID as integer
           mobileNumber: phone,
           network: plan.network,
           reference,

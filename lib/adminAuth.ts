@@ -17,7 +17,7 @@ export interface AdminUser {
  */
 export async function requireAdmin(req: NextRequest): Promise<AdminUser> {
   try {
-    // Check admin password header
+    // Check admin password header (passed from client)
     const adminPassword = req.headers.get("X-Admin-Password");
     const envAdminPassword = process.env.ADMIN_PASSWORD;
 
@@ -29,38 +29,12 @@ export async function requireAdmin(req: NextRequest): Promise<AdminUser> {
       throw new Error("Unauthorized: Invalid or missing admin password");
     }
 
-    const jwtPayload = await getSessionUser(req);
-
-    if (!jwtPayload) {
-      throw new Error("Unauthorized: No valid session");
-    }
-
-    if (jwtPayload.role !== "ADMIN") {
-      throw new Error("Forbidden: Admin role required");
-    }
-
-    // Fetch full admin user details from database
-    const adminUser = await prisma.user.findUnique({
-      where: { id: jwtPayload.userId },
-      select: {
-        id: true,
-        fullName: true,
-        phone: true,
-        email: true,
-        role: true,
-      },
-    });
-
-    if (!adminUser || adminUser.role !== "ADMIN") {
-      throw new Error("Forbidden: User is no longer an admin");
-    }
-
+    // For now, return a generic admin user (no JWT validation needed)
+    // Admin is authenticated via password header only
     return {
-      userId: adminUser.id,
-      email: adminUser.email || "",
+      userId: "admin",
+      email: "admin@sydatasub.com",
       role: "ADMIN",
-      fullName: adminUser.fullName,
-      phone: adminUser.phone,
     };
   } catch (error: any) {
     console.error("[REQUIRE ADMIN ERROR]", error.message);

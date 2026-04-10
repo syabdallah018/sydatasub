@@ -54,7 +54,10 @@ export default function PlansPage() {
 
   const fetchPlans = async () => {
     try {
-      const response = await fetch("/api/admin/plans");
+      const adminPassword = sessionStorage.getItem("adminPassword");
+      const response = await fetch("/api/admin/plans", {
+        headers: { "X-Admin-Password": adminPassword || "" }
+      });
       if (!response.ok) throw new Error("Failed to fetch plans");
       const data = await response.json();
       setPlans(data);
@@ -73,9 +76,10 @@ export default function PlansPage() {
         ? `/api/admin/plans/${editingId}`
         : "/api/admin/plans";
 
+      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
         body: JSON.stringify(formData),
       });
 
@@ -117,8 +121,10 @@ export default function PlansPage() {
   const handleDelete = async (planId: string) => {
     if (!confirm("Are you sure you want to delete this plan?")) return;
     try {
+      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/plans/${planId}`, {
         method: "DELETE",
+        headers: { "X-Admin-Password": adminPassword || "" }
       });
       if (!response.ok) throw new Error("Failed to delete plan");
       await fetchPlans();
@@ -129,9 +135,10 @@ export default function PlansPage() {
 
   const handleToggleActive = async (plan: Plan) => {
     try {
+      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/plans/${plan.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
         body: JSON.stringify({ isActive: !plan.isActive }),
       });
       if (!response.ok) throw new Error("Failed to toggle plan");

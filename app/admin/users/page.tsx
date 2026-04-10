@@ -65,7 +65,10 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/admin/users");
+      const adminPassword = sessionStorage.getItem("adminPassword");
+      const response = await fetch("/api/admin/users", {
+        headers: { "X-Admin-Password": adminPassword || "" }
+      });
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
       setUsers(data);
@@ -78,7 +81,10 @@ export default function UsersPage() {
 
   const fetchUserDetails = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`);
+      const adminPassword = sessionStorage.getItem("adminPassword");
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        headers: { "X-Admin-Password": adminPassword || "" }
+      });
       if (!response.ok) throw new Error("Failed to fetch user details");
       const data = await response.json();
       setSelectedUser(data);
@@ -91,9 +97,10 @@ export default function UsersPage() {
   const handleBalanceAction = async (action: "ADD" | "DEDUCT", amount: number) => {
     if (!selectedUser || amount <= 0) return;
     try {
+      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${selectedUser.id}/balance`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
         body: JSON.stringify({ action, amount }),
       });
       if (!response.ok) throw new Error("Failed to update balance");
@@ -106,9 +113,10 @@ export default function UsersPage() {
 
   const handleUserAction = async (userId: string, role?: string, banned?: boolean) => {
     try {
+      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
         body: JSON.stringify({
           ...(role && { role }),
           ...(banned !== undefined && { isBanned: banned }),
@@ -127,8 +135,10 @@ export default function UsersPage() {
   const handleResetPin = async (userId: string) => {
     if (!confirm("Reset PIN to 000000?")) return;
     try {
+      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${userId}/reset-pin`, {
         method: "POST",
+        headers: { "X-Admin-Password": adminPassword || "" }
       });
       if (!response.ok) throw new Error("Failed to reset PIN");
       await fetchUserDetails(userId);
