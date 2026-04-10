@@ -32,27 +32,17 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
     const secret = process.env.FLUTTERWAVE_WEBHOOK_SECRET || "";
 
-    console.log("[WEBHOOK] New request received at", new Date().toISOString());
-    console.log("[WEBHOOK] Has signature:", !!signature);
+    console.log("[WEBHOOK] Request received at", new Date().toISOString());
     console.log("[WEBHOOK] Secret configured:", !!secret);
 
-    // If no secret configured, log and skip verification
+    // Raw secret comparison - no hashing
     if (!secret) {
       console.warn("[WEBHOOK] ⚠️  FLUTTERWAVE_WEBHOOK_SECRET not configured. Accepting all webhooks.");
-    } else if (!signature) {
-      console.warn("[WEBHOOK] ⚠️  No verif-hash header received. Accepting webhook anyway.");
+    } else if (signature !== secret) {
+      console.warn("[WEBHOOK] ⚠️  Secret mismatch - rejecting webhook");
+      return NextResponse.json({ received: true }, { status: 200 });
     } else {
-      // Compute HMAC-SHA256 signature
-      const hash = crypto
-        .createHmac("sha256", secret)
-        .update(body)
-        .digest("base64");
-      
-      console.log("[WEBHOOK] Signature match:", hash === signature);
-      
-      if (hash !== signature) {
-        console.warn("[WEBHOOK] ⚠️  Signature mismatch - accepting anyway for debugging");
-      }
+      console.log("[WEBHOOK] ✅ Secret verified successfully");
     }
 
     // Parse body
@@ -270,16 +260,35 @@ export async function POST(req: NextRequest) {
 
         // Credit balance in kobo (amount is in naira)
         const amountInKobo = eventData.amount * 100;
+        let bonusCredit = 0;
+        let newTier = user.tier;
+
+        // Apply deposit bonuses
+        if (eventData.amount >= 10000) {
+          // 10k+ deposit: 300 naira + upgrade to agent
+          bonusCredit = 30000; // 300 naira in kobo
+          newTier = "agent";
+          console.log("[WEBHOOK WALLET] 🚀 Agent tier upgrade triggered for deposit >= 10k");
+        } else if (eventData.amount >= 2000) {
+          // 2k-10k deposit: 200 naira
+          bonusCredit = 20000; // 200 naira in kobo
+          console.log("[WEBHOOK WALLET] 🎁 Deposit bonus 200 naira triggered for deposit >= 2k");
+        }
+
+        const totalCredit = amountInKobo + bonusCredit;
         console.log("[WEBHOOK WALLET] Crediting balance in kobo:", {
           amountInKobo,
+          bonusCredit,
+          totalCredit,
           currentBalance: user.balance,
-          newBalance: user.balance + amountInKobo,
+          newBalance: user.balance + totalCredit,
         });
 
         const updatedUser = await tx.user.update({
           where: { id: transaction.userId || "" },
           data: {
-            balance: { increment: amountInKobo },
+            balance: { increment: totalCredit },
+            tier: newTier,
           },
         });
 
@@ -287,7 +296,9 @@ export async function POST(req: NextRequest) {
           userId: transaction.userId,
           oldBalance: user.balance,
           amountAdded: amountInKobo,
+          bonusCredit,
           newBalance: updatedUser.balance,
+          newTier: updatedUser.tier,
         });
 
         // Update transaction to SUCCESS

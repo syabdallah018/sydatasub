@@ -5,7 +5,6 @@ import '@fontsource/inter/700.css';
 import type { Metadata } from "next";
 import { Providers } from "@/components/providers";
 import AppLayoutClient from "./layout-client";
-import { SplashScreenWrapper } from "@/components/app/splash";
 
 export const metadata: Metadata = {
   title: "SY DATA SUB - Dashboard",
@@ -21,9 +20,7 @@ export default function AppLayout({
 }) {
   return (
     <Providers>
-      <SplashScreenWrapper>
-        <AppLayoutClient>{children}</AppLayoutClient>
-      </SplashScreenWrapper>
+      <AppLayoutClient>{children}</AppLayoutClient>
     </Providers>
   );
 }

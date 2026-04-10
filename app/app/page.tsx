@@ -189,28 +189,54 @@ function RewardsTab() {
   const [rewards, setRewards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [userTier, setUserTier] = useState("user");
 
   useEffect(() => {
-    fetch("/api/rewards")
-      .then(r => r.json())
-      .then(d => {
-        if (d?.success && d?.data) {
-          setRewards(d.data);
-          setTotalPoints(d.data.reduce((sum: number, r: any) => sum + (r.points || 0), 0));
-        }
-      })
-      .catch(e => console.error("Rewards fetch error:", e))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/rewards").then(r => r.json()),
+      fetch("/api/auth/me").then(r => r.json())
+    ])
+    .then(([rewardsData, userData]) => {
+      if (rewardsData?.success && rewardsData?.data) {
+        setRewards(rewardsData.data);
+        setTotalPoints(rewardsData.data.reduce((sum: number, r: any) => sum + (r.points || 0), 0));
+      }
+      if (userData?.success && userData?.data) {
+        setUserTier(userData.data.tier);
+      }
+    })
+    .catch(e => console.error("Error fetching data:", e))
+    .finally(() => setLoading(false));
   }, []);
+
+  const getTierInfo = () => {
+    if (userTier === "agent") return { name: "Agent", color: T.purple, icon: "🚀" };
+    return { name: "User", color: T.amber, icon: "⭐" };
+  };
+  const tierInfo = getTierInfo();
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
       <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>Rewards & Points</h3>
       
-      <motion.div style={{ background: `linear-gradient(135deg, ${T.amber}20, rgba(245,158,11,0.1))`, borderRadius: 16, padding: "20px", border: `2px solid ${T.amber}30`, marginBottom: 20, textAlign: "center" }}>
-        <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 8px", fontWeight: 600, textTransform: "uppercase" }}>Total Points</p>
-        <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 32, color: T.amber, margin: 0 }}>{totalPoints.toLocaleString()}</p>
+      <motion.div style={{ background: `linear-gradient(135deg, ${tierInfo.color}20, rgba(139,92,246,0.1))`, borderRadius: 16, padding: "24px", border: `2px solid ${tierInfo.color}30`, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 8px", fontWeight: 600, textTransform: "uppercase" }}>Current Tier</p>
+          <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: tierInfo.color, margin: "0 0 4px" }}>{tierInfo.icon} {tierInfo.name}</p>
+          <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>Unlock benefits and earn more</p>
+        </div>
+        <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 40, color: T.amber, margin: 0 }}>{totalPoints.toLocaleString()}</p>
       </motion.div>
+
+      <div style={{ marginBottom: 20 }}>
+        <h4 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 12px" }}>Tier Benefits</h4>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <BenefitCard icon="💰" title="Lower Rates" subtitle="Agent pricing" />
+          <BenefitCard icon="🎁" title="Bonus Credits" subtitle="Extra rewards" />
+          <BenefitCard icon="⚡" title="Priority Support" subtitle="24/7 help" />
+          <BenefitCard icon="📊" title="Analytics" subtitle="Track spending" />
+        </div>
+      </div>
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
@@ -237,44 +263,140 @@ function RewardsTab() {
   );
 }
 
+function BenefitCard({ icon, title, subtitle }: any) {
+  return (
+    <motion.div whileHover={{ scale: 1.05 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s" }}>
+      <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
+      <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.text, margin: "0 0 4px" }}>{title}</p>
+      <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>{subtitle}</p>
+    </motion.div>
+  );
+}
+
 function SettingsTab() {
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
       <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 20 }}>Account Settings</h3>
       
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setProfileOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
           <div>
             <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Profile</p>
             <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>View and edit your profile</p>
           </div>
           <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.div>
+        </motion.button>
 
-        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setSecurityOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
           <div>
             <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Security</p>
             <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Change PIN and password</p>
           </div>
           <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.div>
+        </motion.button>
 
-        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setNotificationsOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
           <div>
             <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Notifications</p>
             <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Manage alert preferences</p>
           </div>
           <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.div>
+        </motion.button>
 
-        <motion.div whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setHelpOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
           <div>
             <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Help & Support</p>
             <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Contact our support team</p>
           </div>
           <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.div>
+        </motion.button>
       </div>
+
+      <SettingModal open={profileOpen} onClose={() => setProfileOpen(false)} title="Profile" onSave={() => setProfileOpen(false)}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>Full Name</label>
+            <input type="text" placeholder="Enter your full name" style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>Email</label>
+            <input type="email" placeholder="Enter your email" style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
+          </div>
+        </div>
+      </SettingModal>
+
+      <SettingModal open={securityOpen} onClose={() => setSecurityOpen(false)} title="Security" onSave={() => setSecurityOpen(false)}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>Current PIN</label>
+            <input type="password" placeholder="Enter current PIN" maxLength={6} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>New PIN</label>
+            <input type="password" placeholder="Enter new PIN" maxLength={6} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
+          </div>
+        </div>
+      </SettingModal>
+
+      <SettingModal open={notificationsOpen} onClose={() => setNotificationsOpen(false)} title="Notifications" onSave={() => setNotificationsOpen(false)}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px", borderRadius: 12, background: T.surface }}>  
+            <input type="checkbox" defaultChecked style={{ width: 18, height: 18, cursor: "pointer" }} />
+            <span style={{ fontFamily: T.font, fontSize: 13, color: T.text, fontWeight: 500 }}>Transaction updates</span>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px", borderRadius: 12, background: T.surface }}>
+            <input type="checkbox" defaultChecked style={{ width: 18, height: 18, cursor: "pointer" }} />
+            <span style={{ fontFamily: T.font, fontSize: 13, color: T.text, fontWeight: 500 }}>Reward notifications</span>
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px", borderRadius: 12, background: T.surface }}>
+            <input type="checkbox" defaultChecked style={{ width: 18, height: 18, cursor: "pointer" }} />
+            <span style={{ fontFamily: T.font, fontSize: 13, color: T.text, fontWeight: 500 }}>Promotional offers</span>
+          </label>
+        </div>
+      </SettingModal>
+
+      <SettingModal open={helpOpen} onClose={() => setHelpOpen(false)} title="Help & Support" showSaveButton={false}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14 }}>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.blue, margin: "0 0 6px" }}>Email Support</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>support@sydatasub.local</p>
+          </div>
+          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14 }}>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.blue, margin: "0 0 6px" }}>Call Us</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>+234 (0) 800 123 4567</p>
+          </div>
+          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14 }}>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.blue, margin: "0 0 6px" }}>WhatsApp</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>Chat with us on WhatsApp</p>
+          </div>
+        </div>
+      </SettingModal>
+    </motion.div>
+  );
+}
+
+function SettingModal({ open, onClose, title, children, showSaveButton = true, onSave }: any) {
+  return (
+    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
+      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}` }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={16} color={T.textMid} />
+          </button>
+        </div>
+        <div style={{ marginBottom: 20 }}>{children}</div>
+        {showSaveButton && (
+          <motion.button whileTap={{ scale: 0.95 }} onClick={onSave} style={{ width: "100%", padding: 14, borderRadius: 12, background: T.blue, border: "none", color: "#fff", fontFamily: T.font, fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: T.blueShadow, transition: "all 0.2s" }}>
+            Save Changes
+          </motion.button>
+        )}
+      </motion.div>
     </motion.div>
   );
 }
