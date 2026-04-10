@@ -121,12 +121,30 @@ export function Footer() {
         {/* Divider */}
         <div className="border-t border-slate-800 pt-8">
           <motion.div
-            className="flex flex-col md:flex-row justify-between items-center text-slate-400 text-sm"
+            className="flex flex-col md:flex-row justify-between items-center text-slate-400 text-sm gap-4"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
             viewport={{ once: true }}
           >
+            <div className="flex items-center gap-2">
+              <img 
+                src="/logo.jpeg" 
+                alt="Anjal Ventures" 
+                className="h-5 w-5 object-contain"
+              />
+              <span>
+                Built by{" "}
+                <a 
+                  href="https://www.anjalventures.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="hover:text-teal-400 transition-colors font-semibold"
+                >
+                  Anjal Ventures
+                </a>
+              </span>
+            </div>
             <p>
               © {currentYear} SY DATA SUB. All rights reserved.
             </p>
