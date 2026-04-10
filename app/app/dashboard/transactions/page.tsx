@@ -95,7 +95,7 @@ export default function TransactionsPage() {
       {/* Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 z-10">
         <div className="flex items-center gap-4">
-          <Link href="/app/dashboard">
+          <Link href="/app">
             <Button variant="ghost" size="icon" className="rounded-full">
               <ChevronLeft className="w-6 h-6" />
             </Button>
