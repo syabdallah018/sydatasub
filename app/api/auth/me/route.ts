@@ -1,26 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { verifyToken } from "@/lib/auth"
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get("sy_session")?.value
-    if (!token) {
+    const userId = req.cookies.get("sy_session")?.value
+    if (!userId) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
-    const payload = await verifyToken(token)
-    if (!payload || !payload.userId) {
-      return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 })
-    }
-
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId as string },
+      where: { id: userId },
       select: {
         id: true,
         fullName: true,
         phone: true,
         role: true,
+        tier: true,
         balance: true,
         isBanned: true,
         isActive: true,

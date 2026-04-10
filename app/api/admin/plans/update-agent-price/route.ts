@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { verifyAdminToken } from "@/lib/auth";
 import { z } from "zod";
 
 const updateAgentPricesSchema = z.object({
@@ -14,19 +13,11 @@ const bulkUpdateSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify admin token
-    const token = req.cookies.get("sy_session")?.value;
-    if (!token) {
+    // Verify admin password from header
+    const adminPassword = req.headers.get("X-Admin-Password");
+    if (!adminPassword || adminPassword !== process.env.ADMIN_PASSWORD) {
       return NextResponse.json(
-        { error: "Unauthorized - no token" },
-        { status: 401 }
-      );
-    }
-
-    const admin = await verifyAdminToken(token);
-    if (!admin) {
-      return NextResponse.json(
-        { error: "Unauthorized - not admin" },
+        { error: "Unauthorized" },
         { status: 403 }
       );
     }

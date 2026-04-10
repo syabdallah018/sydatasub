@@ -6,16 +6,18 @@ import { motion } from 'framer-motion';
 
 export function SplashScreenWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [showSplash, setShowSplash] = useState(pathname === '/app');
+  const [showSplash, setShowSplash] = useState(false);
 
   useEffect(() => {
-    // Only show splash if we're exactly at /app
+    // Only show splash on first visit to /app, never again in session
     if (pathname === '/app') {
-      setShowSplash(true);
-      const timer = setTimeout(() => setShowSplash(false), 2000);
-      return () => clearTimeout(timer);
-    } else {
-      setShowSplash(false);
+      const splashShown = sessionStorage.getItem('splashShown');
+      if (!splashShown) {
+        setShowSplash(true);
+        sessionStorage.setItem('splashShown', 'true');
+        const timer = setTimeout(() => setShowSplash(false), 2000);
+        return () => clearTimeout(timer);
+      }
     }
   }, [pathname]);
 

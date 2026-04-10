@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { signToken } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
+import { signToken } from "@/lib/auth";
 
 const loginSchema = z.object({
   phone: z.string().regex(/^0[0-9]{10}$/, "Invalid phone number"),
   pin: z.string().regex(/^\d{6}$/, "Invalid PIN"),
 });
-
-// Smart login - save phone number to localStorage on client side
-// This endpoint returns user data for authenticated requests
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,12 +73,13 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
 
-    // Set httpOnly cookie
-    response.cookies.set("sy_session", token, {
+    // Set simple session cookie with userId (no JWT)
+    response.cookies.set("sy_session", user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: "/",
     });
 
     return response;

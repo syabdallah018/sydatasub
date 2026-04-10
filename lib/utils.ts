@@ -68,3 +68,16 @@ export function getNetworkFromPhone(phone: string): string {
 
   return networkMap[firstDigits] || "UNKNOWN";
 }
+
+/**
+ * Get the correct price based on user tier
+ * @param plan - Plan object with user_price and agent_price fields
+ * @param tier - User tier: 'user' or 'agent'
+ * @returns The appropriate price in naira
+ */
+export function getPriceForTier(plan: any, tier: string = 'user'): number {
+  if (tier === 'agent' && plan.agent_price > 0) {
+    return plan.agent_price;
+  }
+  return plan.user_price > 0 ? plan.user_price : plan.price;
+}

@@ -4,6 +4,17 @@ import { prisma } from "@/lib/db";
 import { deliverGuestData } from "@/lib/data-delivery";
 import { checkAndAwardRewards } from "@/lib/rewards";
 
+// Handle CORS preflight requests
+export async function OPTIONS(req: NextRequest) {
+  return NextResponse.json({}, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, verif-hash',
+    },
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 1. Verify webhook signature
