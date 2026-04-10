@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
         phone,
         pinHash,
         role: "USER",
+        tier: "user",
         balance: 0,
         isBanned: false,
       },
