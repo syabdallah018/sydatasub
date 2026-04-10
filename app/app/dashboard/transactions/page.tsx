@@ -174,7 +174,9 @@ export default function TransactionsPage() {
                     </span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-3 font-mono">Ref: {tx.reference.slice(0, 16)}...</p>
+                {tx.reference && (
+                  <p className="text-xs text-gray-500 mt-3 font-mono">Ref: {tx.reference.slice(0, 16)}...</p>
+                )}
               </div>
             ))}
           </div>

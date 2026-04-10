@@ -28,17 +28,17 @@ export function AppButton({
   ...props
 }: AppButtonProps) {
   const baseClasses =
-    "font-semibold rounded-md transition-all duration-200 flex items-center justify-center gap-2";
+    "font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2";
 
   const variantClasses = {
     primary:
-      "bg-gradient-brand text-white shadow-button hover:shadow-brand-glow active:scale-95",
+      "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg hover:shadow-xl active:scale-95",
     secondary:
-      "bg-card-elevated border border-border-primary text-text-primary hover:border-brand active:scale-95",
+      "bg-white border-2 border-gray-200 text-gray-900 hover:border-gray-300 hover:bg-gray-50 active:scale-95",
     danger:
-      "bg-error/10 border border-error text-error hover:bg-error/20 active:scale-95",
+      "bg-red-100 border-2 border-red-200 text-red-700 hover:bg-red-200 active:scale-95",
     ghost:
-      "bg-transparent text-text-primary hover:bg-card-elevated active:scale-95",
+      "bg-transparent text-gray-900 hover:bg-gray-50 active:scale-95",
   };
 
   const sizeClasses = {
@@ -63,7 +63,7 @@ export function AppButton({
         ${className}
       `}
       whileTap={!disabled && !isLoading ? { scale: 0.97 } : {}}
-      whileHover={!disabled && !isLoading ? { y: -1 } : {}}
+      whileHover={!disabled && !isLoading ? { y: -2 } : {}}
       {...(props as any)}
     >
       {isLoading ? (

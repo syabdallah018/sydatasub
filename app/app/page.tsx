@@ -15,27 +15,44 @@ export default function AppPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <img 
-            src="/logo.jpeg" 
-            alt="SY DATA" 
-            className="h-16 w-16 object-contain mx-auto mb-4"
-          />
-          <h1 className="text-2xl font-bold text-black mb-2">
+    <div className="min-h-screen bg-gradient-to-br from-white via-white to-gray-50/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Premium Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-10"
+        >
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg">
+              <img
+                src="/logo.jpeg"
+                alt="SY DATA"
+                className="h-12 w-12 object-contain"
+              />
+            </div>
+          </div>
+          <h1 className="text-4xl font-black text-gray-900 mb-3 tracking-tight">
             SY DATA SUB
           </h1>
-          <p className="text-gray-600 text-sm">
-            Fast, reliable, affordable data
+          <p className="text-gray-600 text-base font-medium">
+            Premium data & airtime in seconds
           </p>
-        </div>
+        </motion.div>
 
+        {/* Premium Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-lg p-1 mb-6">
-            <TabsTrigger value="login" className="rounded-md data-[state=active]:bg-black data-[state=active]:text-white data-[state=inactive]:text-gray-700 data-[state=inactive]:bg-transparent">Login</TabsTrigger>
-            <TabsTrigger value="signup" className="rounded-md data-[state=active]:bg-black data-[state=active]:text-white data-[state=inactive]:text-gray-700 data-[state=inactive]:bg-transparent">Sign Up</TabsTrigger>
-            <TabsTrigger value="guest" className="rounded-md data-[state=active]:bg-black data-[state=active]:text-white data-[state=inactive]:text-gray-700 data-[state=inactive]:bg-transparent text-xs">Guest</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 bg-gray-100 rounded-xl p-1.5 mb-8">
+            <TabsTrigger value="login" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-md data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent transition">
+              Login
+            </TabsTrigger>
+            <TabsTrigger value="signup" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-md data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent transition">
+              Sign Up
+            </TabsTrigger>
+            <TabsTrigger value="guest" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-md data-[state=inactive]:text-gray-600 data-[state=inactive]:bg-transparent transition text-xs">
+              Guest
+            </TabsTrigger>
           </TabsList>
 
           <AnimatePresence mode="wait">
@@ -62,11 +79,12 @@ function LoginTab({ setActiveTab, setUser, router }: { setActiveTab: (tab: strin
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePinChange = (index: number, value: string) => {
-    if (value.length > 1) return;
+    const digitOnly = value.replace(/[^0-9]/g, '');
+    if (digitOnly.length > 1) return;
     const newPin = [...pin];
-    newPin[index] = value;
+    newPin[index] = digitOnly;
     setPin(newPin);
-    if (value && index < 5) {
+    if (digitOnly && index < 5) {
       document.getElementById(`pin-${index + 1}`)?.focus();
     }
   };
@@ -105,24 +123,61 @@ function LoginTab({ setActiveTab, setUser, router }: { setActiveTab: (tab: strin
   };
 
   return (
-    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-5"
+    >
       <div>
-        <Label htmlFor="phone" className="text-sm font-medium text-black">Phone Number</Label>
-        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
+        <Label htmlFor="phone" className="text-sm font-semibold text-gray-900 block mb-2">
+          Phone Number
+        </Label>
+        <Input
+          id="phone"
+          type="tel"
+          placeholder="08012345678"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
+        />
       </div>
+
       <div>
-        <Label className="text-sm font-medium text-black">PIN</Label>
-        <div className="flex gap-2 mt-2">
+        <Label className="text-sm font-semibold text-gray-900 block mb-3">PIN</Label>
+        <div className="flex gap-2.5">
           {pin.map((digit, index) => (
-            <input key={index} id={`pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(index, e.target.value)} onKeyDown={(e) => handlePinKeyDown(index, e)} className="w-10 h-10 text-center bg-gray-50 border-gray-300 rounded text-black focus:border-black focus:ring-0" />
+            <input
+              key={index}
+              id={`pin-${index}`}
+              type="password"
+              inputMode="numeric"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handlePinChange(index, e.target.value)}
+              onKeyDown={(e) => handlePinKeyDown(index, e)}
+              className="flex-1 aspect-square text-center bg-gray-50 border-2 border-gray-200 rounded-xl text-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-blue-500 transition"
+            />
           ))}
         </div>
       </div>
-      <Button onClick={handleLogin} disabled={isLoading} className="w-full bg-black hover:bg-gray-900 text-white font-medium rounded-lg mt-6">
+
+      <button
+        onClick={handleLogin}
+        disabled={isLoading}
+        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white font-bold rounded-xl mt-8 py-3.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+      >
         {isLoading ? "Logging in..." : "Login"}
-      </Button>
+      </button>
+
       <div className="text-center pt-2">
-        <button onClick={() => setActiveTab("signup")} className="text-sm text-gray-600 hover:text-black font-medium">Don't have an account? Sign up</button>
+        <button
+          onClick={() => setActiveTab("signup")}
+          className="text-sm text-gray-600 hover:text-gray-900 font-medium transition"
+        >
+          Don't have an account? <span className="text-blue-600 font-semibold">Sign up</span>
+        </button>
       </div>
     </motion.div>
   );
@@ -137,21 +192,23 @@ function SignupTab({ setUser, router }: { setUser: (user: any) => void; router: 
   const [isLoading, setIsLoading] = useState(false);
 
   const handlePinChange = (index: number, value: string) => {
-    if (value.length > 1) return;
+    const digitOnly = value.replace(/[^0-9]/g, '');
+    if (digitOnly.length > 1) return;
     const newPin = [...pin];
-    newPin[index] = value;
+    newPin[index] = digitOnly;
     setPin(newPin);
-    if (value && index < 5) {
+    if (digitOnly && index < 5) {
       document.getElementById(`signup-pin-${index + 1}`)?.focus();
     }
   };
 
   const handleConfirmPinChange = (index: number, value: string) => {
-    if (value.length > 1) return;
+    const digitOnly = value.replace(/[^0-9]/g, '');
+    if (digitOnly.length > 1) return;
     const newPin = [...confirmPin];
-    newPin[index] = value;
+    newPin[index] = digitOnly;
     setConfirmPin(newPin);
-    if (value && index < 5) {
+    if (digitOnly && index < 5) {
       document.getElementById(`confirm-pin-${index + 1}`)?.focus();
     }
   };
@@ -188,38 +245,97 @@ function SignupTab({ setUser, router }: { setUser: (user: any) => void; router: 
   };
 
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto"
+    >
       <div>
-        <Label htmlFor="name" className="text-sm font-medium text-black">Full Name</Label>
-        <Input id="name" type="text" placeholder="Enter your name" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
+        <Label htmlFor="name" className="text-sm font-semibold text-gray-900 block mb-2">
+          Full Name
+        </Label>
+        <Input
+          id="name"
+          type="text"
+          placeholder="John Doe"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
+        />
       </div>
+
       <div>
-        <Label htmlFor="phone" className="text-sm font-medium text-black">Phone Number</Label>
-        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
+        <Label htmlFor="phone" className="text-sm font-semibold text-gray-900 block mb-2">
+          Phone Number
+        </Label>
+        <Input
+          id="phone"
+          type="tel"
+          placeholder="08012345678"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
+        />
       </div>
+
       <div>
-        <Label className="text-sm font-medium text-black">PIN</Label>
-        <div className="flex gap-2 mt-2">
+        <Label className="text-sm font-semibold text-gray-900 block mb-3">PIN</Label>
+        <div className="flex gap-2.5">
           {pin.map((digit, index) => (
-            <input key={index} id={`signup-pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handlePinChange(index, e.target.value)} className="w-10 h-10 text-center bg-gray-50 border-gray-300 rounded text-black focus:border-black focus:ring-0" />
+            <input
+              key={index}
+              id={`signup-pin-${index}`}
+              type="password"
+              inputMode="numeric"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handlePinChange(index, e.target.value)}
+              className="flex-1 aspect-square text-center bg-gray-50 border-2 border-gray-200 rounded-xl text-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-blue-500 transition"
+            />
           ))}
         </div>
       </div>
+
       <div>
-        <Label className="text-sm font-medium text-black">Confirm PIN</Label>
-        <div className="flex gap-2 mt-2">
+        <Label className="text-sm font-semibold text-gray-900 block mb-3">Confirm PIN</Label>
+        <div className="flex gap-2.5">
           {confirmPin.map((digit, index) => (
-            <input key={index} id={`confirm-pin-${index}`} type="password" maxLength={1} value={digit} onChange={(e) => handleConfirmPinChange(index, e.target.value)} className="w-10 h-10 text-center bg-gray-50 border-gray-300 rounded text-black focus:border-black focus:ring-0" />
+            <input
+              key={index}
+              id={`confirm-pin-${index}`}
+              type="password"
+              inputMode="numeric"
+              maxLength={1}
+              value={digit}
+              onChange={(e) => handleConfirmPinChange(index, e.target.value)}
+              className="flex-1 aspect-square text-center bg-gray-50 border-2 border-gray-200 rounded-xl text-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-blue-500 transition"
+            />
           ))}
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <input type="checkbox" id="terms" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="w-4 h-4 rounded border-gray-300 accent-black" />
-        <Label htmlFor="terms" className="text-xs text-gray-600">I accept the terms and conditions</Label>
+
+      <div className="flex items-start gap-3 pt-2">
+        <input
+          type="checkbox"
+          id="terms"
+          checked={acceptTerms}
+          onChange={(e) => setAcceptTerms(e.target.checked)}
+          className="w-5 h-5 rounded border-gray-300 accent-blue-600 mt-0.5"
+        />
+        <Label htmlFor="terms" className="text-xs text-gray-600 font-medium leading-tight">
+          I agree to the terms and conditions
+        </Label>
       </div>
-      <Button onClick={handleSignup} disabled={isLoading} className="w-full bg-black hover:bg-gray-900 text-white font-medium rounded-lg mt-6">
+
+      <button
+        onClick={handleSignup}
+        disabled={isLoading}
+        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white font-bold rounded-xl mt-8 py-3.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+      >
         {isLoading ? "Creating..." : "Create Account"}
-      </Button>
+      </button>
     </motion.div>
   );
 }
@@ -234,17 +350,14 @@ function GuestTab() {
       toast.error("Please enter phone number");
       return;
     }
-    // Validate phone format
     if (!/^0[0-9]{10}$/.test(phone)) {
       toast.error("Phone number must be 11 digits starting with 0");
       return;
     }
     setIsLoading(true);
     try {
-      // Store guest phone in localStorage for checkout flow
       localStorage.setItem("guestPhone", phone);
       localStorage.setItem("isGuest", "true");
-      // Navigate to checkout/data selection page
       router.push("/app/checkout?guest=true&phone=" + encodeURIComponent(phone));
     } catch (error) {
       toast.error("Navigation error");
@@ -254,17 +367,43 @@ function GuestTab() {
   };
 
   return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-      <div>
-        <Label htmlFor="phone" className="text-sm font-medium text-black">Phone Number</Label>
-        <Input id="phone" type="tel" placeholder="08XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 bg-gray-50 border-gray-300 text-black focus:border-black focus:ring-0" />
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      transition={{ duration: 0.3 }}
+      className="space-y-5"
+    >
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <p className="text-sm text-blue-900 font-medium">
+          👤 No account needed
+        </p>
+        <p className="text-xs text-blue-700 mt-2">
+          Buy data instantly without creating an account
+        </p>
       </div>
-      <p className="text-xs text-gray-600 py-2">
-        Buy data without creating an account. Fast and simple.
-      </p>
-      <Button onClick={handleGuestPurchase} disabled={isLoading} className="w-full bg-black hover:bg-gray-900 text-white font-medium rounded-lg mt-6">
+
+      <div>
+        <Label htmlFor="phone" className="text-sm font-semibold text-gray-900 block mb-2">
+          Phone Number
+        </Label>
+        <Input
+          id="phone"
+          type="tel"
+          placeholder="08012345678"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-blue-500 rounded-xl py-3 font-semibold"
+        />
+      </div>
+
+      <button
+        onClick={handleGuestPurchase}
+        disabled={isLoading}
+        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:shadow-lg text-white font-bold rounded-xl mt-8 py-3.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+      >
         {isLoading ? "Loading..." : "Continue as Guest"}
-      </Button>
+      </button>
     </motion.div>
   );
 }

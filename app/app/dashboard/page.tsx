@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { motion } from "framer-motion"
 import { 
   Zap, 
   Phone, 
@@ -51,10 +52,10 @@ interface DataPlan {
 }
 
 const NETWORKS = [
-  { id: "mtn", name: "MTN", color: "bg-yellow-100", textColor: "text-yellow-700" },
-  { id: "airtel", name: "Airtel", color: "bg-red-100", textColor: "text-red-700" },
-  { id: "glo", name: "Glo", color: "bg-green-100", textColor: "text-green-700" },
-  { id: "9mobile", name: "9mobile", color: "bg-blue-100", textColor: "text-blue-700" },
+  { id: "mtn", name: "MTN", color: "bg-gray-100", textColor: "text-black", borderColor: "border-gray-300" },
+  { id: "airtel", name: "Airtel", color: "bg-gray-100", textColor: "text-black", borderColor: "border-gray-300" },
+  { id: "glo", name: "Glo", color: "bg-gray-100", textColor: "text-black", borderColor: "border-gray-300" },
+  { id: "9mobile", name: "9mobile", color: "bg-gray-100", textColor: "text-black", borderColor: "border-gray-300" },
 ]
 
 const AIRTIME_AMOUNTS = [100, 200, 500, 1000, 2000, 5000]
@@ -268,8 +269,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
-        <Loader2 size={32} className="animate-spin text-blue-500" />
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <Loader2 size={32} className="animate-spin text-black" />
       </div>
     )
   }
@@ -277,178 +278,216 @@ export default function DashboardPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-white via-white to-gray-50/50">
+      {/* Premium Header */}
+      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200/50">
+        <div className="max-w-4xl mx-auto px-4 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center text-sm font-bold text-white">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-sm font-bold text-white shadow-md">
               {user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2)}
             </div>
             <div>
-              <p className="text-xs text-slate-500">Welcome back,</p>
+              <p className="text-xs text-gray-500 font-medium">Welcome back,</p>
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-slate-900">{user.fullName.split(" ")[0]}</p>
+                <p className="text-sm font-semibold text-gray-900">{user.fullName.split(" ")[0]}</p>
                 {user.tier === "agent" && (
-                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-700">Agent</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 border border-amber-200">Pro</span>
                 )}
               </div>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-red-50 text-red-600 font-medium transition text-sm"
+            className="px-4 py-2 rounded-lg hover:bg-gray-50 text-gray-700 font-medium transition text-sm border border-gray-200 hover:border-gray-300"
           >
-            <LogOut size={16} />
             Logout
           </button>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Wallet Card - Premium Fintech Style */}
-        <div className="bg-gradient-to-br from-blue-600 via-blue-600 to-green-600 rounded-3xl p-8 mb-6 text-white shadow-lg">
+        {/* Premium Wallet Card */}
+        <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200/80 rounded-2xl p-8 mb-8 shadow-sm hover:shadow-md transition-shadow duration-300">
           <div className="flex justify-between items-start mb-8">
-            <div>
-              <p className="text-blue-100 text-sm mb-2">Available Balance</p>
-              <div className="flex items-center gap-3">
-                <h2 className="text-5xl font-bold">
-                  {showBalance ? formatBalance(user.balance) : "••••••"}
+            <div className="flex-1">
+              <p className="text-gray-500 text-sm font-medium mb-3">Available Balance</p>
+              <div className="flex items-center gap-4">
+                <h2 className="text-5xl font-black text-gray-900 tracking-tight">
+                  {showBalance ? formatBalance(user.balance) : "••••••••"}
                 </h2>
                 <button
                   onClick={() => setShowBalance(!showBalance)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition"
+                  className="p-3 hover:bg-gray-100 rounded-full transition-colors duration-200"
                 >
-                  {showBalance ? <Eye size={20} /> : <EyeOff size={20} />}
+                  {showBalance ? <Eye size={20} className="text-gray-600" /> : <EyeOff size={20} className="text-gray-600" />}
                 </button>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100/80 rounded-full border border-green-200">
+                <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                <span className="text-xs font-semibold text-green-700">Active</span>
               </div>
             </div>
           </div>
 
-          {/* Account Details */}
-          <div className="border-t border-white/20 pt-6">
-            <p className="text-blue-100 text-xs mb-2">Virtual Account</p>
-            <div className="flex items-center justify-between group cursor-pointer" onClick={handleCopy}>
+          {/* Premium Account Details */}
+          <div className="border-t border-gray-100 pt-8">
+            <p className="text-gray-500 text-xs font-semibold tracking-wider uppercase mb-3">Virtual Account</p>
+            <div 
+              className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition-all duration-200 cursor-pointer group"
+              onClick={handleCopy}
+            >
               <div>
-                <p className="font-mono text-lg font-semibold">{user.virtualAccount?.accountNumber ?? "—"}</p>
-                <p className="text-blue-100 text-xs mt-1">{user.virtualAccount?.bankName || "Linked Account"}</p>
+                <p className="font-mono text-xl font-bold text-gray-900 tracking-wide">{user.virtualAccount?.accountNumber ?? "—"}</p>
+                <p className="text-gray-500 text-xs mt-2">{user.virtualAccount?.bankName || "Linked Account"}</p>
               </div>
               <button
-                className="p-2 hover:bg-white/20 rounded-lg transition"
+                className="p-2.5 group-hover:bg-gray-200/50 rounded-full transition-colors duration-200"
               >
-                {copied ? <Check size={20} /> : <Copy size={20} />}
+                {copied ? (
+                  <Check size={20} className="text-green-600" />
+                ) : (
+                  <Copy size={20} className="text-gray-500 group-hover:text-gray-700" />
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Quick Actions Grid - Fintech Style */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        {/* Premium Quick Actions Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mb-10">
           {/* Buy Data */}
           <button
             onClick={() => {
               setBuyDataOpen(true)
               setBuyDataStep(1)
             }}
-            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-blue-500 hover:shadow-lg transition active:scale-95"
+            className="group relative bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all duration-300 active:scale-95"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            <div className="relative flex flex-col items-start justify-between h-full">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center group-hover:shadow-md transition-all duration-300">
                 <Zap size={24} className="text-blue-600" />
               </div>
-              <ChevronRight size={20} className="text-slate-400" />
+              <div className="text-left mt-auto">
+                <p className="font-semibold text-gray-900 text-sm">Buy Data</p>
+                <p className="text-xs text-gray-500 mt-1">All networks</p>
+              </div>
             </div>
-            <p className="text-left font-semibold text-slate-900">Buy Data</p>
-            <p className="text-left text-sm text-slate-500 mt-1">All networks</p>
           </button>
 
           {/* Buy Airtime */}
           <button
             onClick={() => setAirtimeOpen(true)}
-            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-green-500 hover:shadow-lg transition active:scale-95"
+            className="group relative bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all duration-300 active:scale-95"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            <div className="relative flex flex-col items-start justify-between h-full">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center group-hover:shadow-md transition-all duration-300">
                 <Phone size={24} className="text-green-600" />
               </div>
-              <ChevronRight size={20} className="text-slate-400" />
+              <div className="text-left mt-auto">
+                <p className="font-semibold text-gray-900 text-sm">Buy Airtime</p>
+                <p className="text-xs text-gray-500 mt-1">All networks</p>
+              </div>
             </div>
-            <p className="text-left font-semibold text-slate-900">Buy Airtime</p>
-            <p className="text-left text-sm text-slate-500 mt-1">All networks</p>
           </button>
 
           {/* Rewards */}
           <button
             onClick={() => router.push("/app/dashboard/rewards")}
-            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-amber-500 hover:shadow-lg transition active:scale-95"
+            className="group relative bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all duration-300 active:scale-95"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            <div className="relative flex flex-col items-start justify-between h-full">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-amber-50 flex items-center justify-center group-hover:shadow-md transition-all duration-300">
                 <Gift size={24} className="text-amber-600" />
               </div>
-              <ChevronRight size={20} className="text-slate-400" />
+              <div className="text-left mt-auto">
+                <p className="font-semibold text-gray-900 text-sm">Rewards</p>
+                <p className="text-xs text-gray-500 mt-1">Earn points</p>
+              </div>
             </div>
-            <p className="text-left font-semibold text-slate-900">Rewards</p>
-            <p className="text-left text-sm text-slate-500 mt-1">Earn & claim rewards</p>
           </button>
 
           {/* Transactions */}
           <button
             onClick={() => router.push("/app/dashboard/transactions")}
-            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-purple-500 hover:shadow-lg transition active:scale-95"
+            className="group relative bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all duration-300 active:scale-95"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            <div className="relative flex flex-col items-start justify-between h-full">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-purple-50 flex items-center justify-center group-hover:shadow-md transition-all duration-300">
                 <CreditCard size={24} className="text-purple-600" />
               </div>
-              <ChevronRight size={20} className="text-slate-400" />
+              <div className="text-left mt-auto">
+                <p className="font-semibold text-gray-900 text-sm">Transactions</p>
+                <p className="text-xs text-gray-500 mt-1">View history</p>
+              </div>
             </div>
-            <p className="text-left font-semibold text-slate-900">Transactions</p>
-            <p className="text-left text-sm text-slate-500 mt-1">View all activity</p>
           </button>
 
           {/* Settings */}
           <button
             onClick={() => router.push("/app/dashboard/settings")}
-            className="bg-white rounded-2xl p-6 border-2 border-slate-200 hover:border-slate-400 hover:shadow-lg transition active:scale-95"
+            className="group relative bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-lg transition-all duration-300 active:scale-95"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center">
-                <Settings size={24} className="text-slate-600" />
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            <div className="relative flex flex-col items-start justify-between h-full">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center group-hover:shadow-md transition-all duration-300">
+                <Settings size={24} className="text-gray-600" />
               </div>
-              <ChevronRight size={20} className="text-slate-400" />
+              <div className="text-left mt-auto">
+                <p className="font-semibold text-gray-900 text-sm">Settings</p>
+                <p className="text-xs text-gray-500 mt-1">Account settings</p>
+              </div>
             </div>
-            <p className="text-left font-semibold text-slate-900">Settings</p>
-            <p className="text-left text-sm text-slate-500 mt-1">Manage your account</p>
           </button>
         </div>
 
-        {/* Recent Transactions */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Transactions</h3>
+        {/* Premium Recent Transactions */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Recent Activity</h3>
+            <button
+              onClick={() => router.push("/app/dashboard/transactions")}
+              className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition"
+            >
+              View All →
+            </button>
+          </div>
           {transactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                <ArrowRight className="text-slate-400" size={24} />
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center mb-4">
+                <ArrowRight className="text-gray-400" size={24} />
               </div>
-              <p className="text-slate-600 font-medium">No transactions yet</p>
-              <p className="text-slate-400 text-sm mt-1">Your activity will appear here</p>
+              <p className="text-gray-600 font-semibold">No transactions yet</p>
+              <p className="text-gray-400 text-sm mt-2">Your activity will appear here</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {transactions.map((tx) => (
-                <div key={tx.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 rounded-xl transition border border-slate-100">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-100 to-green-100 flex items-center justify-center flex-shrink-0">
-                    <Zap size={20} className="text-blue-600" />
+            <div className="space-y-2">
+              {transactions.slice(0, 5).map((tx) => (
+                <div key={tx.id} className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-xl transition-colors duration-200 border border-transparent hover:border-gray-200">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    tx.type === "data" ? "bg-gradient-to-br from-blue-100 to-blue-50" : "bg-gradient-to-br from-green-100 to-green-50"
+                  }`}>
+                    {tx.type === "data" ? (
+                      <Zap size={20} className="text-blue-600" />
+                    ) : (
+                      <Phone size={20} className="text-green-600" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate">{tx.description}</p>
-                    <p className="text-sm text-slate-500">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                    <p className="font-semibold text-gray-900 truncate">{tx.description}</p>
+                    <p className="text-sm text-gray-500 mt-1">{new Date(tx.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-semibold text-slate-900">₦{tx.amount.toLocaleString()}</p>
-                    <span className={`text-xs font-medium px-3 py-1 rounded-full ${
-                      tx.status === "SUCCESS" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                    <p className="font-semibold text-gray-900">-₦{tx.amount.toLocaleString()}</p>
+                    <span className={`text-xs font-semibold px-3 py-1.5 rounded-full inline-block mt-1 ${
+                      tx.status === "SUCCESS"
+                        ? "bg-green-100 text-green-700 border border-green-200"
+                        : "bg-amber-100 text-amber-700 border border-amber-200"
                     }`}>
                       {tx.status}
                     </span>
@@ -460,13 +499,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* BUY DATA MODAL */}
+      {/* BUY DATA MODAL - Premium Apple Style */}
       {buyDataOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-green-600 text-white px-6 py-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold">Buy Data</h2>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+          >
+            {/* Premium Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-6 flex items-center justify-between">
+              <h2 className="text-xl font-bold tracking-tight">Purchase Data</h2>
               <button
                 onClick={() => {
                   setBuyDataOpen(false)
@@ -474,7 +519,7 @@ export default function DashboardPage() {
                   setSelectedNetwork(null)
                   setSelectedPlan(null)
                 }}
-                className="p-1 hover:bg-white/20 rounded-lg transition"
+                className="p-2 hover:bg-white/20 rounded-full transition"
               >
                 <X size={24} />
               </button>
@@ -483,94 +528,101 @@ export default function DashboardPage() {
             <div className="p-6">
               {/* Step 1: Select Network */}
               {buyDataStep === 1 && (
-                <div className="space-y-4">
-                  <p className="text-slate-600 font-medium">Select Network</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {NETWORKS.map((net) => (
-                      <button
-                        key={net.id}
-                        onClick={() => handleNetworkSelect(net.id)}
-                        className={`p-4 rounded-xl border-2 font-semibold transition ${
-                          selectedNetwork === net.id
-                            ? "border-blue-600 bg-blue-50 text-blue-700"
-                            : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"
-                        }`}
-                      >
-                        {net.name}
-                      </button>
-                    ))}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 mb-4">Select Network</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {NETWORKS.map((net) => (
+                        <button
+                          key={net.id}
+                          onClick={() => handleNetworkSelect(net.id)}
+                          className={`p-4 rounded-xl border-2 font-semibold transition duration-200 ${
+                            selectedNetwork === net.id
+                              ? "border-blue-600 bg-blue-50 text-blue-700 shadow-md"
+                              : "border-gray-200 bg-white text-gray-900 hover:border-gray-300 active:scale-95"
+                          }`}
+                        >
+                          {net.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               )}
 
               {/* Step 2: Select Plan */}
               {buyDataStep === 2 && (
-                <div className="space-y-4">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
                   <button
                     onClick={() => setBuyDataStep(1)}
-                    className="text-blue-600 text-sm font-medium mb-2"
+                    className="text-blue-600 text-sm font-semibold mb-3 flex items-center gap-1 hover:text-blue-700"
                   >
                     ← Back
                   </button>
-                  <p className="text-slate-600 font-medium">Select Data Plan</p>
-                  {plansLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="animate-spin text-blue-600" size={24} />
-                    </div>
-                  ) : dataPlans.length === 0 ? (
-                    <p className="text-slate-500 text-center py-8">No plans available</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {dataPlans.map((plan) => (
-                        <button
-                          key={plan.id}
-                          onClick={() => handlePlanSelect(plan)}
-                          className="w-full p-4 rounded-xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 text-left transition"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="font-semibold text-slate-900">{plan.sizeLabel}</span>
-                              <span className="text-blue-600 font-bold">₦{getPriceForTier(plan, user.tier).toLocaleString()}</span>
-                          </div>
-                          <p className="text-sm text-slate-500">{plan.validity}</p>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 mb-4">Select Plan</p>
+                    {plansLoading ? (
+                      <div className="flex justify-center py-12">
+                        <Loader2 className="animate-spin text-blue-600" size={32} />
+                      </div>
+                    ) : dataPlans.length === 0 ? (
+                      <p className="text-gray-500 text-center py-12 font-medium">No plans available</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {dataPlans.map((plan) => (
+                          <button
+                            key={plan.id}
+                            onClick={() => handlePlanSelect(plan)}
+                            className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 text-left transition duration-200 active:scale-95"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className="font-semibold text-gray-900">{plan.sizeLabel}</span>
+                                <p className="text-xs text-gray-500 mt-1">{plan.validity}</p>
+                              </div>
+                              <span className="text-blue-600 font-bold text-lg">₦{getPriceForTier(plan, user.tier).toLocaleString()}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               )}
 
               {/* Step 3: Enter Phone & PIN */}
               {buyDataStep === 3 && (
-                <div className="space-y-5">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                   <button
                     onClick={() => setBuyDataStep(2)}
-                    className="text-blue-600 text-sm font-medium mb-2"
+                    className="text-blue-600 text-sm font-semibold mb-3 flex items-center gap-1 hover:text-blue-700"
                   >
                     ← Back
                   </button>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Selected Plan: {selectedPlan?.sizeLabel}
-                    </label>
-                    <p className="text-2xl font-bold text-slate-900">₦{(selectedPlan?.price || 0).toLocaleString()}</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <p className="text-xs text-gray-600 mb-1 font-medium">Selected Plan</p>
+                    <div className="flex justify-between items-baseline">
+                      <span className="font-semibold text-gray-900">{selectedPlan?.sizeLabel}</span>
+                      <span className="text-2xl font-bold text-blue-600">₦{getPriceForTier(selectedPlan!, user.tier).toLocaleString()}</span>
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Phone Number</label>
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">Phone Number</label>
                     <input
                       type="tel"
                       maxLength={11}
                       placeholder="08012345678"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                      className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition font-semibold text-gray-900"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">6-Digit PIN</label>
-                    <div className="flex gap-2 justify-between">
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">6-Digit PIN</label>
+                    <div className="flex gap-2">
                       {pin.map((digit, idx) => (
                         <input
                           key={idx}
@@ -586,7 +638,7 @@ export default function DashboardPage() {
                             }
                           }}
                           id={`pin-${idx}`}
-                          className="w-full aspect-square border-2 border-slate-200 rounded-lg text-center text-2xl font-bold focus:border-blue-500 focus:outline-none"
+                          className="flex-1 aspect-square border-2 border-gray-200 rounded-xl text-center text-2xl font-bold focus:border-blue-500 focus:outline-none transition"
                         />
                       ))}
                     </div>
@@ -595,7 +647,7 @@ export default function DashboardPage() {
                   <button
                     onClick={handlePurchaseData}
                     disabled={purchasingData || !phoneNumber || pin.some((p) => !p)}
-                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                   >
                     {purchasingData ? (
                       <div className="flex items-center justify-center gap-2">
@@ -606,20 +658,26 @@ export default function DashboardPage() {
                       "Confirm Purchase"
                     )}
                   </button>
-                </div>
+                </motion.div>
               )}
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
-      {/* BUY AIRTIME MODAL */}
+      {/* BUY AIRTIME MODAL - Premium Apple Style */}
       {airtimeOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-6 py-6 flex items-center justify-between rounded-t-3xl">
-              <h2 className="text-xl font-bold">Buy Airtime</h2>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md"
+          >
+            {/* Premium Header */}
+            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-6 flex items-center justify-between rounded-t-3xl">
+              <h2 className="text-xl font-bold tracking-tight">Purchase Airtime</h2>
               <button
                 onClick={() => {
                   setAirtimeOpen(false)
@@ -627,25 +685,25 @@ export default function DashboardPage() {
                   setAirtimeAmount(null)
                   setAirtimePhone("")
                 }}
-                className="p-1 hover:bg-white/20 rounded-lg transition"
+                className="p-2 hover:bg-white/20 rounded-full transition"
               >
                 <X size={24} />
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-6">
               {/* Network Selection */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Network</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-4">Select Network</label>
+                <div className="grid grid-cols-2 gap-3">
                   {NETWORKS.map((net) => (
                     <button
                       key={net.id}
                       onClick={() => setAirtimeNetwork(net.id)}
-                      className={`p-3 rounded-lg border-2 font-semibold transition ${
+                      className={`p-4 rounded-xl border-2 font-semibold transition duration-200 ${
                         airtimeNetwork === net.id
-                          ? "border-green-600 bg-green-50 text-green-700"
-                          : "border-slate-200 bg-white text-slate-900"
+                          ? "border-green-600 bg-green-50 text-green-700 shadow-md"
+                          : "border-gray-200 bg-white text-gray-900 hover:border-gray-300 active:scale-95"
                       }`}
                     >
                       {net.name}
@@ -656,16 +714,16 @@ export default function DashboardPage() {
 
               {/* Amount Selection */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Amount</label>
-                <div className="grid grid-cols-3 gap-2">
+                <label className="block text-sm font-semibold text-gray-900 mb-4">Amount</label>
+                <div className="grid grid-cols-3 gap-3">
                   {AIRTIME_AMOUNTS.map((amt) => (
                     <button
                       key={amt}
                       onClick={() => setAirtimeAmount(amt)}
-                      className={`p-3 rounded-lg border-2 font-semibold transition ${
+                      className={`p-3 rounded-xl border-2 font-semibold transition duration-200 text-sm ${
                         airtimeAmount === amt
-                          ? "border-green-600 bg-green-50 text-green-700"
-                          : "border-slate-200 bg-white text-slate-900"
+                          ? "border-green-600 bg-green-50 text-green-700 shadow-md"
+                          : "border-gray-200 bg-white text-gray-900 hover:border-gray-300 active:scale-95"
                       }`}
                     >
                       ₦{amt}
@@ -676,14 +734,14 @@ export default function DashboardPage() {
 
               {/* Phone Number */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Phone Number</label>
+                <label className="block text-sm font-semibold text-gray-900 mb-3">Phone Number</label>
                 <input
                   type="tel"
                   maxLength={11}
                   placeholder="08012345678"
                   value={airtimePhone}
                   onChange={(e) => setAirtimePhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-lg focus:border-green-500 focus:outline-none"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none transition font-semibold text-gray-900"
                 />
               </div>
 
@@ -691,7 +749,7 @@ export default function DashboardPage() {
               <button
                 onClick={handlePurchaseAirtime}
                 disabled={purchasingAirtime || !airtimeNetwork || !airtimeAmount || !airtimePhone}
-                className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
               >
                 {purchasingAirtime ? (
                   <div className="flex items-center justify-center gap-2">
@@ -699,11 +757,11 @@ export default function DashboardPage() {
                     Processing...
                   </div>
                 ) : (
-                  `Buy ₦${airtimeAmount || 0} Airtime`
+                  `Buy ₦${airtimeAmount?.toLocaleString() || "0"} Airtime`
                 )}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>
