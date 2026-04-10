@@ -23,8 +23,14 @@ export const metadata: Metadata = {
   viewport: "width=device-width, initial-scale=1, maximum-scale=5",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   icons: {
-    icon: "/favicon.svg",
-    apple: "/logo.jpeg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-192x192.png", type: "image/png", sizes: "192x192" },
+      { url: "/favicon-512x512.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -46,11 +52,11 @@ export const metadata: Metadata = {
     description: "Affordable, always connected. Buy data and airtime for all Nigerian networks at the best prices.",
     images: [
       {
-        url: "/logo.jpeg",
-        width: 500,
-        height: 500,
-        alt: "SY DATA SUB Logo",
-        type: "image/jpeg",
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SY DATA SUB - Buy Data Instantly",
+        type: "image/png",
       },
     ],
   },
@@ -58,7 +64,8 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SY DATA SUB — Buy Data Instantly",
     description: "Affordable, always connected. Buy data and airtime for all Nigerian networks.",
-    images: ["/logo.jpeg"],
+    images: ["/og-image.png"],
+    creator: "@sydatasub",
   },
 };
 

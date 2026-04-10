@@ -553,7 +553,7 @@ export default function DashboardPage() {
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Selected Plan: {selectedPlan?.sizeLabel}
                     </label>
-                    <p className="text-2xl font-bold text-slate-900">₦{(selectedPlan?.price || 0) / 100}</p>
+                    <p className="text-2xl font-bold text-slate-900">₦{(selectedPlan?.price || 0).toLocaleString()}</p>
                   </div>
 
                   <div>
