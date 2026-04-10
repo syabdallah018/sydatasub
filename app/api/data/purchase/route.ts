@@ -91,8 +91,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-      );
-    }
 
     // Deduct balance and create transaction atomically
     const reference = `DATA-${userData.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
