@@ -1,57 +1,44 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 100);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const closeMenu = () => setIsOpen(false);
 
   return (
-    <motion.nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "backdrop-blur-md bg-white/80 border-b border-gray-200/50"
-          : "bg-transparent"
-      }`}
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.6 }}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200/50">
+      <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+        <div className="flex justify-between items-center h-14">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center gap-2 flex-shrink-0">
             <img 
               src="/logo.jpeg" 
               alt="SY DATA" 
-              className="h-10 w-10 object-contain"
+              className="h-8 w-8 object-contain"
             />
-            <span className="font-display font-bold text-gray-900 hidden sm:inline">
+            <span className="font-semibold text-black text-sm hidden sm:inline">
               SY DATA SUB
             </span>
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
-            {["Features", "Plans", "FAQ"].map((link) => (
+          <div className="hidden md:flex items-center gap-12">
+            {[
+              { label: "Features", href: "#features" },
+              { label: "Pricing", href: "#pricing" },
+              { label: "How it works", href: "#howitworks" },
+              { label: "FAQ", href: "#faq" }
+            ].map((link) => (
               <a
-                key={link}
-                href={`#${link.toLowerCase()}`}
-                className="text-gray-600 hover:text-gray-900 transition-colors font-body text-sm"
+                key={link.href}
+                href={link.href}
+                className="text-sm text-gray-600 hover:text-black transition-colors duration-200"
               >
-                {link}
+                {link.label}
               </a>
             ))}
           </div>
@@ -60,53 +47,58 @@ export function Navbar() {
           <div className="hidden md:block">
             <Link
               href="/app"
-              className="px-6 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-full font-body font-semibold hover:shadow-lg hover:shadow-teal-500/50 transition-all duration-300"
+              className="px-5 py-2 bg-black text-white text-sm font-semibold rounded-full hover:bg-gray-900 transition-colors duration-200"
             >
-              Get App
+              Open App
             </Link>
           </div>
 
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-gray-900"
+            className="md:hidden p-2 -mr-2 flex items-center justify-center"
+            aria-label="Toggle menu"
           >
             {isOpen ? (
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 text-black" />
             ) : (
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5 text-black" />
             )}
           </button>
         </div>
 
         {/* Mobile Menu */}
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="md:hidden pb-4 space-y-4 bg-white/95 backdrop-blur-sm rounded-b-lg"
-          >
-            {["Features", "Plans", "FAQ"].map((link) => (
-              <a
-                key={link}
-                href={`#${link.toLowerCase()}`}
-                className="block text-gray-600 hover:text-gray-900 transition-colors font-body text-sm py-2 px-4"
-                onClick={() => setIsOpen(false)}
-              >
-                {link}
-              </a>
-            ))}
-            <Link
-              href="/app"
-              className="block w-full mx-4 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-full font-body font-semibold text-center"
-              onClick={() => setIsOpen(false)}
-            >
-              Get App
-            </Link>
-          </motion.div>
+          <div className="md:hidden border-t border-gray-200/50 bg-white">
+            <div className="flex flex-col py-2 space-y-1">
+              {[
+                { label: "Features", href: "#features" },
+                { label: "Pricing", href: "#pricing" },
+                { label: "How it works", href: "#howitworks" },
+                { label: "FAQ", href: "#faq" }
+              ].map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm text-gray-600 hover:text-black transition-colors duration-200 px-4 py-2"
+                  onClick={closeMenu}
+                >
+                  {link.label}
+                </a>
+              ))}
+              <div className="border-t border-gray-200/50 mt-2 pt-2">
+                <Link
+                  href="/app"
+                  className="block w-full px-4 py-2 bg-black text-white text-sm font-semibold text-center rounded-lg"
+                  onClick={closeMenu}
+                >
+                  Open App
+                </Link>
+              </div>
+            </div>
+          </div>
         )}
       </div>
-    </motion.nav>
+    </nav>
   );
 }

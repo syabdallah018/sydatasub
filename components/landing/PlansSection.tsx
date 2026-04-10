@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 
 const plans = [
@@ -16,6 +15,7 @@ const plans = [
     validity: "Weekly",
     price: 450,
     network: "All Networks",
+    featured: true,
   },
   {
     size: "5GB",
@@ -44,127 +44,109 @@ const plans = [
 ];
 
 export function PlansSection() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6,
-      },
-    },
-  };
-
   return (
-    <section id="plans" className="relative py-20 sm:py-32 px-4">
+    <section id="pricing" className="relative bg-white py-16 sm:py-24 px-6 sm:px-8 lg:px-12">
       <div className="max-w-7xl mx-auto">
-        {/* Section title */}
-        <motion.div
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-        >
-          <h2 className="text-4xl sm:text-5xl font-display font-bold text-white mb-4">
-            Prices That Actually Make Sense
+        {/* Section header */}
+        <div className="text-center mb-16">
+          <h2 className="text-4xl sm:text-5xl font-bold text-black mb-4">
+            Pricing That Works For You
           </h2>
-          <p className="text-xl text-slate-300">
-            We don't inflate. We deliver value.
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            No hidden fees. No surprises. Just honest pricing for every network.
           </p>
-        </motion.div>
+        </div>
 
         {/* Plans grid */}
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan, index) => (
-            <motion.div
+            <div
               key={index}
-              variants={itemVariants}
-              className="group"
+              className={`relative rounded-lg border transition-all ${
+                plan.featured
+                  ? "border-black bg-black text-white shadow-lg"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
             >
-              <div className="relative h-full p-8 rounded-2xl border border-slate-700/50 hover:border-teal-500/50 transition-all duration-300 bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-sm hover:shadow-lg hover:shadow-teal-500/10">
+              {plan.featured && (
+                <div className="absolute -top-3 left-4 px-3 py-1 bg-black text-white text-xs font-semibold rounded-full">
+                  Best Value
+                </div>
+              )}
+
+              <div className="p-6">
                 {/* Network badge */}
-                <div className="absolute top-4 right-4">
-                  <span className="text-xs font-semibold px-3 py-1 rounded-full bg-teal-500/20 text-teal-300">
+                <div className="mb-4">
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                    plan.featured
+                      ? "bg-white/10 text-white"
+                      : "bg-gray-100 text-gray-700"
+                  }`}>
                     {plan.network}
                   </span>
                 </div>
 
-                {/* Content */}
-                <div className="mb-6">
-                  <div className="text-4xl sm:text-5xl font-display font-bold text-white mb-2">
-                    {plan.size}
-                  </div>
-                  <p className="text-slate-400 text-sm">{plan.validity}</p>
-                </div>
+                {/* Plan details */}
+                <h3 className="text-3xl font-bold mb-1">
+                  {plan.size}
+                </h3>
+                <p className={`text-sm ${plan.featured ? "text-gray-300" : "text-gray-600"} mb-6`}>
+                  {plan.validity}
+                </p>
 
                 {/* Price */}
                 <div className="mb-6">
-                  <span className="text-4xl font-display font-bold text-white">
+                  <div className="text-4xl font-bold">
                     ₦{plan.price.toLocaleString()}
-                  </span>
+                  </div>
                 </div>
 
-                {/* Benefits */}
-                <div className="space-y-3 mb-8">
-                  <div className="flex items-center gap-2 text-slate-300 text-sm">
-                    <Check className="w-4 h-4 text-teal-400" />
+                {/* Features */}
+                <div className="space-y-3 mb-8 py-6 border-t border-b" style={{
+                  borderColor: plan.featured ? "rgba(255,255,255,0.1)" : "rgb(229, 231, 235)"
+                }}>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 flex-shrink-0" />
                     Instant delivery
                   </div>
-                  <div className="flex items-center gap-2 text-slate-300 text-sm">
-                    <Check className="w-4 h-4 text-teal-400" />
-                    No expiration rush
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 flex-shrink-0" />
+                    Valid for {plan.validity.toLowerCase()}
                   </div>
-                  <div className="flex items-center gap-2 text-slate-300 text-sm">
-                    <Check className="w-4 h-4 text-teal-400" />
-                    Best price guarantee
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 flex-shrink-0" />
+                    Best market rate
                   </div>
                 </div>
 
                 {/* CTA Button */}
                 <Link
-                  href="/app"
-                  className="w-full px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-teal-500/50 transition-all duration-300 text-center block group-hover:translate-y-[-2px]"
+                  href={`/app?plan=${encodeURIComponent(plan.size)}`}
+                  className={`w-full px-4 py-2 rounded-lg font-semibold text-center block transition-colors ${
+                    plan.featured
+                      ? "bg-white text-black hover:bg-gray-100"
+                      : "bg-black text-white hover:bg-gray-900"
+                  }`}
                 >
-                  Buy Now
+                  Get {plan.size}
                 </Link>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
 
-        {/* All plans link */}
-        <motion.div
-          className="text-center mt-12"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          viewport={{ once: true }}
-        >
+        {/* CTA */}
+        <div className="text-center mt-12">
+          <p className="text-gray-600 mb-4">
+            All plans available in-app with more options
+          </p>
           <Link
             href="/app"
-            className="inline-flex items-center gap-2 text-teal-400 hover:text-teal-300 transition-colors font-semibold"
+            className="inline-block px-8 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors"
           >
-            View all available plans →
+            View All Plans
           </Link>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

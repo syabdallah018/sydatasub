@@ -1,111 +1,78 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Check, Zap, Lock, Award } from "lucide-react";
+import { Zap, Lock, Award } from "lucide-react";
 
 const features = [
   {
     icon: Zap,
     title: "Instant Delivery",
-    description: "Data credits delivered in seconds, not hours. Experience the fastest service in Nigeria.",
-    color: "from-blue-600 to-blue-400",
+    description: "Data credits delivered in seconds. Most users receive data within 2-5 seconds.",
   },
   {
     icon: Award,
     title: "Best Prices Guaranteed",
-    description: "Lowest rates on all networks. We match or beat any competitor — your money goes further.",
-    color: "from-emerald-600 to-emerald-400",
+    description: "We match or beat any competitor on all networks. Your money goes further with us.",
   },
   {
     icon: Lock,
     title: "Secure & Trusted",
-    description: "Bank-grade security protects every transaction. Used by over 50,000 Nigerians monthly.",
-    color: "from-purple-600 to-purple-400",
+    description: "Bank-grade security protects every transaction. Trusted by 50,000+ Nigerians.",
   },
 ];
 
 export function PremiumValueSection() {
   return (
-    <section className="min-h-screen bg-white flex items-center justify-center px-4 py-20">
-      <div className="max-w-6xl w-full">
+    <section className="bg-gray-50 py-16 sm:py-24 px-6 sm:px-8 lg:px-12">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-20"
-        >
-          <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Why 50,000+ Nigerians trust SY DATA SUB
+        <div className="text-center mb-16">
+          <h2 className="text-4xl sm:text-5xl font-bold text-black mb-4 leading-tight">
+            Why customers choose us
           </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            We've built the fastest, most reliable data platform in Nigeria. Here's why we're different.
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            We've built the fastest and most reliable data platform in Nigeria.
           </p>
-        </motion.div>
+        </div>
 
         {/* Features Grid */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
+        <div className="grid md:grid-cols-3 gap-8 mb-16">
           {features.map((feature, idx) => {
             const Icon = feature.icon;
             return (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="group"
-              >
-                <div className="bg-white rounded-2xl p-8 border border-gray-200 hover:border-gray-300 transition h-full">
-                  {/* Icon */}
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-6`}
-                  >
-                    <Icon className="w-6 h-6 text-white" />
-                  </motion.div>
-
-                  {/* Content */}
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                    {feature.title}
-                  </h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    {feature.description}
-                  </p>
+              <div key={idx} className="bg-white rounded-lg p-8 border border-gray-200">
+                <div className="w-12 h-12 bg-black rounded-lg flex items-center justify-center mb-6">
+                  <Icon className="w-6 h-6 text-white" />
                 </div>
-              </motion.div>
+
+                <h3 className="text-lg font-semibold text-black mb-3">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {feature.description}
+                </p>
+              </div>
             );
           })}
         </div>
 
         {/* Stats Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="grid md:grid-cols-4 gap-8 mt-20 pt-20 border-t border-gray-200"
-        >
-          {[
-            { number: "50K+", label: "Active Users" },
-            { number: "99.9%", label: "Uptime" },
-            { number: "2sec", label: "Avg Delivery" },
-            { number: "₦500M+", label: "Monthly Volume" },
-          ].map((stat, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              className="text-center"
-            >
-              <p className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent mb-2">
-                {stat.number}
-              </p>
-              <p className="text-gray-600 font-medium">{stat.label}</p>
-            </motion.div>
-          ))}
-        </motion.div>
+        <div className="border-t border-gray-200 pt-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { number: "50K+", label: "Users" },
+              { number: "99.9%", label: "Uptime" },
+              { number: "2sec", label: "Delivery" },
+              { number: "₦500M+", label: "Volume" },
+            ].map((stat, idx) => (
+              <div key={idx} className="text-center">
+                <p className="text-3xl md:text-4xl font-bold text-black mb-2">
+                  {stat.number}
+                </p>
+                <p className="text-gray-600 font-medium text-sm">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
