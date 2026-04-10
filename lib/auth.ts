@@ -58,3 +58,15 @@ export async function getSessionUser(
     return null;
   }
 }
+
+export async function verifyAdminToken(token: string): Promise<JWTPayload | null> {
+  try {
+    const payload = await verifyToken(token);
+    if (payload && payload.role === "ADMIN") {
+      return payload;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+}

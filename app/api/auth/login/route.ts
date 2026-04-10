@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
           phone: user.phone,
           fullName: user.fullName,
           role: user.role,
+          tier: user.tier || "user",
           balance: user.balance,
           virtualAccount: user.virtualAccount,
         },

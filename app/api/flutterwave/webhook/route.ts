@@ -10,6 +10,11 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get("verif-hash");
     const body = await req.text();
 
+    console.log("[WEBHOOK] Received webhook from Flutterwave", {
+      timestamp: new Date().toISOString(),
+      hasSignature: !!signature,
+    });
+
     const hash = crypto
       .createHmac("sha256", process.env.FLUTTERWAVE_WEBHOOK_SECRET || "")
       .update(body)
@@ -24,12 +29,24 @@ export async function POST(req: NextRequest) {
     const data = JSON.parse(body);
     const { event, data: eventData } = data;
 
+    console.log("[WEBHOOK] Parsed payload", {
+      event,
+      txRef: eventData.tx_ref,
+      flwRef: eventData.flw_ref,
+      amount: eventData.amount,
+      currency: eventData.currency,
+      paymentType: eventData.payment_type,
+      customer: eventData.customer?.email || eventData.customer?.phone_number,
+    });
+
     // 3. Only process charge.completed events with NGN currency
     if (event !== "charge.completed") {
+      console.log("[WEBHOOK] Skipping non-charge.completed event:", event);
       return NextResponse.json({ received: true });
     }
 
     if (eventData.currency !== "NGN") {
+      console.log("[WEBHOOK] Skipping non-NGN currency:", eventData.currency);
       return NextResponse.json({ received: true });
     }
 
@@ -42,7 +59,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (existingTx) {
-      console.log("[WEBHOOK] Already processed:", eventData.flw_ref);
+      console.log("[WEBHOOK] Already processed (idempotency check):", eventData.flw_ref);
       return NextResponse.json({ received: true });
     }
 
@@ -57,15 +74,29 @@ export async function POST(req: NextRequest) {
         where: { reference: eventData.tx_ref },
       });
       isGuestTransaction = true;
+      console.log("[WEBHOOK] Looking for guest transaction:", eventData.tx_ref, {
+        found: !!transaction,
+      });
     } else {
       // Try to find by VirtualAccount orderRef (user wallet funding)
+      console.log("[WEBHOOK] Looking for wallet funding by orderRef:", eventData.tx_ref);
       const virtualAccount = await prisma.virtualAccount.findFirst({
         where: { orderRef: eventData.tx_ref },
+      });
+
+      console.log("[WEBHOOK] VirtualAccount lookup result:", {
+        found: !!virtualAccount,
+        accountNumber: virtualAccount?.accountNumber,
       });
 
       if (virtualAccount) {
         const relatedUser = await prisma.user.findUnique({
           where: { id: virtualAccount.userId },
+        });
+
+        console.log("[WEBHOOK] User lookup by virtualAccount:", {
+          found: !!relatedUser,
+          userId: virtualAccount.userId,
         });
 
         if (relatedUser) {
@@ -80,13 +111,78 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          console.log("[WEBHOOK] Transaction lookup for wallet funding:", {
+            found: !!transaction,
+            userId: virtualAccount.userId,
+          });
+
+          isWalletFunding = true;
+        }
+      }
+    }
+
+    // FALLBACK: If transaction not found, attempt phone-based user lookup
+    if (!transaction && !isGuestTransaction) {
+      console.log("[WEBHOOK] Transaction not found by normal lookup, attempting phone-based lookup...");
+      
+      // Extract phone number from various possible locations in Flutterwave payload
+      const phoneFromPayload = 
+        eventData.customer?.phone_number ||
+        eventData.phone_number ||
+        eventData.meta?.phone ||
+        data.data?.customer?.phone_number;
+
+      console.log("[WEBHOOK] Extracted phone number:", phoneFromPayload);
+
+      if (phoneFromPayload) {
+        // Normalize phone number (remove +234, 0, etc. and format as 11 digits starting with 0)
+        let normalizedPhone = phoneFromPayload.toString().trim();
+        if (normalizedPhone.startsWith('+234')) {
+          normalizedPhone = '0' + normalizedPhone.slice(4);
+        } else if (normalizedPhone.startsWith('234')) {
+          normalizedPhone = '0' + normalizedPhone.slice(3);
+        } else if (!normalizedPhone.startsWith('0')) {
+          normalizedPhone = '0' + normalizedPhone;
+        }
+
+        console.log("[WEBHOOK] Normalized phone for lookup:", normalizedPhone);
+
+        const userByPhone = await prisma.user.findUnique({
+          where: { phone: normalizedPhone },
+        });
+
+        console.log("[WEBHOOK] Phone-based user lookup result:", {
+          found: !!userByPhone,
+          userId: userByPhone?.id,
+        });
+
+        if (userByPhone) {
+          // Create a wallet funding entry
+          transaction = await prisma.transaction.create({
+            data: {
+              userId: userByPhone.id,
+              phone: userByPhone.phone,
+              type: "WALLET_FUNDING",
+              status: "PENDING",
+              amount: eventData.amount,
+              reference: eventData.tx_ref || eventData.flw_ref,
+              description: "Wallet top-up via Flutterwave",
+            },
+          });
+
+          console.log("[WEBHOOK] Created transaction via phone lookup:", {
+            transactionId: transaction.id,
+            userId: userByPhone.id,
+            amount: eventData.amount,
+          });
+
           isWalletFunding = true;
         }
       }
     }
 
     if (!transaction) {
-      console.warn("[WEBHOOK] Transaction not found for ref:", eventData.tx_ref);
+      console.warn("[WEBHOOK] Transaction not found - giving up on lookup for ref:", eventData.tx_ref);
       return NextResponse.json({ received: true }); // Don't process unknown transactions
     }
 
@@ -133,17 +229,34 @@ export async function POST(req: NextRequest) {
         });
 
         if (!user) {
-          console.error("[WEBHOOK] User not found:", transaction.userId);
+          console.error("[WEBHOOK] User not found during wallet funding:", transaction.userId);
           return;
         }
 
+        console.log("[WEBHOOK] User found for wallet funding:", {
+          userId: user.id,
+          phone: user.phone,
+          currentBalance: user.balance,
+          amountToAdd: eventData.amount,
+        });
+
         // Credit balance in kobo (amount is in naira)
         const amountInKobo = eventData.amount * 100;
+        console.log("[WEBHOOK] Crediting balance in kobo:", {
+          amountInKobo,
+          newBalance: user.balance + amountInKobo,
+        });
+
         await tx.user.update({
           where: { id: transaction.userId || "" },
           data: {
             balance: { increment: amountInKobo },
           },
+        });
+
+        console.log("[WEBHOOK] Balance updated successfully", {
+          userId: transaction.userId,
+          newBalance: user.balance + amountInKobo,
         });
 
         // Update transaction to SUCCESS
@@ -155,18 +268,29 @@ export async function POST(req: NextRequest) {
             balanceAfter: user.balance + amountInKobo,
           },
         });
+
+        console.log("[WEBHOOK] Transaction marked as SUCCESS", {
+          transactionId: transaction.id,
+          flwRef: eventData.flw_ref,
+        });
       });
 
       // Award rewards for wallet funding
       if (transaction.userId) {
+        console.log("[WEBHOOK] Checking rewards for wallet funding:", transaction.userId);
         await checkAndAwardRewards(transaction.userId, eventData.amount, "DEPOSIT");
       }
     }
 
     // 7. Always return 200 to acknowledge receipt
+    console.log("[WEBHOOK] Successfully processed, returning 200");
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("[WEBHOOK CRITICAL ERROR]", error);
+    console.error("[WEBHOOK CRITICAL ERROR]", {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
     // Always return 200 to prevent Flutterwave retries
     return NextResponse.json({ received: true });
   }

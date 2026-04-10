@@ -153,18 +153,27 @@ export default function DashboardPage() {
   const [pin, setPin] = useState(["", "", "", "", "", ""]);
   const [purchasingData, setPurchasingData] = useState(false);
   const [plansLoading, setPlansLoading] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [successData, setSuccessData] = useState<any>(null);
   const [airtimeOpen, setAirtimeOpen] = useState(false);
   const [airtimeNetwork, setAirtimeNetwork] = useState<string | null>(null);
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedPhone = localStorage.getItem("saved_phone");
       if (savedPhone) localStorage.setItem("saved_phone_backup", savedPhone);
     }
+    
+    // Always hide splash after 2 seconds regardless of loading
+    const splashTimer = setTimeout(() => setShowSplash(false), 2000);
+    
     fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
+    
+    return () => clearTimeout(splashTimer);
   }, [router]);
 
   const formatBalance = (kobo: number) => {
@@ -221,8 +230,16 @@ export default function DashboardPage() {
       const res = await fetch("/api/data/purchase", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: selectedPlan.id, phone: phoneNumber, pin: pin.join("") }) });
       const data = await res.json();
       if (data.success) {
-        toast.success("Data purchased successfully!");
-        setBuyDataOpen(false); setBuyDataStep(1); setSelectedNetwork(null); setSelectedPlan(null);
+        setSuccessData({
+          type: "data",
+          plan: selectedPlan.sizeLabel,
+          network: selectedPlan.network,
+          amount: getPriceForTier(selectedPlan, user?.tier || "user"),
+          phone: phoneNumber,
+          validity: selectedPlan.validity
+        });
+        setSuccessModalOpen(true);
+        setBuyDataOpen(false);
         fetch("/api/auth/me").then((r) => r.json()).then((d) => d.success && setUser(d.data));
       } else { toast.error(data.error || "Purchase failed"); }
     } finally { setPurchasingData(false); }
@@ -251,6 +268,101 @@ export default function DashboardPage() {
   return (
     <>
       <style>{fontStyle}</style>
+      
+      {/* Splash Screen */}
+      {showSplash && (
+        <motion.div
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, delay: 1.5 }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: `linear-gradient(135deg, ${T.blue} 0%, ${T.purple} 100%)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+            flexDirection: "column",
+            gap: 24
+          }}
+        >
+          {/* Logo Container */}
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            style={{
+              width: 100,
+              height: 100,
+              borderRadius: 24,
+              background: T.bg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: `0 20px 50px rgba(0,0,0,0.3)`
+            }}
+          >
+            <img
+              src="/logo.jpeg"
+              alt="SY Data Sub Logo"
+              style={{
+                width: 80,
+                height: 80,
+                objectFit: "contain",
+                borderRadius: 16
+              }}
+            />
+          </motion.div>
+
+          {/* Branding Text */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+            style={{
+              textAlign: "center",
+              color: T.bg
+            }}
+          >
+            <h1 style={{
+              fontFamily: T.font,
+              fontSize: 28,
+              fontWeight: 800,
+              margin: "0 0 8px",
+              letterSpacing: "-0.02em"
+            }}>
+              SY Data Sub
+            </h1>
+            <p style={{
+              fontFamily: T.font,
+              fontSize: 13,
+              fontWeight: 500,
+              margin: 0,
+              opacity: 0.9,
+              letterSpacing: "0.05em"
+            }}>
+              Fast • Reliable • Affordable
+            </p>
+          </motion.div>
+
+          {/* Loading Indicator */}
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: "50%",
+              border: `3px solid rgba(255,255,255,0.3)`,
+              borderTopColor: T.bg,
+              marginTop: 12
+            }}
+          />
+        </motion.div>
+      )}
+      
       <div style={{ minHeight: "100vh", background: T.bg, fontFamily: T.font, paddingBottom: 40 }}>
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ position: "sticky", top: 0, zIndex: 40, background: `rgba(255,255,255,0.9)`, backdropFilter: "blur(12px)", borderBottom: `1px solid ${T.blueBorder}`, boxShadow: `0 4px 12px ${T.blue}15` }}>
           <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -535,6 +647,44 @@ export default function DashboardPage() {
             </motion.button>
           </div>
         </BottomSheet>
+
+        {/* Success Modal */}
+        <motion.div key={successModalOpen ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: successModalOpen ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 50, background: successModalOpen ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: successModalOpen ? "auto" : "none", transition: "opacity 0.3s" }} onClick={() => setSuccessModalOpen(false)}>
+          <motion.div initial={{ scale: 0.8, y: 50 }} animate={{ scale: successModalOpen ? 1 : 0.8, y: successModalOpen ? 0 : 50 }} transition={{ type: "spring", damping: 20, stiffness: 300 }} style={{ background: T.card, borderRadius: 24, padding: "40px 24px", maxWidth: 320, width: "90%", textAlign: "center", border: `2px solid ${T.blueBorder}`, boxShadow: T.blueShadow }} onClick={(e) => e.stopPropagation()}>
+            <motion.div initial={{ scale: 0 }} animate={{ scale: successModalOpen ? 1 : 0 }} transition={{ delay: 0.3, type: "spring", damping: 15 }} style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(16, 185, 129, 0.15)", border: `2px solid ${T.green}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 40 }}>
+              ✓
+            </motion.div>
+            <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: "0 0 8px" }}>Success!</h2>
+            <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: "0 0 24px", lineHeight: 1.5 }}>{successData?.type === "data" ? `Data purchased successfully` : "Airtime bought successfully"}</p>
+            
+            <div style={{ background: T.blueLight, borderRadius: 12, padding: "16px", marginBottom: 20, textAlign: "left" }}>
+              {successData?.type === "data" && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
+                    <span style={{ color: T.textDim, fontWeight: 600 }}>Plan:</span>
+                    <span style={{ color: T.text, fontWeight: 700 }}>{successData?.plan}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
+                    <span style={{ color: T.textDim, fontWeight: 600 }}>Network:</span>
+                    <span style={{ color: T.text, fontWeight: 700 }}>{successData?.network}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
+                    <span style={{ color: T.textDim, fontWeight: 600 }}>Phone:</span>
+                    <span style={{ color: T.text, fontFamily: T.mono, fontWeight: 700 }}>{successData?.phone}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: T.textDim, fontWeight: 600 }}>Amount:</span>
+                    <span style={{ color: T.blue, fontFamily: T.mono, fontWeight: 800 }}>₦{successData?.amount?.toLocaleString()}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setSuccessModalOpen(false)} style={{ width: "100%", padding: "12px", borderRadius: 12, background: T.blue, border: "none", color: "#fff", fontFamily: T.font, fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: T.blueShadow, transition: "all 0.2s" }}>
+              Done
+            </motion.button>
+          </motion.div>
+        </motion.div>
       </div>
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
