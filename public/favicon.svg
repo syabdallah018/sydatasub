@@ -1,0 +1,23 @@
+<svg viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="192" height="192" fill="#ffffff"/>
+  
+  <!-- Outer circle (navy) -->
+  <circle cx="96" cy="96" r="85" fill="none" stroke="#1e3a8a" stroke-width="12"/>
+  
+  <!-- Inner signal icon (teal to green gradient) -->
+  <defs>
+    <linearGradient id="signalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d9488;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Signal waves -->
+  <path d="M 70 120 Q 80 100 96 95 Q 112 100 122 120" fill="none" stroke="url(#signalGrad)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 60 140 Q 80 110 96 100 Q 112 110 132 140" fill="none" stroke="url(#signalGrad)" stroke-width="8" stroke-linecap="round" opacity="0.7"/>
+  <path d="M 50 160 Q 80 120 96 105 Q 112 120 142 160" fill="none" stroke="url(#signalGrad)" stroke-width="8" stroke-linecap="round" opacity="0.5"/>
+  
+  <!-- Center dot -->
+  <circle cx="96" cy="85" r="8" fill="url(#signalGrad)"/>
+</svg>

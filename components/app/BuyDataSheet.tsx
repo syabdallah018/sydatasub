@@ -208,7 +208,7 @@ export function BuyDataSheet({
                       <p className="font-semibold text-text-primary">{plan.dataSize}</p>
                       <p className="text-xs text-text-tertiary">{plan.validity}</p>
                     </div>
-                    <p className="font-bold text-brand">₦{(plan.price / 100).toFixed(2)}</p>
+                    <p className="font-bold text-brand">₦{plan.price.toLocaleString()}</p>
                   </motion.button>
                 ))}
               </motion.div>
@@ -234,7 +234,7 @@ export function BuyDataSheet({
 
                   <p className="text-sm text-text-tertiary mb-1">Price</p>
                   <p className="font-heading font-bold text-brand text-lg">
-                    ₦{(selectedPlan.price / 100).toFixed(2)}
+                    ₦{selectedPlan.price.toLocaleString()}
                   </p>
                 </div>
 

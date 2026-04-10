@@ -60,12 +60,16 @@ export function CTABanner() {
             >
               Open App
             </Link>
-            <button className="px-8 py-4 border-2 border-white text-white rounded-full font-semibold hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2 font-display">
+            {/* TODO: Configure Play Store link via admin dashboard */}
+            <a
+              href="#"
+              className="px-8 py-4 border-2 border-white text-white rounded-full font-semibold hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2 font-display"
+            >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="white">
                 <path d="M17.6915026,0.972060766 C16.4744051,0.43570787 15.1302786,0.206771341 13.7711039,0.206771341 C8.16531599,0.206771341 3.50670017,4.88444281 3.50670017,10.5046365 C3.50670017,12.8603077 4.18598217,15.0554759 5.39157088,16.8899231 L4.32205982,20.9109271 C4.10919506,21.7351726 4.91938584,22.5443288 5.73356608,22.3220624 L9.68098099,21.2159624 C11.3744658,21.8663544 13.2303192,22.2389624 15.1705903,22.2389624 C20.7764769,22.2389624 25.4350927,17.5612909 25.4350927,11.9410972 C25.4350927,10.5527589 25.2068049,9.21900403 24.7787309,7.98627415 L28.4830353,6.00576096 C29.5098813,5.43821897 30.0491843,4.26849221 29.6436822,3.28268321 L27.7372293,0.172274336 C27.4205531,-0.372220911 26.8261882,-0.600758717 26.3009625,-0.388104219 L4.84652409,8.19231564 C4.32139296,8.40496901 3.94633817,8.96523265 4.10919506,9.56527761 L8.04660798,21.3351265 L4.10919506,9.56527761 Z" />
               </svg>
-              Google Play
-            </button>
+              Get on Google Play
+            </a>
           </div>
         </motion.div>
       </div>

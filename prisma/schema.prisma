@@ -20,6 +20,11 @@ enum UserRole {
   ADMIN
 }
 
+enum UserTier {
+  user
+  agent
+}
+
 enum NetworkType {
   MTN
   GLO
@@ -69,6 +74,7 @@ model User {
   pinHash   String?
   email     String?
   role      UserRole   @default(USER)
+  tier      UserTier   @default(user)
   balance   Int        @default(0) // in KOBO
   isBanned  Boolean    @default(false)
   isActive  Boolean    @default(true)
@@ -81,6 +87,7 @@ model User {
 
   @@index([phone])
   @@index([email])
+  @@index([tier])
   @@map("users")
 }
 
@@ -103,7 +110,9 @@ model Plan {
   network             NetworkType
   sizeLabel           String     // e.g. "1GB", "5GB"
   validity            String     // e.g. "Monthly", "Weekly"
-  price               Int        // in NAIRA
+  price               Int        // in NAIRA (deprecated - use user_price)
+  user_price          Int        @default(0) // Standard customer price in NAIRA
+  agent_price         Int        @default(0) // Reseller/bulk price in NAIRA
   apiSource           ApiSource
   externalPlanId      Int
   externalNetworkId   Int
