@@ -230,15 +230,21 @@ export default function AnalyticsPage() {
         <h3 className="text-lg font-semibold text-slate-900 mb-4">
           Top 5 Plans by Sales Volume
         </h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData.topPlans}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="count" fill="#3b82f6" />
-          </BarChart>
-        </ResponsiveContainer>
+        {chartData.topPlans && chartData.topPlans.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData.topPlans}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="count" fill="#3b82f6" />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="text-center py-12 text-slate-500">
+            No plan data available yet
+          </div>
+        )}
       </Card>
 
       {/* Recent Transactions */}

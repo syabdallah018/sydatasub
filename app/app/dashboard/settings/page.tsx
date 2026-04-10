@@ -162,24 +162,26 @@ export default function SettingsPage() {
             {/* Avatar */}
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center mb-4">
               <span className="text-2xl font-bold text-white">
-                {getInitials(user.fullName)}
+                {user?.fullName ? getInitials(user.fullName) : "US"}
               </span>
             </div>
 
             {/* Name */}
-            <h2 className="text-xl font-bold">{user.fullName}</h2>
+            <h2 className="text-xl font-bold">{user?.fullName || "User"}</h2>
 
             {/* Role Badge */}
-            <Badge className={`mt-2 border ${getRoleBadgeColor(user.role)}`}>
-              {user.role}
-            </Badge>
+            {user?.role && (
+              <Badge className={`mt-2 border ${getRoleBadgeColor(user.role)}`}>
+                {user.role}
+              </Badge>
+            )}
 
             {/* Phone */}
-            <p className="text-white/70 text-sm mt-3">{user.phone}</p>
+            <p className="text-white/70 text-sm mt-3">{user?.phone || "N/A"}</p>
 
             {/* Member Since */}
             <p className="text-white/60 text-xs mt-2">
-              Member since {format(new Date(user.joinedAt), "MMMM d, yyyy")}
+              Member since {user?.joinedAt ? format(new Date(user.joinedAt), "MMMM d, yyyy") : "Unknown"}
             </p>
           </div>
         </motion.div>
@@ -187,36 +189,42 @@ export default function SettingsPage() {
         {/* Account Details */}
         <div>
           <h3 className="text-sm font-semibold text-white/70 mb-3">Account</h3>
-          <SettingsItem
-            icon={<Phone className="h-5 w-5" />}
-            label="Phone"
-            value={user.phone}
-          />
-          {user.virtualAccount && (
+          {user?.phone && (
+            <SettingsItem
+              icon={<Phone className="h-5 w-5" />}
+              label="Phone"
+              value={user.phone}
+            />
+          )}
+          {user?.virtualAccount?.accountNumber && (
             <>
               <SettingsItem
                 icon={<Building2 className="h-5 w-5" />}
                 label="Account Number"
                 value={user.virtualAccount.accountNumber}
                 copyable
-                onCopy={() => copyToClipboard(user.virtualAccount.accountNumber)}
+                onCopy={() => copyToClipboard(user.virtualAccount?.accountNumber || "")}
               />
-              <SettingsItem
-                icon={<Building2 className="h-5 w-5" />}
-                label="Bank Name"
-                value={user.virtualAccount.bankName}
-              />
+              {user?.virtualAccount?.bankName && (
+                <SettingsItem
+                  icon={<Building2 className="h-5 w-5" />}
+                  label="Bank Name"
+                  value={user.virtualAccount.bankName}
+                />
+              )}
             </>
           )}
-          <SettingsItem
-            icon={<Badge className="h-4 w-4" />}
-            label="Role"
-            value={
-              <Badge className={`${getRoleBadgeColor(user.role)}`}>
-                {user.role}
-              </Badge>
-            }
-          />
+          {user?.role && (
+            <SettingsItem
+              icon={<Badge className="h-4 w-4" />}
+              label="Role"
+              value={
+                <Badge className={`${getRoleBadgeColor(user.role)}`}>
+                  {user.role}
+                </Badge>
+              }
+            />
+          )}
         </div>
 
         <Separator className="bg-white/10" />

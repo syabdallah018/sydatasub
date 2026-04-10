@@ -40,7 +40,6 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
         network_id: externalNetworkId,
         plan_id: externalPlanId,
         phone: formattedPhone,
-        customer_reference: reference,
       },
       {
         headers: {

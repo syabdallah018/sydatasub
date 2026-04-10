@@ -123,6 +123,11 @@ export async function GET(req: NextRequest) {
       LIMIT 5
     `;
 
+    const topPlansData = (topPlans || []).map((plan: any) => ({
+      name: plan.name || "Unknown",
+      count: Number(plan.count) || 0,
+    }));
+
     // Get recent 20 transactions
     const recentTransactions = await prisma.transaction.findMany({
       take: 20,
@@ -159,7 +164,7 @@ export async function GET(req: NextRequest) {
         chartData: {
           transactionTrend: last7Days,
           revenueByNetwork: pieChartData,
-          topPlans: topPlans || [],
+          topPlans: topPlansData,
         },
         recentTransactions: recentTransactions.map((tx) => ({
           ...tx,
