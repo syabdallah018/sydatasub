@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Copy, Check, Eye, EyeOff, Loader2, LogOut, Zap, Phone, Gift, CreditCard, X, ChevronLeft, Settings } from "lucide-react";
@@ -143,42 +143,117 @@ function TransactionHistory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/transactions")
-      .then(r => r.json())
-      .then(d => {
-        if (d?.success && d?.data) {
-          setTransactions(d.data);
+    const fetchTransactions = async () => {
+      try {
+        const res = await fetch("/api/transactions");
+        const data = await res.json();
+        
+        console.log("[TXN] API Response:", data);
+        
+        if (res.ok && data?.success) {
+          const txList = data.transactions || data.data || [];
+          setTransactions(Array.isArray(txList) ? txList : []);
+        } else {
+          console.error("[TXN] API Error:", data?.error);
+          setTransactions([]);
         }
-      })
-      .catch(e => console.error("Transaction fetch error:", e))
-      .finally(() => setLoading(false));
+      } catch (error: any) {
+        console.error("[TXN] Fetch Error:", error);
+        setTransactions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTransactions();
   }, []);
+
+  const getTransactionIcon = (type: string) => {
+    if (type === "DATA_PURCHASE") return "📱";
+    if (type === "AIRTIME_PURCHASE") return "☎️";
+    if (type === "WALLET_FUNDING") return "💰";
+    if (type === "REWARD_CREDIT") return "🎁";
+    return "💳";
+  };
+
+  const getTransactionTitle = (type: string) => {
+    if (type === "DATA_PURCHASE") return "Data Purchase";
+    if (type === "AIRTIME_PURCHASE") return "Airtime Purchase";
+    if (type === "WALLET_FUNDING") return "Wallet Funding";
+    if (type === "REWARD_CREDIT") return "Reward Credit";
+    return type;
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === "SUCCESS") return { bg: "rgba(16,185,129,0.15)", text: T.green };
+    if (status === "PENDING") return { bg: "rgba(245,158,11,0.15)", text: T.amber };
+    if (status === "FAILED") return { bg: "rgba(239,68,68,0.15)", text: "#ef4444" };
+    return { bg: "rgba(107,114,128,0.15)", text: T.textMid };
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>Transaction History</h3>
+      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 20 }}>📊 Transaction History</h3>
+      
       {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
-          <Loader2 size={28} className="animate-spin" color={T.blue} />
+        <div style={{ display: "flex", justifyContent: "center", padding: "60px 20px" }}>
+          <Loader2 size={32} className="animate-spin" color={T.blue} />
         </div>
       ) : transactions.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "40px 20px", background: T.surface, borderRadius: 16 }}>
-          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0 }}>No transactions yet</p>
+        <div style={{ textAlign: "center", padding: "60px 20px", background: T.surface, borderRadius: 16, border: `2px dashed ${T.border}` }}>
+          <p style={{ fontFamily: T.font, fontSize: 32, margin: "0 0 12px" }}>📭</p>
+          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0, fontWeight: 600 }}>No transactions yet</p>
+          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 12, margin: "6px 0 0", fontWeight: 400 }}>Start by purchasing data or airtime</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {transactions.map((tx) => (
-            <motion.div key={tx.id} whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>{tx.type === "data" ? "Data Purchase" : tx.type === "airtime" ? "Airtime Purchase" : tx.description}</p>
-                <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>{tx.phone} • {new Date(tx.createdAt).toLocaleDateString()}</p>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ fontFamily: T.mono, fontWeight: 700, fontSize: 14, color: T.blue, margin: "0 0 4px" }}>-₦{tx.amount?.toLocaleString()}</p>
-                <span style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 6, background: tx.status === "success" ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)", color: tx.status === "success" ? T.green : "#ef4444", textTransform: "capitalize" }}>{tx.status}</span>
-              </div>
-            </motion.div>
-          ))}
+          {transactions.map((tx, idx) => {
+            const statusColors = getStatusColor(tx.status);
+            const icon = getTransactionIcon(tx.type);
+            const title = getTransactionTitle(tx.type);
+            
+            return (
+              <motion.div 
+                key={tx.id} 
+                initial={{ opacity: 0, x: -10 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                transition={{ delay: idx * 0.05 }}
+                whileHover={{ scale: 1.02, boxShadow: `0 8px 20px ${T.blue}15` }}
+                style={{ 
+                  background: T.surface, 
+                  borderRadius: 14, 
+                  padding: "16px", 
+                  border: `2px solid ${T.border}`, 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center",
+                  transition: "all 0.2s"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                  <div style={{ fontSize: 20, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: T.blueLight, borderRadius: 10 }}>
+                    {icon}
+                  </div>
+                  <div>
+                    <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>
+                      {title}
+                    </p>
+                    <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>
+                      {tx.phone} • {new Date(tx.createdAt).toLocaleDateString()} {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 15, color: T.blue, margin: "0 0 6px" }}>
+                    ₦{tx.amount?.toLocaleString() || "0"}
+                  </p>
+                  <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 700, padding: "5px 10px", borderRadius: 6, background: statusColors.bg, color: statusColors.text, textTransform: "uppercase", display: "inline-block", letterSpacing: "0.05em" }}>
+                    {tx.status}
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </motion.div>
@@ -188,7 +263,6 @@ function TransactionHistory() {
 function RewardsTab() {
   const [rewards, setRewards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [totalPoints, setTotalPoints] = useState(0);
   const [userTier, setUserTier] = useState("user");
 
   useEffect(() => {
@@ -197,9 +271,8 @@ function RewardsTab() {
       fetch("/api/auth/me").then(r => r.json())
     ])
     .then(([rewardsData, userData]) => {
-      if (rewardsData?.success && rewardsData?.data) {
-        setRewards(rewardsData.data);
-        setTotalPoints(rewardsData.data.reduce((sum: number, r: any) => sum + (r.points || 0), 0));
+      if (Array.isArray(rewardsData)) {
+        setRewards(rewardsData);
       }
       if (userData?.success && userData?.data) {
         setUserTier(userData.data.tier);
@@ -215,6 +288,17 @@ function RewardsTab() {
   };
   const tierInfo = getTierInfo();
 
+  const claimedRewards = rewards.filter(r => r.status === "CLAIMED");
+  const inProgressRewards = rewards.filter(r => r.status === "IN_PROGRESS");
+
+  const getRewardTitle = (type: string) => {
+    if (type === "SIGNUP_BONUS") return "Signup Bonus";
+    if (type === "DEPOSIT_2K") return "₦2K Deposit";
+    if (type === "DEPOSIT_10K") return "₦10K Deposit";
+    if (type === "REFERRAL") return "Referral Bonus";
+    return type;
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
       <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>Rewards & Points</h3>
@@ -223,40 +307,58 @@ function RewardsTab() {
         <div>
           <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 8px", fontWeight: 600, textTransform: "uppercase" }}>Current Tier</p>
           <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: tierInfo.color, margin: "0 0 4px" }}>{tierInfo.icon} {tierInfo.name}</p>
-          <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>Unlock benefits and earn more</p>
+          <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>Unlock more rewards</p>
         </div>
-        <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 40, color: T.amber, margin: 0 }}>{totalPoints.toLocaleString()}</p>
+        <div style={{ textAlign: "right" }}>
+          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.textDim, margin: "0 0 4px", textTransform: "uppercase" }}>Claimed</p>
+          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 32, color: T.green, margin: 0 }}>{claimedRewards.length}</p>
+        </div>
       </motion.div>
 
-      <div style={{ marginBottom: 20 }}>
-        <h4 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 12px" }}>Tier Benefits</h4>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <BenefitCard icon="💰" title="Lower Rates" subtitle="Agent pricing" />
-          <BenefitCard icon="🎁" title="Bonus Credits" subtitle="Extra rewards" />
-          <BenefitCard icon="⚡" title="Priority Support" subtitle="24/7 help" />
-          <BenefitCard icon="📊" title="Analytics" subtitle="Track spending" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
+        <div style={{ background: T.blueLight, borderRadius: 12, padding: 14, textAlign: "center" }}>
+          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.textDim, margin: "0 0 4px" }}>Total Rewards</p>
+          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 24, color: T.blue, margin: 0 }}>{rewards.length}</p>
+        </div>
+        <div style={{ background: "rgba(16,185,129,0.15)", borderRadius: 12, padding: 14, textAlign: "center" }}>
+          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.green, margin: "0 0 4px" }}>Claimed</p>
+          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 24, color: T.green, margin: 0 }}>{claimedRewards.length}</p>
+        </div>
+        <div style={{ background: "rgba(245,158,11,0.15)", borderRadius: 12, padding: 14, textAlign: "center" }}>
+          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.amber, margin: "0 0 4px" }}>In Progress</p>
+          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 24, color: T.amber, margin: 0 }}>{inProgressRewards.length}</p>
         </div>
       </div>
 
       {loading ? (
         <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
-          <Loader2 size={28} className="animate-spin" color={T.amber} />
+          <Loader2 size={28} className="animate-spin" color={T.blue} />
         </div>
       ) : rewards.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px 20px", background: T.surface, borderRadius: 16 }}>
-          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0 }}>No rewards yet</p>
+          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0 }}>Complete transactions to unlock rewards</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {rewards.map((reward) => (
-            <motion.div key={reward.id} whileHover={{ scale: 1.02 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>{reward.reason || "Purchase Reward"}</p>
-                <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>{new Date(reward.createdAt).toLocaleDateString()}</p>
-              </div>
-              <p style={{ fontFamily: T.mono, fontWeight: 700, fontSize: 14, color: T.amber, margin: 0 }}>+{reward.points}</p>
-            </motion.div>
-          ))}
+          {rewards.map((reward) => {
+            const isClaimed = reward.status === "CLAIMED";
+            return (
+              <motion.div key={reward.id} whileHover={{ scale: 1.02 }} style={{ background: isClaimed ? "rgba(16,185,129,0.1)" : T.surface, borderRadius: 14, padding: "16px", border: `2px solid ${isClaimed ? "rgba(16,185,129,0.3)" : T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>
+                    {isClaimed ? "✅" : "⏳"} {getRewardTitle(reward.type)}
+                  </p>
+                  <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>
+                    {isClaimed ? `Claimed on ${new Date(reward.claimedAt).toLocaleDateString()}` : "Pending claim"}
+                  </p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 16, color: isClaimed ? T.green : T.amber, margin: 0 }}>+{reward.amount || "100"}</p>
+                  <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 700, color: isClaimed ? T.green : T.amber, textTransform: "uppercase" }}>₦ Naira</span>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </motion.div>
@@ -276,7 +378,6 @@ function BenefitCard({ icon, title, subtitle }: any) {
 function SettingsTab() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
@@ -286,116 +387,420 @@ function SettingsTab() {
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <motion.button whileTap={{ scale: 0.98 }} onClick={() => setProfileOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
           <div>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Profile</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>View and edit your profile</p>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>👤 Profile</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>View account information</p>
           </div>
           <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
         </motion.button>
 
         <motion.button whileTap={{ scale: 0.98 }} onClick={() => setSecurityOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
           <div>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Security</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Change PIN and password</p>
-          </div>
-          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.button>
-
-        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setNotificationsOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
-          <div>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Notifications</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Manage alert preferences</p>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>🔒 Security</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Change your PIN</p>
           </div>
           <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
         </motion.button>
 
         <motion.button whileTap={{ scale: 0.98 }} onClick={() => setHelpOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
           <div>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>Help & Support</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Contact our support team</p>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>📞 Help & Support</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Contact support team</p>
           </div>
           <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
         </motion.button>
       </div>
 
-      <SettingModal open={profileOpen} onClose={() => setProfileOpen(false)} title="Profile" onSave={() => setProfileOpen(false)}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>Full Name</label>
-            <input type="text" placeholder="Enter your full name" style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
-          </div>
-          <div>
-            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>Email</label>
-            <input type="email" placeholder="Enter your email" style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
-          </div>
-        </div>
-      </SettingModal>
-
-      <SettingModal open={securityOpen} onClose={() => setSecurityOpen(false)} title="Security" onSave={() => setSecurityOpen(false)}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div>
-            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>Current PIN</label>
-            <input type="password" placeholder="Enter current PIN" maxLength={6} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
-          </div>
-          <div>
-            <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8 }}>New PIN</label>
-            <input type="password" placeholder="Enter new PIN" maxLength={6} style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.font, fontSize: 14, outline: "none" }} />
-          </div>
-        </div>
-      </SettingModal>
-
-      <SettingModal open={notificationsOpen} onClose={() => setNotificationsOpen(false)} title="Notifications" onSave={() => setNotificationsOpen(false)}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px", borderRadius: 12, background: T.surface }}>  
-            <input type="checkbox" defaultChecked style={{ width: 18, height: 18, cursor: "pointer" }} />
-            <span style={{ fontFamily: T.font, fontSize: 13, color: T.text, fontWeight: 500 }}>Transaction updates</span>
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px", borderRadius: 12, background: T.surface }}>
-            <input type="checkbox" defaultChecked style={{ width: 18, height: 18, cursor: "pointer" }} />
-            <span style={{ fontFamily: T.font, fontSize: 13, color: T.text, fontWeight: 500 }}>Reward notifications</span>
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "12px", borderRadius: 12, background: T.surface }}>
-            <input type="checkbox" defaultChecked style={{ width: 18, height: 18, cursor: "pointer" }} />
-            <span style={{ fontFamily: T.font, fontSize: 13, color: T.text, fontWeight: 500 }}>Promotional offers</span>
-          </label>
-        </div>
-      </SettingModal>
-
-      <SettingModal open={helpOpen} onClose={() => setHelpOpen(false)} title="Help & Support" showSaveButton={false}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14 }}>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.blue, margin: "0 0 6px" }}>Email Support</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>support@sydatasub.local</p>
-          </div>
-          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14 }}>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.blue, margin: "0 0 6px" }}>Call Us</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>+234 (0) 800 123 4567</p>
-          </div>
-          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14 }}>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.blue, margin: "0 0 6px" }}>WhatsApp</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>Chat with us on WhatsApp</p>
-          </div>
-        </div>
-      </SettingModal>
+      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <SecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </motion.div>
   );
 }
 
-function SettingModal({ open, onClose, title, children, showSaveButton = true, onSave }: any) {
+function ProfileModal({ open, onClose }: any) {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setLoading(true);
+      fetch("/api/auth/me")
+        .then(r => r.json())
+        .then(d => d?.data && setUser(d.data))
+        .finally(() => setLoading(false));
+    }
+  }, [open]);
+
+  if (!user && loading) {
+    return (
+      <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
+        <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}` }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "center", padding: "60px 20px" }}>
+            <Loader2 size={32} className="animate-spin" color={T.blue} />
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
-      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}` }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, margin: 0 }}>{title}</h2>
+      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}`, maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>👤 Your Profile</h2>
           <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <X size={16} color={T.textMid} />
           </button>
         </div>
-        <div style={{ marginBottom: 20 }}>{children}</div>
-        {showSaveButton && (
-          <motion.button whileTap={{ scale: 0.95 }} onClick={onSave} style={{ width: "100%", padding: 14, borderRadius: 12, background: T.blue, border: "none", color: "#fff", fontFamily: T.font, fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: T.blueShadow, transition: "all 0.2s" }}>
-            Save Changes
-          </motion.button>
+
+        {user && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Full Name</p>
+              <p style={{ fontFamily: T.font, fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>{user.fullName}</p>
+            </div>
+
+            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Phone</p>
+              <p style={{ fontFamily: T.mono, fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>{user.phone}</p>
+            </div>
+
+            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Account Number</p>
+              <p style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 700, color: T.text, margin: 0 }}>{user.virtualAccount?.accountNumber}</p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ background: T.blueLight, borderRadius: 14, padding: 14 }}>
+                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Account Tier</p>
+                <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 700, color: T.blue, margin: 0 }}>{user.tier === "agent" ? "🚀 Agent" : "⭐ User"}</p>
+              </div>
+              <div style={{ background: T.blueLight, borderRadius: 14, padding: 14 }}>
+                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Balance</p>
+                <p style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 700, color: T.blue, margin: 0 }}>₦{(user.balance / 100).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Date Joined</p>
+              <p style={{ fontFamily: T.font, fontSize: 14, fontWeight: 700, color: T.text, margin: 0 }}>{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—"}</p>
+            </div>
+
+            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Account Status</p>
+              <p style={{ fontFamily: T.font, fontSize: 14, fontWeight: 700, color: user.isActive ? T.green : "#ef4444", margin: 0 }}>{user.isActive ? "✅ Active" : "❌ Inactive"}</p>
+            </div>
+          </div>
         )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function SecurityModal({ open, onClose }: any) {
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+  const currentPinRef = useRef<HTMLInputElement>(null);
+  const newPinRef = useRef<HTMLInputElement>(null);
+  const confirmPinRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && status === "idle") {
+      setTimeout(() => currentPinRef.current?.focus(), 100);
+    }
+  }, [open, status]);
+
+  const handlePinInput = (value: string, setter: any, nextRef?: any) => {
+    const digits = value.slice(0, 6);
+    setter(digits);
+    if (digits.length === 6 && nextRef) {
+      setTimeout(() => nextRef.current?.focus(), 50);
+    }
+  };
+
+  const handleKeyDown = (e: any, nextRef?: any) => {
+    if (e.key === "Enter" && e.target.value.length === 6 && nextRef) {
+      nextRef.current?.focus();
+    }
+  };
+
+  const handleChangePin = async () => {
+    if (currentPin.length !== 6) {
+      setStatus("error");
+      setMessage("Current PIN must be 6 digits");
+      currentPinRef.current?.focus();
+      return;
+    }
+
+    if (newPin.length !== 6) {
+      setStatus("error");
+      setMessage("New PIN must be 6 digits");
+      newPinRef.current?.focus();
+      return;
+    }
+
+    if (confirmPin.length !== 6) {
+      setStatus("error");
+      setMessage("Confirm PIN must be 6 digits");
+      confirmPinRef.current?.focus();
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      setStatus("error");
+      setMessage("New PINs don't match");
+      confirmPinRef.current?.focus();
+      return;
+    }
+
+    if (currentPin === newPin) {
+      setStatus("error");
+      setMessage("New PIN must be different from current PIN");
+      newPinRef.current?.focus();
+      return;
+    }
+
+    setLoading(true);
+    setStatus("idle");
+
+    try {
+      const res = await fetch("/api/auth/change-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPin, newPin }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setStatus("success");
+        setMessage("PIN changed successfully! 🎉");
+        setTimeout(() => {
+          setCurrentPin("");
+          setNewPin("");
+          setConfirmPin("");
+          setStatus("idle");
+          onClose();
+        }, 2500);
+      } else {
+        setStatus("error");
+        setMessage(data.error || "Failed to change PIN. Please try again.");
+        currentPinRef.current?.focus();
+      }
+    } catch (error) {
+      setStatus("error");
+      setMessage("Connection error. Please check your internet and try again.");
+      currentPinRef.current?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
+      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}`, maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, paddingBottom: 12, borderBottom: `2px solid ${T.blueBorder}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 5, height: 24, borderRadius: 3, background: T.blue }} />
+            <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>🔒 Change PIN</h2>
+          </div>
+          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
+            <X size={18} color={T.textMid} />
+          </button>
+        </div>
+
+        {status === "success" ? (
+          <motion.div initial={{ scale: 0.8, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 400, damping: 20 }} style={{ textAlign: "center", padding: "50px 20px" }}>
+            <motion.div 
+              animate={{ scale: [1, 1.1, 1] }} 
+              transition={{ duration: 0.6, repeat: 1 }}
+              style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(16,185,129,0.2)", border: `3px solid ${T.green}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 40 }}
+            >
+              ✓
+            </motion.div>
+            <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.green, margin: "0 0 8px" }}>PIN Changed!</p>
+            <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: 0 }}>{message}</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "16px 0 0" }}>Closing in a moment...</p>
+          </motion.div>
+        ) : status === "error" ? (
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring" }} style={{ background: "rgba(239,68,68,0.15)", border: `2px solid #ef4444`, borderRadius: 14, padding: 16, marginBottom: 20, display: "flex", gap: 12 }}>
+            <div style={{ fontSize: 20 }}>❌</div>
+            <div>
+              <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: "#dc2626", margin: 0 }}>{message}</p>
+            </div>
+          </motion.div>
+        ) : null}
+
+        {status !== "success" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Current PIN</label>
+              <input 
+                ref={currentPinRef}
+                type="password" 
+                maxLength={6} 
+                placeholder="••••••" 
+                disabled={loading}
+                value={currentPin} 
+                onChange={(e) => handlePinInput(e.target.value, setCurrentPin, newPinRef)}
+                onKeyDown={(e) => handleKeyDown(e, newPinRef)}
+                onFocus={(e) => e.target.select()}
+                style={{ 
+                  width: "100%", 
+                  padding: "16px 16px", 
+                  borderRadius: 12, 
+                  border: `2.5px solid ${status === "error" && currentPin.length < 6 ? "#ef4444" : T.blue}`, 
+                  fontFamily: T.mono, 
+                  fontSize: 20, 
+                  letterSpacing: "0.3em", 
+                  outline: "none", 
+                  textAlign: "center", 
+                  transition: "all 0.2s",
+                  background: T.surface,
+                  opacity: loading ? 0.6 : 1,
+                  cursor: loading ? "not-allowed" : "text"
+                }} 
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>New PIN</label>
+              <input 
+                ref={newPinRef}
+                type="password" 
+                maxLength={6} 
+                placeholder="••••••" 
+                disabled={loading}
+                value={newPin} 
+                onChange={(e) => handlePinInput(e.target.value, setNewPin, confirmPinRef)}
+                onKeyDown={(e) => handleKeyDown(e, confirmPinRef)}
+                onFocus={(e) => e.target.select()}
+                style={{ 
+                  width: "100%", 
+                  padding: "16px 16px", 
+                  borderRadius: 12, 
+                  border: `2.5px solid ${status === "error" && newPin !== confirmPin ? "#ef4444" : T.blue}`, 
+                  fontFamily: T.mono, 
+                  fontSize: 20, 
+                  letterSpacing: "0.3em", 
+                  outline: "none", 
+                  textAlign: "center", 
+                  transition: "all 0.2s",
+                  background: T.surface,
+                  opacity: loading ? 0.6 : 1,
+                  cursor: loading ? "not-allowed" : "text"
+                }} 
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Confirm New PIN</label>
+              <input 
+                ref={confirmPinRef}
+                type="password" 
+                maxLength={6} 
+                placeholder="••••••" 
+                disabled={loading}
+                value={confirmPin} 
+                onChange={(e) => handlePinInput(e.target.value, setConfirmPin)}
+                onKeyDown={(e) => e.key === "Enter" && handleChangePin()}
+                onFocus={(e) => e.target.select()}
+                style={{ 
+                  width: "100%", 
+                  padding: "16px 16px", 
+                  borderRadius: 12, 
+                  border: `2.5px solid ${status === "error" && newPin !== confirmPin ? "#ef4444" : T.blue}`, 
+                  fontFamily: T.mono, 
+                  fontSize: 20, 
+                  letterSpacing: "0.3em", 
+                  outline: "none", 
+                  textAlign: "center", 
+                  transition: "all 0.2s",
+                  background: T.surface,
+                  opacity: loading ? 0.6 : 1,
+                  cursor: loading ? "not-allowed" : "text"
+                }} 
+              />
+            </div>
+
+            <motion.button 
+              whileTap={{ scale: loading ? 1 : 0.96 }} 
+              onClick={handleChangePin} 
+              disabled={loading || currentPin.length < 6 || newPin.length < 6 || confirmPin.length < 6}
+              style={{ 
+                width: "100%", 
+                padding: 16, 
+                borderRadius: 14, 
+                background: loading ? T.blue : T.blue, 
+                border: "none", 
+                color: "#fff", 
+                fontFamily: T.font, 
+                fontWeight: 700, 
+                fontSize: 16, 
+                cursor: (loading || currentPin.length < 6) ? "not-allowed" : "pointer", 
+                boxShadow: T.blueShadow, 
+                transition: "all 0.3s",
+                opacity: (loading || currentPin.length < 6 || newPin.length < 6 || confirmPin.length < 6) ? 0.6 : 1, 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center", 
+                gap: 10,
+                letterSpacing: "0.05em"
+              }}
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Processing PIN...
+                </>
+              ) : (
+                <>
+                  🔐 Change PIN
+                </>
+              )}
+            </motion.button>
+
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "8px 0 0", textAlign: "center" }}>
+              💡 Tip: PIN must be 6 digits and different from current PIN
+            </p>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function HelpModal({ open, onClose }: any) {
+  return (
+    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
+      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}` }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>📞 Help & Support</h2>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={16} color={T.textMid} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <motion.div whileHover={{ scale: 1.02 }} onClick={() => window.location.href = "mailto:syabdallah018@gmail.com"} style={{ background: `linear-gradient(135deg, ${T.blue}20, ${T.blue}10)`, borderRadius: 14, padding: 16, border: `2px solid ${T.blue}30`, cursor: "pointer", transition: "all 0.2s" }}>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, margin: "0 0 8px" }}>✉️ Email Support</p>
+            <p style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.textMid, margin: 0 }}>syabdallah018@gmail.com</p>
+          </motion.div>
+
+          <motion.div whileHover={{ scale: 1.02 }} onClick={() => window.location.href = "tel:+2349061338534"} style={{ background: `linear-gradient(135deg, ${T.green}20, ${T.green}10)`, borderRadius: 14, padding: 16, border: `2px solid ${T.green}30`, cursor: "pointer", transition: "all 0.2s" }}>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.green, margin: "0 0 8px" }}>📱 Call Us</p>
+            <p style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.textMid, margin: 0 }}>+234 906 133 8534</p>
+          </motion.div>
+
+          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14, textAlign: "center" }}>
+            <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: T.textDim, margin: "0 0 4px" }}>Average Response Time</p>
+            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, margin: 0 }}>⚡ 2-4 hours</p>
+          </div>
+        </div>
       </motion.div>
     </motion.div>
   );
