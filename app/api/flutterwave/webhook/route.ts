@@ -167,26 +167,36 @@ export async function POST(req: NextRequest) {
         });
 
         if (userByPhone) {
-          // Create a wallet funding entry
-          transaction = await prisma.transaction.create({
-            data: {
-              userId: userByPhone.id,
-              phone: userByPhone.phone,
-              type: "WALLET_FUNDING",
-              status: "PENDING",
-              amount: eventData.amount,
-              reference: eventData.tx_ref || eventData.flw_ref,
-              description: "Wallet top-up via Flutterwave (phone-based match)",
-            },
+          // Check if transaction with this reference already exists
+          const existingRef = await prisma.transaction.findFirst({
+            where: { reference: eventData.tx_ref || eventData.flw_ref },
           });
 
-          console.log("[WEBHOOK PHONE LOOKUP] Created transaction via phone lookup:", {
-            transactionId: transaction.id,
-            userId: userByPhone.id,
-            userPhone: userByPhone.phone,
-            amount: eventData.amount,
-            normalizedPhone: normalizedPhone,
-          });
+          if (existingRef) {
+            console.log("[WEBHOOK PHONE LOOKUP] Transaction already exists with reference:", eventData.tx_ref || eventData.flw_ref);
+            transaction = existingRef;
+          } else {
+            // Create a wallet funding entry
+            transaction = await prisma.transaction.create({
+              data: {
+                userId: userByPhone.id,
+                phone: userByPhone.phone,
+                type: "WALLET_FUNDING",
+                status: "PENDING",
+                amount: eventData.amount,
+                reference: eventData.tx_ref || eventData.flw_ref,
+                description: "Wallet top-up via Flutterwave (phone-based match)",
+              },
+            });
+
+            console.log("[WEBHOOK PHONE LOOKUP] Created transaction via phone lookup:", {
+              transactionId: transaction.id,
+              userId: userByPhone.id,
+              userPhone: userByPhone.phone,
+              amount: eventData.amount,
+              normalizedPhone: normalizedPhone,
+            });
+          }
 
           isWalletFunding = true;
         }

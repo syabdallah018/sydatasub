@@ -12,16 +12,22 @@ const purchaseSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    console.log("[AIRTIME PURCHASE] Starting purchase request");
     const user = await getSessionUser(req)
 
+    console.log("[AIRTIME PURCHASE] Auth result:", { authenticated: !!user, userId: user?.userId });
+
     if (!user) {
+      console.error("[AIRTIME PURCHASE] ❌ Unauthorized - no session user");
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        { success: false, error: "Unauthorized - please login again" },
         { status: 401 }
       )
     }
 
     const body = await req.json()
+    console.log("[AIRTIME PURCHASE] Request body:", { network: body.network, amount: body.amount, phone: body.phone });
+    
     const { phone, amount, network } = purchaseSchema.parse(body)
 
     // Get user data

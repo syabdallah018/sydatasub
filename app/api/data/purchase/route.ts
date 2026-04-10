@@ -14,16 +14,22 @@ const purchaseSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    console.log("[DATA PURCHASE] Starting purchase request");
     const user = await getSessionUser(req);
 
+    console.log("[DATA PURCHASE] Auth result:", { authenticated: !!user, userId: user?.userId });
+
     if (!user) {
+      console.error("[DATA PURCHASE] ❌ Unauthorized - no session user");
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        { success: false, error: "Unauthorized - please login again" },
         { status: 401 }
       );
     }
 
     const body = await req.json();
+    console.log("[DATA PURCHASE] Request body:", { planId: body.planId, phone: body.phone });
+    
     const { planId, phone, pin } = purchaseSchema.parse(body);
 
     // Get user data
