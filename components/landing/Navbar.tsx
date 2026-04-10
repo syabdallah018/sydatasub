@@ -32,10 +32,12 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">SD</span>
-            </div>
+          <Link href="/" className="flex items-center gap-3 group">
+            <img 
+              src="/logo.jpeg" 
+              alt="SY DATA" 
+              className="h-10 w-10 object-contain"
+            />
             <span className="font-display font-bold text-gray-900 hidden sm:inline">
               SY DATA SUB
             </span>

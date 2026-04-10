@@ -29,7 +29,19 @@ export default function AppPage() {
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2 }}
-            className="text-4xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 bg-clip-text text-transparent mb-2"
+            className="mb-4 flex justify-center"
+          >
+            <img 
+              src="/logo.jpeg" 
+              alt="SY DATA" 
+              className="h-20 w-20 object-contain"
+            />
+          </motion.div>
+          <motion.div
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="text-2xl font-bold text-gray-900 mb-2"
           >
             SY DATA SUB
           </motion.div>
@@ -39,7 +51,7 @@ export default function AppPage() {
             transition={{ delay: 0.4 }}
             className="text-gray-600 text-sm"
           >
-            Your data, your speed.
+            Affordable, always connected.
           </motion.p>
         </div>
 

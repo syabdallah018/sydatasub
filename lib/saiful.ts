@@ -34,14 +34,23 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
     
     const networkId = networkMap[network.toUpperCase()] || 1;
 
+    const requestBody = {
+      plan: plan,  // Send plan as integer ID, not string
+      mobile_number: mobileNumber,
+      network: networkId,
+    };
+
+    console.log("[SAIFUL REQUEST]", {
+      url: `${SAIFUL_API_URL}/data/${reference}`,
+      body: requestBody,
+      timestamp: new Date().toISOString(),
+      reference,
+    });
+
     // Append reference to URL for idempotency
     const response = await axios.post(
       `${SAIFUL_API_URL}/data/${reference}`,
-      {
-        plan: plan,  // Send plan as integer ID, not string
-        mobile_number: mobileNumber,
-        network: networkId,
-      },
+      requestBody,
       {
         headers: {
           "Authorization": `Bearer ${SAIFUL_API_KEY}`,
@@ -51,32 +60,55 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
       }
     );
 
+    console.log("[SAIFUL RESPONSE]", {
+      status: response.status,
+      data: response.data,
+      timestamp: new Date().toISOString(),
+      reference,
+    });
+
     // Parse response - Saiful returns data nested under 'data' key
     const responseData = response.data?.data || response.data;
     
     if (responseData && (responseData.Status === "successful" || responseData.status === "successful")) {
-      return {
+      const returnData = {
         success: true,
         message: responseData.description || "Data purchase successful",
         externalReference: responseData.ident,
       };
+      console.log("[SAIFUL SUCCESS]", returnData);
+      return returnData;
     } else if (responseData?.Status === "pending" || responseData?.status === "pending") {
-      return {
+      const returnData = {
         success: true,
         message: responseData.description || "Data purchase pending",
         externalReference: responseData.ident,
       };
+      console.log("[SAIFUL PENDING]", returnData);
+      return returnData;
     } else {
+      const errorMsg = responseData?.description || responseData?.message || "Data purchase failed";
+      console.log("[SAIFUL FAILED]", { message: errorMsg, response: responseData });
       return {
         success: false,
-        message: responseData?.description || responseData?.message || "Data purchase failed",
+        message: errorMsg,
       };
     }
   } catch (error: any) {
-    console.error("[SAIFUL API ERROR]", error);
+    console.error("[SAIFUL API ERROR]", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      timestamp: new Date().toISOString(),
+    });
 
     if (error.response) {
       // API returned an error response
+      const errorMessage = error.response.data?.description || error.response.data?.message || `API Error: ${error.response.status}`;
+      console.error("[SAIFUL API DETAILS]", {
+        errorMessage,
+        apiResponse: error.response.data,
+      });
       return {
         success: false,
         message: error.response.data?.message || `API Error: ${error.response.status}`,
