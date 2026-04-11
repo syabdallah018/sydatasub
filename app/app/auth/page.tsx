@@ -42,7 +42,11 @@ export default function AuthPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch("/api/auth/me");
+        const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const res = await fetch(`/api/auth/me?${cacheBuster}`, { 
+          credentials: "include",
+          cache: "no-store"
+        });
         if (res.ok) {
           router.push("/app");
           return;
@@ -77,6 +81,7 @@ export default function AuthPage() {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, pin: pin.join("") }),
       });
@@ -126,6 +131,7 @@ export default function AuthPage() {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,

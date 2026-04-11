@@ -148,6 +148,11 @@ export async function POST(req: NextRequest) {
     // Get updated user with signup bonus balance
     const updatedUser = await prisma.user.findUnique({
       where: { id: user.id },
+      include: {
+        virtualAccount: {
+          select: { accountNumber: true, bankName: true },
+        },
+      },
     });
 
     if (!updatedUser) {
@@ -175,12 +180,15 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
 
-    // Set httpOnly cookie
-    response.cookies.set("sy_session", token, {
+    // ===== CRITICAL FIX: Set session cookie to user.id (NOT token) =====
+    // This matches the login route behavior and allows /api/auth/me to find the user
+    // by looking up userId from session cookie
+    response.cookies.set("sy_session", user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: "/",
     });
 
     return response;
