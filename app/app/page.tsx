@@ -941,7 +941,8 @@ export default function DashboardPage() {
   const [syncingBalance, setSyncingBalance] = useState(false);
 
   useEffect(() => {
-    fetch("/api/auth/me").then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
+    const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" }).then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
   }, [router]);
 
   const formatBalance = (kobo: number) => {
@@ -978,8 +979,10 @@ export default function DashboardPage() {
   const handleSyncBalance = async () => {
     setSyncingBalance(true);
     try {
-      console.log("[SYNC] Fetching latest balance...");
-      const res = await fetch("/api/auth/me", { credentials: "include" });
+      console.log("[SYNC] Fetching latest balance with cache-busting...");
+      // Add timestamp to force fresh fetch (bypass any caching in WebView/browser)
+      const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const res = await fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" });
       const data = await res.json();
       
       if (res.ok && data.success && data.data) {
@@ -1006,7 +1009,8 @@ export default function DashboardPage() {
     setSelectedNetwork(networkId);
     setPlansLoading(true);
     try {
-      const res = await fetch(`/api/data/plans?network=${networkId}`);
+      const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const res = await fetch(`/api/data/plans?network=${networkId}&${cacheBuster}`, { cache: "no-store" });
       const data = await res.json();
       setDataPlans(data.data || []);
       setBuyDataStep(2);
@@ -1052,7 +1056,8 @@ export default function DashboardPage() {
         });
         setSuccessModalOpen(true);
         setBuyDataOpen(false);
-        fetch("/api/auth/me").then((r) => r.json()).then((d) => d.success && setUser(d.data));
+        const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" }).then((r) => r.json()).then((d) => d.success && setUser(d.data));
       } else { toast.error(data.error || "Purchase failed"); }
     } finally { setPurchasingData(false); }
   };
@@ -1084,7 +1089,8 @@ export default function DashboardPage() {
         toast.success("Airtime purchased successfully!");
         setAirtimeOpen(false);
         setAirtimePin(["", "", "", "", "", ""]);
-        fetch("/api/auth/me").then((r) => r.json()).then((d) => d.success && setUser(d.data));
+        const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" }).then((r) => r.json()).then((d) => d.success && setUser(d.data));
       } else { 
         toast.error(data.error || "Purchase failed");
         console.error("[AIRTIME PURCHASE ERROR]", res.status, data);
