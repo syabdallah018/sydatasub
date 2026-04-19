@@ -4,6 +4,8 @@ import { signToken } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { createFlutterwaveVirtualAccount } from "@/lib/flutterwave";
+import { getDbCapabilities } from "@/lib/db-capabilities";
+import { buildUserCreateCompatData, withCompatibleUserFields } from "@/lib/user-compat";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -42,20 +44,19 @@ export async function POST(req: NextRequest) {
     const nameParts = name.trim().split(" ");
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(" ") || firstName;
+    const dbCaps = await getDbCapabilities();
 
     // Create user
     const user = await prisma.user.create({
-      data: {
+      data: await buildUserCreateCompatData({
         fullName: name,
         phone,
         pinHash,
         role: "USER",
         tier: "user",
         balance: 0,
-        rewardBalance: 0,
-        agentRequestStatus: "NONE",
         isBanned: false,
-      },
+      }),
     });
 
     // Create Flutterwave virtual account (with fallback if it fails)
@@ -110,7 +111,9 @@ export async function POST(req: NextRequest) {
     const SIGNUP_BONUS = 10000;
     await prisma.user.update({
       where: { id: user.id },
-      data: { rewardBalance: { increment: SIGNUP_BONUS } },
+      data: dbCaps.userRewardBalance
+        ? { rewardBalance: { increment: SIGNUP_BONUS } }
+        : { balance: { increment: SIGNUP_BONUS } },
     });
 
     // Create transaction record for signup bonus
@@ -150,7 +153,16 @@ export async function POST(req: NextRequest) {
     // Get updated user with signup bonus balance
     const updatedUser = await prisma.user.findUnique({
       where: { id: user.id },
-      include: {
+      select: {
+        id: true,
+        phone: true,
+        fullName: true,
+        role: true,
+        balance: true,
+        ...withCompatibleUserFields({}, {
+          rewardBalance: dbCaps.userRewardBalance,
+          agentRequestStatus: dbCaps.userAgentRequestStatus,
+        }),
         virtualAccount: {
           select: { accountNumber: true, bankName: true },
         },
@@ -173,7 +185,7 @@ export async function POST(req: NextRequest) {
           fullName: updatedUser.fullName,
           role: updatedUser.role,
           balance: updatedUser.balance,
-          rewardBalance: updatedUser.rewardBalance,
+          rewardBalance: dbCaps.userRewardBalance ? updatedUser.rewardBalance : 0,
         },
         virtualAccount: {
           accountNumber: virtualAccount.account_number,

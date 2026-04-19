@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
+import { getDbCapabilities } from "@/lib/db-capabilities";
+import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat";
 import { z } from "zod";
 
 const updateUserSchema = z.object({
@@ -17,7 +19,8 @@ export async function GET(
 ) {
   try {
     await requireAdmin(req);
-
+    const compat = await getUserSelectCompat();
+    
     const { id } = await params;
 
     const userData = await prisma.user.findUnique({
@@ -30,10 +33,9 @@ export async function GET(
         role: true,
         tier: true,
         balance: true,
-        rewardBalance: true,
-        agentRequestStatus: true,
         isBanned: true,
         joinedAt: true,
+        ...withCompatibleUserFields({}, compat),
         virtualAccount: {
           select: {
             accountNumber: true,
@@ -63,7 +65,7 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(userData, { status: 200 });
+    return NextResponse.json(normalizeUserCompat(userData), { status: 200 });
   } catch (error: any) {
     console.error("[GET USER ERROR]", error);
 
@@ -84,7 +86,8 @@ export async function PATCH(
 ) {
   try {
     await requireAdmin(req);
-
+    const dbCaps = await getDbCapabilities();
+    
     const { id } = await params;
     const body = await req.json();
     const data = updateUserSchema.parse(body);
@@ -99,11 +102,11 @@ export async function PATCH(
 
     const updateData: any = { ...data };
 
-    if (data.agentRequestStatus === "APPROVED") {
+    if (dbCaps.userAgentRequestStatus && data.agentRequestStatus === "APPROVED") {
       updateData.agentRequestStatus = "APPROVED";
       updateData.tier = "agent";
       updateData.role = data.role || "AGENT";
-    } else if (data.agentRequestStatus === "REJECTED") {
+    } else if (dbCaps.userAgentRequestStatus && data.agentRequestStatus === "REJECTED") {
       updateData.agentRequestStatus = "REJECTED";
       updateData.tier = "user";
       if (user.role === "AGENT" && !data.role) {
@@ -111,8 +114,12 @@ export async function PATCH(
       }
     }
 
-    if (data.tier === "agent" && data.agentRequestStatus !== "REJECTED") {
+    if (dbCaps.userAgentRequestStatus && data.tier === "agent" && data.agentRequestStatus !== "REJECTED") {
       updateData.agentRequestStatus = "APPROVED";
+    }
+
+    if (!dbCaps.userAgentRequestStatus) {
+      delete updateData.agentRequestStatus;
     }
 
     const updated = await prisma.user.update({
@@ -125,13 +132,13 @@ export async function PATCH(
         role: true,
         tier: true,
         balance: true,
-        rewardBalance: true,
-        agentRequestStatus: true,
         isBanned: true,
+        ...(dbCaps.userRewardBalance ? { rewardBalance: true } : {}),
+        ...(dbCaps.userAgentRequestStatus ? { agentRequestStatus: true } : {}),
       },
     });
 
-    return NextResponse.json(updated, { status: 200 });
+    return NextResponse.json(normalizeUserCompat(updated), { status: 200 });
   } catch (error: any) {
     console.error("[UPDATE USER ERROR]", error);
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
+import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat";
 
 /**
  * GET /api/admin/users - Get all users with details
@@ -8,6 +9,7 @@ import { prisma } from "@/lib/db";
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
+    const compat = await getUserSelectCompat();
 
     const users = await prisma.user.findMany({
       select: {
@@ -18,11 +20,10 @@ export async function GET(req: NextRequest) {
         role: true,
         tier: true,
         balance: true,
-        rewardBalance: true,
-        agentRequestStatus: true,
         isBanned: true,
         isActive: true,
         joinedAt: true,
+        ...withCompatibleUserFields({}, compat),
         virtualAccount: {
           select: {
             accountNumber: true,
@@ -45,8 +46,8 @@ export async function GET(req: NextRequest) {
       role: u.role,
       tier: u.tier,
       balance: u.balance,
-      rewardBalance: u.rewardBalance,
-      agentRequestStatus: u.agentRequestStatus,
+      rewardBalance: normalizeUserCompat(u).rewardBalance,
+      agentRequestStatus: normalizeUserCompat(u).agentRequestStatus,
       isBanned: u.isBanned,
       isActive: u.isActive,
       joinedAt: u.joinedAt,

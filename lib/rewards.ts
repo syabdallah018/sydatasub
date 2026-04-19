@@ -1,11 +1,15 @@
 import { prisma } from "@/lib/db";
+import { getDbCapabilities } from "@/lib/db-capabilities";
 
 async function creditRewardBalance(tx: any, userId: string, amountNaira: number) {
   const rewardInKobo = amountNaira * 100;
+  const dbCaps = await getDbCapabilities();
 
   await tx.user.update({
     where: { id: userId },
-    data: { rewardBalance: { increment: rewardInKobo } },
+    data: dbCaps.userRewardBalance
+      ? { rewardBalance: { increment: rewardInKobo } }
+      : { balance: { increment: rewardInKobo } },
   });
 }
 
@@ -26,6 +30,7 @@ async function createRewardTransaction(tx: any, userId: string, phone: string, a
 export async function checkAndAwardRewards(userId: string, amount: number, type: "DEPOSIT") {
   try {
     if (type !== "DEPOSIT") return;
+    const dbCaps = await getDbCapabilities();
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -34,7 +39,7 @@ export async function checkAndAwardRewards(userId: string, amount: number, type:
         phone: true,
         role: true,
         tier: true,
-        agentRequestStatus: true,
+        ...(dbCaps.userAgentRequestStatus ? { agentRequestStatus: true } : {}),
       },
     });
 
@@ -104,10 +109,12 @@ export async function checkAndAwardRewards(userId: string, amount: number, type:
 
           await tx.user.update({
             where: { id: userId },
-            data: {
-              agentRequestStatus:
-                user.agentRequestStatus === "APPROVED" ? "APPROVED" : "PENDING",
-            },
+            data: dbCaps.userAgentRequestStatus
+              ? {
+                  agentRequestStatus:
+                    user.agentRequestStatus === "APPROVED" ? "APPROVED" : "PENDING",
+                }
+              : {},
           });
 
           await tx.userReward.update({

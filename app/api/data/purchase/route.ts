@@ -4,6 +4,7 @@ import { purchaseData as purchaseFromSmeplug } from "@/lib/smeplug";
 import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { findRecentDuplicateTransaction, normalizeProviderFailureMessage, DATA_INSUFFICIENT_FUNDS_MESSAGE } from "@/lib/purchase-utils";
 import { getPlanPriceForUser } from "@/lib/pricing";
+import { getDbCapabilities } from "@/lib/db-capabilities";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
 
@@ -20,9 +21,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { planId, buyerPhone, recipientPhone, pin, confirmDuplicate = false } =
       purchaseSchema.parse(body);
+    const dbCaps = await getDbCapabilities();
 
     const user = await prisma.user.findUnique({
       where: { phone: buyerPhone },
+      select: {
+        id: true,
+        phone: true,
+        pinHash: true,
+        isBanned: true,
+        tier: true,
+        balance: true,
+        ...(dbCaps.userRewardBalance ? { rewardBalance: true } : {}),
+      },
     });
 
     if (!user) {
@@ -52,7 +63,8 @@ export async function POST(req: NextRequest) {
 
     const planPrice = getPlanPriceForUser(plan, user);
     const priceInKobo = planPrice * 100;
-    const totalSpendable = user.balance + user.rewardBalance;
+    const rewardBalance = dbCaps.userRewardBalance ? user.rewardBalance ?? 0 : 0;
+    const totalSpendable = user.balance + rewardBalance;
 
     if (totalSpendable < priceInKobo) {
       return NextResponse.json(
@@ -81,17 +93,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rewardDebit = Math.min(user.rewardBalance, priceInKobo);
+    const rewardDebit = dbCaps.userRewardBalance ? Math.min(rewardBalance, priceInKobo) : 0;
     const walletDebit = priceInKobo - rewardDebit;
     const reference = `DATA-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: user.id },
-        data: {
-          balance: { decrement: walletDebit },
-          rewardBalance: { decrement: rewardDebit },
-        },
+        data: dbCaps.userRewardBalance
+          ? {
+              balance: { decrement: walletDebit },
+              rewardBalance: { decrement: rewardDebit },
+            }
+          : {
+              balance: { decrement: priceInKobo },
+            },
       });
 
       await tx.transaction.create({
@@ -133,10 +149,14 @@ export async function POST(req: NextRequest) {
         await prisma.$transaction(async (tx) => {
           await tx.user.update({
             where: { id: user.id },
-            data: {
-              balance: { increment: walletDebit },
-              rewardBalance: { increment: rewardDebit },
-            },
+            data: dbCaps.userRewardBalance
+              ? {
+                  balance: { increment: walletDebit },
+                  rewardBalance: { increment: rewardDebit },
+                }
+              : {
+                  balance: { increment: priceInKobo },
+                },
           });
 
           await tx.transaction.updateMany({
@@ -178,10 +198,14 @@ export async function POST(req: NextRequest) {
       await prisma.$transaction(async (tx) => {
         await tx.user.update({
           where: { id: user.id },
-          data: {
-            balance: { increment: walletDebit },
-            rewardBalance: { increment: rewardDebit },
-          },
+          data: dbCaps.userRewardBalance
+            ? {
+                balance: { increment: walletDebit },
+                rewardBalance: { increment: rewardDebit },
+              }
+            : {
+                balance: { increment: priceInKobo },
+              },
         });
 
         await tx.transaction.updateMany({

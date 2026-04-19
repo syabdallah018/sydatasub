@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat"
 
 export async function GET(req: NextRequest) {
   try {
@@ -7,6 +8,8 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
+
+    const compat = await getUserSelectCompat()
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -17,11 +20,10 @@ export async function GET(req: NextRequest) {
         role: true,
         tier: true,
         balance: true,
-        rewardBalance: true,
-        agentRequestStatus: true,
         isBanned: true,
         isActive: true,
         joinedAt: true,
+        ...withCompatibleUserFields({}, compat),
         virtualAccount: {
           select: { accountNumber: true, bankName: true, flwRef: true }
         },
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Account suspended" }, { status: 403 })
     }
 
-    return NextResponse.json({ success: true, data: user })
+    return NextResponse.json({ success: true, data: normalizeUserCompat(user) })
   } catch (error) {
     console.error("[me]", error)
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })

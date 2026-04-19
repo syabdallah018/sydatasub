@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { signToken } from "@/lib/auth";
+import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat";
 
 const loginSchema = z.object({
   phone: z.string().regex(/^0[0-9]{10}$/, "Invalid phone number"),
@@ -13,10 +14,21 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { phone, pin } = loginSchema.parse(body);
+    const compat = await getUserSelectCompat();
 
     const user = await prisma.user.findUnique({
       where: { phone },
-      include: {
+      select: {
+        id: true,
+        phone: true,
+        fullName: true,
+        role: true,
+        tier: true,
+        balance: true,
+        email: true,
+        pinHash: true,
+        isBanned: true,
+        ...withCompatibleUserFields({}, compat),
         virtualAccount: true,
       },
     });
@@ -51,10 +63,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const normalizedUser = normalizeUserCompat(user);
+
     const token = await signToken({
-      userId: user.id,
-      email: user.email || user.phone,
-      role: user.role,
+      userId: normalizedUser.id,
+      email: normalizedUser.email || normalizedUser.phone,
+      role: normalizedUser.role,
     });
 
     const response = NextResponse.json(
@@ -62,21 +76,21 @@ export async function POST(req: NextRequest) {
         message: "Login successful",
         user: {
           id: user.id,
-          phone: user.phone,
-          fullName: user.fullName,
-          role: user.role,
-          tier: user.tier || "user",
-          balance: user.balance,
-          rewardBalance: user.rewardBalance,
-          agentRequestStatus: user.agentRequestStatus,
-          virtualAccount: user.virtualAccount,
+          phone: normalizedUser.phone,
+          fullName: normalizedUser.fullName,
+          role: normalizedUser.role,
+          tier: normalizedUser.tier || "user",
+          balance: normalizedUser.balance,
+          rewardBalance: normalizedUser.rewardBalance,
+          agentRequestStatus: normalizedUser.agentRequestStatus,
+          virtualAccount: normalizedUser.virtualAccount,
         },
       },
       { status: 200 }
     );
 
     // Set simple session cookie with userId (no JWT)
-    response.cookies.set("sy_session", user.id, {
+    response.cookies.set("sy_session", normalizedUser.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

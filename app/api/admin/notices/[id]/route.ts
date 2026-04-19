@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
+import { getDbCapabilities } from "@/lib/db-capabilities";
 import { z } from "zod";
 
 const noticeSchema = z.object({
@@ -20,6 +21,13 @@ export async function PATCH(
 ) {
   try {
     await requireAdmin(req);
+    const dbCaps = await getDbCapabilities();
+    if (!dbCaps.serviceNotices) {
+      return NextResponse.json(
+        { error: "Service notices table is not available until the database migration is applied." },
+        { status: 503 }
+      );
+    }
     const { id } = await params;
     const body = await req.json();
     const data = noticeSchema.parse(body);
@@ -49,6 +57,13 @@ export async function DELETE(
 ) {
   try {
     await requireAdmin(req);
+    const dbCaps = await getDbCapabilities();
+    if (!dbCaps.serviceNotices) {
+      return NextResponse.json(
+        { error: "Service notices table is not available until the database migration is applied." },
+        { status: 503 }
+      );
+    }
     const { id } = await params;
 
     await prisma.serviceNotice.delete({
