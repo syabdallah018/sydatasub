@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/adminAuth";
+import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { getDbCapabilities } from "@/lib/db-capabilities";
 import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat";
@@ -85,6 +85,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const originError = enforceAdminMutationGuard(req);
+    if (originError) return originError;
+
     await requireAdmin(req);
     const dbCaps = await getDbCapabilities();
     

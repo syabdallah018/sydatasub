@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.cookies.get("sy_session")?.value
-    console.log("[TRANSACTIONS API] Token received:", !!token);
-    
-    if (!token) {
-      console.log("[TRANSACTIONS API] No token provided");
+    const sessionUser = await getSessionUser(req);
+    if (!sessionUser) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
-    }
-
-    // Token is just the user ID, not a JWT
-    const userId = token
-    console.log("[TRANSACTIONS API] User ID:", userId);
-    
-    if (!userId) {
-      console.log("[TRANSACTIONS API] Invalid user ID");
-      return NextResponse.json({ success: false, error: "Invalid session" }, { status: 401 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -25,7 +14,7 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(Number(searchParams.get("limit") ?? "10"), 30)
 
     const transactions = await prisma.transaction.findMany({
-      where: { userId },
+      where: { userId: sessionUser.userId },
       orderBy: { createdAt: "desc" },
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

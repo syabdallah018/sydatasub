@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/adminAuth";
+import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -17,6 +17,9 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    const originError = enforceAdminMutationGuard(req);
+    if (originError) return originError;
+
     await requireAdmin(req);
 
     const body = await req.json();

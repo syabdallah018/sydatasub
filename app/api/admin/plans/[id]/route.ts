@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/adminAuth";
+import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -21,6 +21,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const originError = enforceAdminMutationGuard(req);
+    if (originError) return originError;
+
     await requireAdmin(req);
 
     const { id } = await params;
@@ -77,6 +80,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const originError = enforceAdminMutationGuard(req);
+    if (originError) return originError;
+
     await requireAdmin(req);
 
     const { id } = await params;

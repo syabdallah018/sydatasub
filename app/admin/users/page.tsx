@@ -66,13 +66,9 @@ export default function UsersPage() {
     fetchUsers();
   }, []);
 
-  const adminPassword = typeof window !== "undefined" ? sessionStorage.getItem("adminPassword") || "" : "";
-
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/admin/users", {
-        headers: { "X-Admin-Password": adminPassword },
-      });
+      const response = await fetch("/api/admin/users");
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
       setUsers(data);
@@ -85,9 +81,7 @@ export default function UsersPage() {
 
   const fetchUserDetails = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        headers: { "X-Admin-Password": adminPassword },
-      });
+      const response = await fetch(`/api/admin/users/${userId}`);
       if (!response.ok) throw new Error("Failed to fetch user details");
       const data = await response.json();
       setSelectedUser(data);
@@ -102,7 +96,7 @@ export default function UsersPage() {
     try {
       const response = await fetch(`/api/admin/users/${selectedUser.id}/balance`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, amount }),
       });
       if (!response.ok) throw new Error("Failed to update balance");
@@ -120,7 +114,7 @@ export default function UsersPage() {
     try {
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(changes),
       });
       if (!response.ok) throw new Error("Failed to update user");
@@ -138,7 +132,6 @@ export default function UsersPage() {
     try {
       const response = await fetch(`/api/admin/users/${userId}/reset-pin`, {
         method: "POST",
-        headers: { "X-Admin-Password": adminPassword },
       });
       if (!response.ok) throw new Error("Failed to reset PIN");
       await fetchUserDetails(userId);

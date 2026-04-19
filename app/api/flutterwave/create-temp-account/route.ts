@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { createDynamicVirtualAccount } from "@/lib/flutterwave";
 import { getPlanPriceForUser } from "@/lib/pricing";
 import { z } from "zod";
+import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
 const createTempAccountSchema = z.object({
   phone: z.string().regex(/^0[0-9]{10}$/, "Invalid phone number"),
@@ -11,6 +12,12 @@ const createTempAccountSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = rejectCrossSiteMutation(req);
+    if (originError) return originError;
+
+    const rateLimitError = enforceRateLimit(req, "dataPurchase", "guest-temp-account");
+    if (rateLimitError) return rateLimitError;
+
     const body = await req.json();
     const { phone, planId } = createTempAccountSchema.parse(body);
 

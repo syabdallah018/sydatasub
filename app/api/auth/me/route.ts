@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
+import { getSessionUser } from "@/lib/auth";
 import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat"
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.cookies.get("sy_session")?.value
-    if (!userId) {
+    const sessionUser = await getSessionUser(req);
+    if (!sessionUser) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
     }
 
     const compat = await getUserSelectCompat()
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: sessionUser.userId },
       select: {
         id: true,
         fullName: true,

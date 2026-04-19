@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
+import { rejectCrossSiteMutation } from "@/lib/security";
 
 const changeSchema = z.object({
   currentPin: z.string().regex(/^\d{6}$/, "Invalid current PIN format"),
@@ -12,6 +13,9 @@ const changeSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = rejectCrossSiteMutation(req);
+    if (originError) return originError;
+
     const user = await getSessionUser(req);
 
     if (!user) {

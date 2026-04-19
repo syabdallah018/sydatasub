@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
+import { createAdminSessionResponse, validateAdminPassword } from "@/lib/adminAuth";
+import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
 /**
  * POST /api/admin/login - Admin password authentication
@@ -7,6 +8,12 @@ import { jwtVerify } from "jose";
  */
 export async function POST(req: NextRequest) {
   try {
+    const originError = rejectCrossSiteMutation(req);
+    if (originError) return originError;
+
+    const rateLimitError = enforceRateLimit(req, "login", "admin-login");
+    if (rateLimitError) return rateLimitError;
+
     const { password } = await req.json();
 
     if (!password) {
@@ -16,28 +23,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const adminPassword = process.env.ADMIN_PASSWORD;
-    if (!adminPassword) {
+    if (!process.env.ADMIN_PASSWORD) {
       return NextResponse.json(
         { error: "Admin password not configured" },
         { status: 500 }
       );
     }
 
-    if (password !== adminPassword) {
+    if (!validateAdminPassword(password)) {
       return NextResponse.json(
         { error: "Invalid admin password" },
         { status: 401 }
       );
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Admin authenticated. Include X-Admin-Token header in requests.",
-      },
-      { status: 200 }
-    );
+    return createAdminSessionResponse();
   } catch (error) {
     console.error("Admin login error:", error);
     return NextResponse.json(

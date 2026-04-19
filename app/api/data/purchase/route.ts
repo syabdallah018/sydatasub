@@ -5,8 +5,10 @@ import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { findRecentDuplicateTransaction, normalizeProviderFailureMessage, DATA_INSUFFICIENT_FUNDS_MESSAGE } from "@/lib/purchase-utils";
 import { getPlanPriceForUser } from "@/lib/pricing";
 import { getDbCapabilities } from "@/lib/db-capabilities";
+import { getSessionUser } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
+import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
 const purchaseSchema = z.object({
   planId: z.string().min(1, "Plan ID is required"),
@@ -18,13 +20,24 @@ const purchaseSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = rejectCrossSiteMutation(req);
+    if (originError) return originError;
+
+    const rateLimitError = enforceRateLimit(req, "dataPurchase");
+    if (rateLimitError) return rateLimitError;
+
     const body = await req.json();
     const { planId, buyerPhone, recipientPhone, pin, confirmDuplicate = false } =
       purchaseSchema.parse(body);
     const dbCaps = await getDbCapabilities();
+    const sessionUser = await getSessionUser(req);
+
+    if (!sessionUser) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
 
     const user = await prisma.user.findUnique({
-      where: { phone: buyerPhone },
+      where: { id: sessionUser.userId },
       select: {
         id: true,
         phone: true,
@@ -38,6 +51,10 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+    }
+
+    if (user.phone !== buyerPhone) {
+      return NextResponse.json({ success: false, error: "Session mismatch detected" }, { status: 403 });
     }
 
     if (user.isBanned) {

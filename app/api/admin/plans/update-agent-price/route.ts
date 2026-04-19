@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { z } from "zod";
 
 const updatePricesSchema = z
@@ -19,10 +20,10 @@ const bulkUpdateSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const adminPassword = req.headers.get("X-Admin-Password");
-    if (!adminPassword || adminPassword !== process.env.ADMIN_PASSWORD) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+    const originError = enforceAdminMutationGuard(req);
+    if (originError) return originError;
+
+    await requireAdmin(req);
 
     const body = await req.json();
     const validated = bulkUpdateSchema.parse(body);

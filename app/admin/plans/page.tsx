@@ -57,10 +57,7 @@ export default function PlansPage() {
 
   const fetchPlans = async () => {
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
-      const response = await fetch("/api/admin/plans", {
-        headers: { "X-Admin-Password": adminPassword || "" },
-      });
+      const response = await fetch("/api/admin/plans");
       if (!response.ok) throw new Error("Failed to fetch plans");
       const data = await response.json();
       setPlans(data);
@@ -95,10 +92,9 @@ export default function PlansPage() {
 
       const method = editingId ? "PATCH" : "POST";
       const url = editingId ? `/api/admin/plans/${editingId}` : "/api/admin/plans";
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
@@ -134,10 +130,8 @@ export default function PlansPage() {
   const handleDelete = async (planId: string) => {
     if (!confirm("Are you sure you want to delete this plan?")) return;
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/plans/${planId}`, {
         method: "DELETE",
-        headers: { "X-Admin-Password": adminPassword || "" },
       });
       if (!response.ok) throw new Error("Failed to delete plan");
       await fetchPlans();
@@ -148,10 +142,9 @@ export default function PlansPage() {
 
   const handleToggleActive = async (plan: Plan) => {
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/plans/${plan.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !plan.isActive }),
       });
       if (!response.ok) throw new Error("Failed to toggle plan");

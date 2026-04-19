@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { ADMIN_SESSION_COOKIE_NAME, clearAdminSessionCookie, setAdminSessionCookie, signToken, verifyAdminToken } from "@/lib/auth";
+import { rejectCrossSiteMutation, secureCompare } from "@/lib/security";
 
 export interface AdminUser {
   userId: string;
@@ -12,29 +12,25 @@ export interface AdminUser {
 
 /**
  * Require admin authentication for API routes
- * Checks: JWT validity, Admin role, Admin password from env variable
- * Returns AdminUser or throws error
  */
 export async function requireAdmin(req: NextRequest): Promise<AdminUser> {
   try {
-    // Check admin password header (passed from client)
-    const adminPassword = req.headers.get("X-Admin-Password");
-    const envAdminPassword = process.env.ADMIN_PASSWORD;
-
-    if (!envAdminPassword) {
-      throw new Error("Admin password not configured in server");
+    const token = req.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
+    if (!token) {
+      throw new Error("Unauthorized");
     }
 
-    if (!adminPassword || adminPassword !== envAdminPassword) {
-      throw new Error("Unauthorized: Invalid or missing admin password");
+    const payload = await verifyAdminToken(token);
+    if (!payload) {
+      throw new Error("Unauthorized");
     }
 
-    // For now, return a generic admin user (no JWT validation needed)
-    // Admin is authenticated via password header only
     return {
-      userId: "admin",
-      email: "admin@sydatasub.com",
+      userId: payload.userId,
+      email: payload.email,
       role: "ADMIN",
+      fullName: payload.fullName,
+      phone: payload.phone,
     };
   } catch (error: any) {
     console.error("[REQUIRE ADMIN ERROR]", error.message);
@@ -47,4 +43,35 @@ export async function requireAdmin(req: NextRequest): Promise<AdminUser> {
  */
 export function adminErrorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
+}
+
+export async function createAdminSessionResponse() {
+  const token = await signToken({
+    userId: "admin",
+    email: "admin@sydatasub.com",
+    role: "ADMIN",
+  });
+
+  const response = NextResponse.json({ success: true, message: "Admin authenticated" }, { status: 200 });
+  setAdminSessionCookie(response, token);
+  return response;
+}
+
+export function clearAdminSessionResponse() {
+  const response = NextResponse.json({ success: true, message: "Logged out" }, { status: 200 });
+  clearAdminSessionCookie(response);
+  return response;
+}
+
+export function validateAdminPassword(password: string | undefined | null): boolean {
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  if (!configuredPassword) {
+    return false;
+  }
+
+  return secureCompare(password || "", configuredPassword);
+}
+
+export function enforceAdminMutationGuard(req: NextRequest) {
+  return rejectCrossSiteMutation(req);
 }

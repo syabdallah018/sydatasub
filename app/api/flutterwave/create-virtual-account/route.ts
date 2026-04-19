@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createFlutterwaveVirtualAccount } from "@/lib/flutterwave";
+import { rejectCrossSiteMutation } from "@/lib/security";
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = rejectCrossSiteMutation(req);
+    if (originError) return originError;
+
     const user = await getSessionUser(req);
 
     if (!user) {
@@ -23,6 +27,14 @@ export async function POST(req: NextRequest) {
         { error: "User not found" },
         { status: 404 }
       );
+    }
+
+    const existingAccount = await prisma.virtualAccount.findUnique({
+      where: { userId: user.userId },
+    });
+
+    if (existingAccount) {
+      return NextResponse.json(existingAccount, { status: 200 });
     }
 
     // Create virtual account via Flutterwave

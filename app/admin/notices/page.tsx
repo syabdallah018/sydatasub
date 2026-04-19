@@ -34,11 +34,8 @@ export default function AdminNoticesPage() {
     isActive: true,
   });
 
-  const adminPassword = typeof window !== "undefined" ? sessionStorage.getItem("adminPassword") || "" : "";
-
   const fetchNotices = async () => {
     const res = await fetch("/api/admin/notices", {
-      headers: { "X-Admin-Password": adminPassword },
     });
     const data = await res.json();
     setNotices(data.data || []);
@@ -53,7 +50,6 @@ export default function AdminNoticesPage() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Admin-Password": adminPassword,
       },
       body: JSON.stringify({
         ...form,
@@ -79,7 +75,6 @@ export default function AdminNoticesPage() {
   const deleteNotice = async (id: string) => {
     await fetch(`/api/admin/notices/${id}`, {
       method: "DELETE",
-      headers: { "X-Admin-Password": adminPassword },
     });
     fetchNotices();
   };
@@ -89,7 +84,6 @@ export default function AdminNoticesPage() {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "X-Admin-Password": adminPassword,
       },
       body: JSON.stringify({ isActive: !notice.isActive }),
     });

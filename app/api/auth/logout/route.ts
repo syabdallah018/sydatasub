@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { clearUserSessionCookie } from "@/lib/auth";
+import { rejectCrossSiteMutation } from "@/lib/security";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const originError = rejectCrossSiteMutation(req);
+  if (originError) return originError;
+
   const response = NextResponse.json({ success: true })
-  response.cookies.set("sy_session", "", {
-    httpOnly: true,
-    expires: new Date(0),
-    path: "/",
-  })
+  clearUserSessionCookie(response)
   return response
 }

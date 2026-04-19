@@ -27,14 +27,18 @@ export default function AdminLayout({
   const [authAttempted, setAuthAttempted] = useState(false);
 
   useEffect(() => {
-    // Check if already authenticated via sessionStorage
-    const adminAuth = sessionStorage.getItem("adminAuthenticated");
-    if (adminAuth === "true") {
-      setAuthenticated(true);
-      setLoading(false);
-    } else {
-      setLoading(false);
-    }
+    const verifyAdmin = async () => {
+      try {
+        const res = await fetch("/api/admin/verify");
+        setAuthenticated(res.ok);
+      } catch {
+        setAuthenticated(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyAdmin();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -50,9 +54,6 @@ export default function AdminLayout({
 
       const data = await res.json();
       if (data.success) {
-        // Store password in sessionStorage for use in API headers
-        sessionStorage.setItem("adminAuthenticated", "true");
-        sessionStorage.setItem("adminPassword", password);
         setAuthenticated(true);
         toast.success("Admin authenticated");
       } else {
@@ -66,12 +67,15 @@ export default function AdminLayout({
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("adminAuthenticated");
-    sessionStorage.removeItem("adminPassword");
-    setAuthenticated(false);
-    setPassword("");
-    toast.success("Logged out");
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/admin/logout", { method: "POST" });
+      setAuthenticated(false);
+      setPassword("");
+      toast.success("Logged out");
+    } catch {
+      toast.error("Unable to end admin session");
+    }
   };
 
   if (loading) {

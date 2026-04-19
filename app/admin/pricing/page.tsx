@@ -33,12 +33,7 @@ export default function PricingPage() {
   const fetchPlans = async () => {
     try {
       setLoading(true);
-      const adminPassword = sessionStorage.getItem('adminPassword');
-      const res = await fetch('/api/admin/plans/list', {
-        headers: {
-          'X-Admin-Password': adminPassword || '',
-        },
-      });
+      const res = await fetch('/api/admin/plans/list');
 
       if (res.status === 403) {
         toast.error('Unauthorized');
@@ -75,7 +70,6 @@ export default function PricingPage() {
   const handleSave = async () => {
     try {
       setUpdating(true);
-      const adminPassword = sessionStorage.getItem('adminPassword');
       const prices = Object.entries(editedPrices).map(([planId, price]) => ({
         planId,
         user_price: price.user_price,
@@ -97,7 +91,6 @@ export default function PricingPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Admin-Password': adminPassword || '',
         },
         body: JSON.stringify({ prices }),
       });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/adminAuth";
+import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { getDbCapabilities } from "@/lib/db-capabilities";
 import { z } from "zod";
@@ -39,6 +39,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = enforceAdminMutationGuard(req);
+    if (originError) return originError;
+
     await requireAdmin(req);
     const dbCaps = await getDbCapabilities();
     if (!dbCaps.serviceNotices) {

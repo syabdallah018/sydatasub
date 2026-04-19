@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
-import { signToken } from "@/lib/auth";
+import { setUserSessionCookie, signToken } from "@/lib/auth";
 import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat";
+import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
 const loginSchema = z.object({
   phone: z.string().regex(/^0[0-9]{10}$/, "Invalid phone number"),
@@ -12,6 +13,12 @@ const loginSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = rejectCrossSiteMutation(req);
+    if (originError) return originError;
+
+    const rateLimitError = enforceRateLimit(req, "login");
+    if (rateLimitError) return rateLimitError;
+
     const body = await req.json();
     const { phone, pin } = loginSchema.parse(body);
     const compat = await getUserSelectCompat();
@@ -89,14 +96,7 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
 
-    // Set simple session cookie with userId (no JWT)
-    response.cookies.set("sy_session", normalizedUser.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    });
+    setUserSessionCookie(response, token);
 
     return response;
   } catch (error) {

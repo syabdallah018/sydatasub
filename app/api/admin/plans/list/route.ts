@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: NextRequest) {
   try {
-    // Verify admin password from header
-    const adminPassword = req.headers.get("X-Admin-Password");
-    if (!adminPassword || adminPassword !== process.env.ADMIN_PASSWORD) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
-    }
+    await requireAdmin(req);
 
     // Fetch all active plans grouped by network
     const plans = await prisma.plan.findMany({

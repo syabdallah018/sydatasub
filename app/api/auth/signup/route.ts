@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { signToken } from "@/lib/auth";
+import { setUserSessionCookie, signToken } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { createFlutterwaveVirtualAccount } from "@/lib/flutterwave";
 import { getDbCapabilities } from "@/lib/db-capabilities";
 import { buildUserCreateCompatData, withCompatibleUserFields } from "@/lib/user-compat";
+import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -22,6 +23,12 @@ const signupSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const originError = rejectCrossSiteMutation(req);
+    if (originError) return originError;
+
+    const rateLimitError = enforceRateLimit(req, "login", "signup");
+    if (rateLimitError) return rateLimitError;
+
     const body = await req.json();
     const { name, phone, pin, confirmPin, acceptTerms } = signupSchema.parse(body);
 
@@ -195,16 +202,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
 
-    // ===== CRITICAL FIX: Set session cookie to user.id (NOT token) =====
-    // This matches the login route behavior and allows /api/auth/me to find the user
-    // by looking up userId from session cookie
-    response.cookies.set("sy_session", user.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    });
+    setUserSessionCookie(response, token);
 
     return response;
   } catch (error) {
