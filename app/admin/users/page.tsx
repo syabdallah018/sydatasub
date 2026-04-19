@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,8 +23,10 @@ interface User {
   phone: string;
   email: string;
   role: string;
-  tier: 'user' | 'agent';
+  tier: "user" | "agent";
   balance: number;
+  rewardBalance: number;
+  agentRequestStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   isBanned: boolean;
   accountNumber?: string;
   bankName?: string;
@@ -64,11 +66,12 @@ export default function UsersPage() {
     fetchUsers();
   }, []);
 
+  const adminPassword = typeof window !== "undefined" ? sessionStorage.getItem("adminPassword") || "" : "";
+
   const fetchUsers = async () => {
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch("/api/admin/users", {
-        headers: { "X-Admin-Password": adminPassword || "" }
+        headers: { "X-Admin-Password": adminPassword },
       });
       if (!response.ok) throw new Error("Failed to fetch users");
       const data = await response.json();
@@ -82,9 +85,8 @@ export default function UsersPage() {
 
   const fetchUserDetails = async (userId: string) => {
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${userId}`, {
-        headers: { "X-Admin-Password": adminPassword || "" }
+        headers: { "X-Admin-Password": adminPassword },
       });
       if (!response.ok) throw new Error("Failed to fetch user details");
       const data = await response.json();
@@ -98,10 +100,9 @@ export default function UsersPage() {
   const handleBalanceAction = async (action: "ADD" | "DEDUCT", amount: number) => {
     if (!selectedUser || amount <= 0) return;
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${selectedUser.id}/balance`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
+        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword },
         body: JSON.stringify({ action, amount }),
       });
       if (!response.ok) throw new Error("Failed to update balance");
@@ -112,17 +113,15 @@ export default function UsersPage() {
     }
   };
 
-  const handleUserAction = async (userId: string, role?: string, banned?: boolean, tier?: 'user' | 'agent') => {
+  const handleUserAction = async (
+    userId: string,
+    changes: Partial<Pick<User, "role" | "tier" | "agentRequestStatus">> & { isBanned?: boolean }
+  ) => {
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword || "" },
-        body: JSON.stringify({
-          ...(role && { role }),
-          ...(banned !== undefined && { isBanned: banned }),
-          ...(tier && { tier }),
-        }),
+        headers: { "Content-Type": "application/json", "X-Admin-Password": adminPassword },
+        body: JSON.stringify(changes),
       });
       if (!response.ok) throw new Error("Failed to update user");
       if (selectedUser?.id === userId) {
@@ -137,10 +136,9 @@ export default function UsersPage() {
   const handleResetPin = async (userId: string) => {
     if (!confirm("Reset PIN to 000000?")) return;
     try {
-      const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/users/${userId}/reset-pin`, {
         method: "POST",
-        headers: { "X-Admin-Password": adminPassword || "" }
+        headers: { "X-Admin-Password": adminPassword },
       });
       if (!response.ok) throw new Error("Failed to reset PIN");
       await fetchUserDetails(userId);
@@ -172,7 +170,6 @@ export default function UsersPage() {
         </Alert>
       )}
 
-      {/* Filters */}
       <div className="flex gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
@@ -196,7 +193,6 @@ export default function UsersPage() {
         </Select>
       </div>
 
-      {/* Users Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -206,10 +202,10 @@ export default function UsersPage() {
                 <th className="px-4 py-3 text-left font-semibold">Phone</th>
                 <th className="px-4 py-3 text-left font-semibold">Role</th>
                 <th className="px-4 py-3 text-left font-semibold">Tier</th>
-                <th className="px-4 py-3 text-left font-semibold">Balance</th>
+                <th className="px-4 py-3 text-left font-semibold">Wallet</th>
+                <th className="px-4 py-3 text-left font-semibold">Rewards</th>
+                <th className="px-4 py-3 text-left font-semibold">Agent Request</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
-                <th className="px-4 py-3 text-left font-semibold">Txns</th>
-                <th className="px-4 py-3 text-left font-semibold">Joined</th>
                 <th className="px-4 py-3 text-left">Action</th>
               </tr>
             </thead>
@@ -218,39 +214,18 @@ export default function UsersPage() {
                 <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium">{user.fullName}</td>
                   <td className="px-4 py-3 text-sm">{user.phone}</td>
+                  <td className="px-4 py-3"><Badge variant="outline">{user.role}</Badge></td>
+                  <td className="px-4 py-3"><Badge className={user.tier === "agent" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}>{user.tier}</Badge></td>
+                  <td className="px-4 py-3 font-semibold">N{(user.balance / 100).toLocaleString()}</td>
+                  <td className="px-4 py-3 font-semibold">N{(user.rewardBalance / 100).toLocaleString()}</td>
+                  <td className="px-4 py-3"><Badge className="bg-amber-100 text-amber-800">{user.agentRequestStatus}</Badge></td>
                   <td className="px-4 py-3">
-                    <Badge variant="outline">{user.role}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge className={user.tier === 'agent' ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}>
-                      {user.tier === 'agent' ? 'Agent' : 'User'}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 font-semibold">
-                    ₦{(user.balance / 100).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      className={
-                        user.isBanned
-                          ? "bg-red-100 text-red-800"
-                          : "bg-green-100 text-green-800"
-                      }
-                    >
+                    <Badge className={user.isBanned ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
                       {user.isBanned ? "Banned" : "Active"}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">{user.transactionCount}</td>
-                  <td className="px-4 py-3 text-xs">
-                    {new Date(user.joinedAt).toLocaleDateString()}
-                  </td>
                   <td className="px-4 py-3">
-                    <Button
-                      size="sm"
-                      onClick={() => fetchUserDetails(user.id)}
-                    >
-                      View
-                    </Button>
+                    <Button size="sm" onClick={() => fetchUserDetails(user.id)}>View</Button>
                   </td>
                 </tr>
               ))}
@@ -259,7 +234,6 @@ export default function UsersPage() {
         </div>
       </Card>
 
-      {/* User Detail Modal */}
       {selectedUser && (
         <Dialog open={openModal} onOpenChange={setOpenModal}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -268,76 +242,27 @@ export default function UsersPage() {
             </DialogHeader>
 
             <div className="space-y-6">
-              {/* User Info Card */}
               <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg p-6">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl">
-                    {selectedUser.fullName.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900">
-                      {selectedUser.fullName}
-                    </h3>
-                    <p className="text-sm text-slate-600">{selectedUser.phone}</p>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-600">Role</p>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {selectedUser.role}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-600">Balance</p>
-                    <p className="text-lg font-bold text-green-600">
-                      ₦{(selectedUser.balance / 100).toLocaleString()}
-                    </p>
-                  </div>
-                  {selectedUser.virtualAccount && (
-                    <>
-                      <div>
-                        <p className="text-xs text-slate-600">Account Number</p>
-                        <p className="text-sm font-mono font-semibold">
-                          {selectedUser.virtualAccount.accountNumber}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-600">Bank</p>
-                        <p className="text-sm font-semibold">
-                          {selectedUser.virtualAccount.bankName}
-                        </p>
-                      </div>
-                    </>
-                  )}
+                  <div><p className="text-xs text-slate-600">Role</p><p className="text-lg font-semibold text-slate-900">{selectedUser.role}</p></div>
+                  <div><p className="text-xs text-slate-600">Wallet Balance</p><p className="text-lg font-bold text-green-600">N{(selectedUser.balance / 100).toLocaleString()}</p></div>
+                  <div><p className="text-xs text-slate-600">Reward Balance</p><p className="text-lg font-bold text-amber-600">N{(selectedUser.rewardBalance / 100).toLocaleString()}</p></div>
+                  <div><p className="text-xs text-slate-600">Agent Request</p><p className="text-lg font-semibold text-slate-900">{selectedUser.agentRequestStatus}</p></div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="space-y-3">
                 <h4 className="font-semibold text-slate-900">Actions</h4>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <BalanceDialog
-                    onSubmit={(amount) => handleBalanceAction("ADD", amount)}
-                    label="Add Balance"
-                  />
-                  <BalanceDialog
-                    onSubmit={(amount) => handleBalanceAction("DEDUCT", amount)}
-                    label="Deduct Balance"
-                  />
+                  <BalanceDialog onSubmit={(amount) => handleBalanceAction("ADD", amount)} label="Add Balance" />
+                  <BalanceDialog onSubmit={(amount) => handleBalanceAction("DEDUCT", amount)} label="Deduct Balance" />
                 </div>
 
                 <div>
                   <Label className="text-sm mb-2">Change Role</Label>
-                  <Select
-                    value={selectedUser.role}
-                    onValueChange={(role) => handleUserAction(selectedUser.id, role)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={selectedUser.role} onValueChange={(role) => handleUserAction(selectedUser.id, { role: role as User["role"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="USER">User</SelectItem>
                       <SelectItem value="AGENT">Agent</SelectItem>
@@ -348,76 +273,35 @@ export default function UsersPage() {
 
                 <div>
                   <Label className="text-sm mb-2">Tier (Pricing)</Label>
-                  <Select
-                    value={selectedUser.tier}
-                    onValueChange={(tier) => handleUserAction(selectedUser.id, undefined, undefined, tier as 'user' | 'agent')}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={selectedUser.tier} onValueChange={(tier) => handleUserAction(selectedUser.id, { tier: tier as User["tier"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">Standard User</SelectItem>
-                      <SelectItem value="agent">Bulk Agent (5% discount)</SelectItem>
+                      <SelectItem value="agent">Approved Agent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
+                <div>
+                  <Label className="text-sm mb-2">Agent Request Status</Label>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => handleUserAction(selectedUser.id, { agentRequestStatus: "APPROVED" })}>Approve Agent</Button>
+                    <Button variant="outline" onClick={() => handleUserAction(selectedUser.id, { agentRequestStatus: "REJECTED" })}>Reject Agent</Button>
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   {selectedUser.isBanned ? (
-                    <Button
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                      onClick={() => handleUserAction(selectedUser.id, undefined, false)}
-                    >
-                      Unban User
-                    </Button>
+                    <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleUserAction(selectedUser.id, { isBanned: false })}>Unban User</Button>
                   ) : (
-                    <Button
-                      className="flex-1 bg-red-600 hover:bg-red-700"
-                      onClick={() => handleUserAction(selectedUser.id, undefined, true)}
-                    >
-                      Ban User
-                    </Button>
+                    <Button className="flex-1 bg-red-600 hover:bg-red-700" onClick={() => handleUserAction(selectedUser.id, { isBanned: true })}>Ban User</Button>
                   )}
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleResetPin(selectedUser.id)}
-                >
+                <Button variant="outline" className="w-full" onClick={() => handleResetPin(selectedUser.id)}>
                   Reset PIN to 000000
                 </Button>
               </div>
-
-              {/* Recent Transactions */}
-              {selectedUser.transactions.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-3">
-                    Recent Transactions
-                  </h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {selectedUser.transactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="bg-slate-50 rounded p-3 text-sm space-y-1"
-                      >
-                        <div className="flex justify-between items-start">
-                          <span className="font-mono text-xs text-slate-600">
-                            {tx.reference.slice(0, 15)}...
-                          </span>
-                          <Badge className={tx.status === "SUCCESS" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                            {tx.status}
-                          </Badge>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-600">{tx.type}</span>
-                          <span className="font-bold">₦{tx.amount.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -455,18 +339,10 @@ function BalanceDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Amount (₦)</Label>
-            <Input
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount"
-            />
+            <Label>Amount (N)</Label>
+            <Input type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Enter amount" />
           </div>
-          <Button onClick={handleSubmit} className="w-full">
-            Confirm
-          </Button>
+          <Button onClick={handleSubmit} className="w-full">Confirm</Button>
         </div>
       </DialogContent>
     </Dialog>

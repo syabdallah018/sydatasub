@@ -2,56 +2,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
-const updateAgentPricesSchema = z.object({
-  planId: z.string(),
-  agent_price: z.number().positive("Agent price must be positive"),
-});
+const updatePricesSchema = z
+  .object({
+    planId: z.string(),
+    user_price: z.number().positive("User price must be positive"),
+    agent_price: z.number().positive("Agent price must be positive"),
+  })
+  .refine((data) => data.agent_price <= data.user_price, {
+    message: "Agent price cannot exceed user price",
+    path: ["agent_price"],
+  });
 
 const bulkUpdateSchema = z.object({
-  prices: z.array(updateAgentPricesSchema),
+  prices: z.array(updatePricesSchema),
 });
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify admin password from header
     const adminPassword = req.headers.get("X-Admin-Password");
     if (!adminPassword || adminPassword !== process.env.ADMIN_PASSWORD) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const body = await req.json();
+    const validated = bulkUpdateSchema.parse(body);
 
-    // Support both single update and bulk update
-    let updates: z.infer<typeof updateAgentPricesSchema>[] = [];
-
-    if (body.prices && Array.isArray(body.prices)) {
-      // Bulk update
-      const validated = bulkUpdateSchema.parse(body);
-      updates = validated.prices;
-    } else {
-      // Single update
-      const validated = updateAgentPricesSchema.parse(body);
-      updates = [validated];
-    }
-
-    // Update all plans
     const results = [];
-    for (const update of updates) {
+    for (const update of validated.prices) {
       const plan = await prisma.plan.update({
         where: { id: update.planId },
-        data: { agent_price: update.agent_price },
-      });
-
-      console.log("[ADMIN] Updated agent price for plan:", {
-        planId: plan.id,
-        network: plan.network,
-        sizeLabel: plan.sizeLabel,
-        user_price: plan.user_price,
-        agent_price: plan.agent_price,
-        margin: plan.user_price - plan.agent_price,
+        data: {
+          user_price: update.user_price,
+          agent_price: update.agent_price,
+          price: update.user_price,
+        },
       });
 
       results.push({
@@ -72,25 +56,12 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("[ADMIN UPDATE AGENT PRICE ERROR]", error);
+    console.error("[ADMIN UPDATE PRICE ERROR]", error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     }
 
-    if (error instanceof Error && error.message.includes("not found")) {
-      return NextResponse.json(
-        { error: "Plan not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

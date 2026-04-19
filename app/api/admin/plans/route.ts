@@ -3,26 +3,29 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
-const planSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  network: z.enum(["MTN", "GLO", "AIRTEL", "NINEMOBILE"]),
-  sizeLabel: z.string().min(1, "Size label is required"),
-  validity: z.string().min(1, "Validity is required"),
-  price: z.number().min(50, "Minimum price is ₦50"),
-  apiSource: z.enum(["API_A", "API_B"]),
-  externalPlanId: z.number().int().positive(),
-  externalNetworkId: z.number().int().positive(),
-});
+const planSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    network: z.enum(["MTN", "GLO", "AIRTEL", "NINEMOBILE"]),
+    sizeLabel: z.string().min(1, "Size label is required"),
+    validity: z.string().min(1, "Validity is required"),
+    user_price: z.number().min(50, "Minimum user price is N50"),
+    agent_price: z.number().min(50, "Minimum agent price is N50"),
+    apiSource: z.enum(["API_A", "API_B"]),
+    externalPlanId: z.number().int().positive(),
+    externalNetworkId: z.number().int().positive(),
+  })
+  .refine((data) => data.agent_price <= data.user_price, {
+    message: "Agent price cannot exceed user price",
+    path: ["agent_price"],
+  });
 
-/**
- * GET /api/admin/plans - Get all plans
- */
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
 
     const plans = await prisma.plan.findMany({
-      orderBy: [{ network: "asc" }, { price: "asc" }],
+      orderBy: [{ network: "asc" }, { user_price: "asc" }],
     });
 
     return NextResponse.json(plans, { status: 200 });
@@ -36,16 +39,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-/**
- * POST /api/admin/plans - Create new plan
- */
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin(req);
@@ -53,7 +50,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = planSchema.parse(body);
 
-    // Check for duplicate unique constraint
     const existing = await prisma.plan.findFirst({
       where: {
         apiSource: data.apiSource,
@@ -72,6 +68,7 @@ export async function POST(req: NextRequest) {
     const plan = await prisma.plan.create({
       data: {
         ...data,
+        price: data.user_price,
         isActive: true,
       },
     });
@@ -81,10 +78,7 @@ export async function POST(req: NextRequest) {
     console.error("[CREATE PLAN ERROR]", error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     }
 
     if (error.message.includes("Unauthorized")) {
@@ -94,9 +88,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

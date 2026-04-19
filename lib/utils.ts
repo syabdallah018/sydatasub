@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { getPlanPriceForUser as getPlanPriceForUserShared } from "@/lib/pricing";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -76,8 +77,5 @@ export function getNetworkFromPhone(phone: string): string {
  * @returns The appropriate price in naira
  */
 export function getPriceForTier(plan: any, tier: string = 'user'): number {
-  if (tier === 'agent' && plan.agent_price > 0) {
-    return plan.agent_price;
-  }
-  return plan.user_price > 0 ? plan.user_price : plan.price;
+  return getPlanPriceForUserShared(plan, { tier });
 }

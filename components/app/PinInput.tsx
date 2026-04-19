@@ -56,7 +56,20 @@ export function PinInput({
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace") {
+    if (/^\d$/.test(e.key)) {
+      e.preventDefault();
+      const newPin = [...pin];
+      newPin[index] = e.key;
+      setPin(newPin);
+
+      if (index < length - 1) {
+        inputRefs.current[index + 1]?.focus();
+      }
+
+      if (newPin.every((digit) => digit !== "") && onComplete) {
+        onComplete(newPin.join(""));
+      }
+    } else if (e.key === "Backspace") {
       e.preventDefault();
       const newPin = [...pin];
 
@@ -119,6 +132,7 @@ export function PinInput({
           value={pin[index]}
           onChange={(e) => handleChange(index, e.target.value)}
           onKeyDown={(e) => handleKeyDown(index, e)}
+          onFocus={(e) => e.currentTarget.select()}
           onPaste={handlePaste}
           disabled={disabled}
           className={`

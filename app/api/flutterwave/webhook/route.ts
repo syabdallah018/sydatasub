@@ -268,37 +268,18 @@ export async function POST(req: NextRequest) {
           amountToAdd: eventData.amount,
         });
 
-        // Credit balance in kobo (amount is in naira)
+        // Credit wallet balance only. Rewards are handled separately in lib/rewards.
         const amountInKobo = eventData.amount * 100;
-        let bonusCredit = 0;
-        let newTier = user.tier;
-
-        // Apply deposit bonuses
-        if (eventData.amount >= 10000) {
-          // 10k+ deposit: 300 naira + upgrade to agent
-          bonusCredit = 30000; // 300 naira in kobo
-          newTier = "agent";
-          console.log("[WEBHOOK WALLET] 🚀 Agent tier upgrade triggered for deposit >= 10k");
-        } else if (eventData.amount >= 2000) {
-          // 2k-10k deposit: 200 naira
-          bonusCredit = 20000; // 200 naira in kobo
-          console.log("[WEBHOOK WALLET] 🎁 Deposit bonus 200 naira triggered for deposit >= 2k");
-        }
-
-        const totalCredit = amountInKobo + bonusCredit;
         console.log("[WEBHOOK WALLET] Crediting balance in kobo:", {
           amountInKobo,
-          bonusCredit,
-          totalCredit,
           currentBalance: user.balance,
-          newBalance: user.balance + totalCredit,
+          newBalance: user.balance + amountInKobo,
         });
 
         const updatedUser = await tx.user.update({
           where: { id: transaction.userId || "" },
           data: {
-            balance: { increment: totalCredit },
-            tier: newTier,
+            balance: { increment: amountInKobo },
           },
         });
 
@@ -306,9 +287,7 @@ export async function POST(req: NextRequest) {
           userId: transaction.userId,
           oldBalance: user.balance,
           amountAdded: amountInKobo,
-          bonusCredit,
           newBalance: updatedUser.balance,
-          newTier: updatedUser.tier,
         });
 
         // Update transaction to SUCCESS

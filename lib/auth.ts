@@ -1,6 +1,7 @@
 import { jwtVerify, SignJWT } from "jose";
 import { NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/db";
 
 const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || "your-super-secret-jwt-key-min-32-chars"
@@ -53,7 +54,29 @@ export async function getSessionUser(
       return null;
     }
 
-    return await verifyToken(token);
+    const jwtPayload = await verifyToken(token);
+    if (jwtPayload) {
+      return jwtPayload;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: token },
+      select: {
+        id: true,
+        phone: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      userId: user.id,
+      email: user.phone,
+      role: user.role,
+    };
   } catch (error) {
     return null;
   }

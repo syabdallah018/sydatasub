@@ -15,11 +15,16 @@ interface Plan {
   margin: number;
 }
 
+interface EditedPrice {
+  user_price: number;
+  agent_price: number;
+}
+
 export default function PricingPage() {
   const [groupedPlans, setGroupedPlans] = useState<Record<string, Plan[]>>({});
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [editedPrices, setEditedPrices] = useState<Record<string, number>>({});
+  const [editedPrices, setEditedPrices] = useState<Record<string, EditedPrice>>({});
 
   useEffect(() => {
     fetchPlans();
@@ -52,23 +57,39 @@ export default function PricingPage() {
     }
   };
 
-  const handlePriceChange = (planId: string, newPrice: number) => {
-    setEditedPrices(prev => ({
-      ...prev,
-      [planId]: newPrice
-    }));
+  const handlePriceChange = (plan: Plan, field: keyof EditedPrice, value: number) => {
+    setEditedPrices((prev) => {
+      const next = {
+        user_price: prev[plan.id]?.user_price ?? plan.user_price,
+        agent_price: prev[plan.id]?.agent_price ?? plan.agent_price,
+        [field]: value,
+      };
+
+      return {
+        ...prev,
+        [plan.id]: next,
+      };
+    });
   };
 
   const handleSave = async () => {
     try {
       setUpdating(true);
       const adminPassword = sessionStorage.getItem('adminPassword');
-      const prices = Object.entries(editedPrices)
-        .filter(([_, price]) => price > 0)
-        .map(([planId, price]) => ({ planId, agent_price: price }));
+      const prices = Object.entries(editedPrices).map(([planId, price]) => ({
+        planId,
+        user_price: price.user_price,
+        agent_price: price.agent_price,
+      }));
 
       if (prices.length === 0) {
         toast.error('No prices to update');
+        return;
+      }
+
+      const invalidPlan = prices.find((plan) => plan.agent_price > plan.user_price);
+      if (invalidPlan) {
+        toast.error('Agent price cannot exceed user price');
         return;
       }
 
@@ -114,18 +135,16 @@ export default function PricingPage() {
     <div>
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">Tier Pricing Management</h2>
-        <p className="text-slate-600">Manage agent (reseller) pricing for all data plans</p>
+        <p className="text-slate-600">Manage both regular-user and agent prices, and the backend will charge exactly these values.</p>
       </div>
 
       <div className="space-y-6">
         {Object.entries(groupedPlans).map(([network, plans]) => (
           <div key={network} className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
-            {/* Network Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
               <h3 className="text-lg font-bold text-white">{network}</h3>
             </div>
 
-            {/* Plans Table */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -134,32 +153,40 @@ export default function PricingPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 uppercase tracking-wider">Validity</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">User Price</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Agent Price</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Edit Agent Price</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Edit User</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Edit Agent</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-slate-600 uppercase tracking-wider">Margin</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {plans.map(plan => {
-                    const displayPrice = editedPrices[plan.id] ?? plan.agent_price;
-                    const currentMargin = plan.user_price - displayPrice;
-                    const isEdited = plan.id in editedPrices;
+                  {plans.map((plan) => {
+                    const edited = editedPrices[plan.id];
+                    const displayUserPrice = edited?.user_price ?? plan.user_price;
+                    const displayAgentPrice = edited?.agent_price ?? plan.agent_price;
+                    const currentMargin = displayUserPrice - displayAgentPrice;
+                    const isEdited = Boolean(edited);
 
                     return (
                       <tr key={plan.id} className={isEdited ? 'bg-yellow-50' : 'hover:bg-slate-50'}>
                         <td className="px-6 py-4 text-sm font-medium text-slate-900">{plan.sizeLabel}</td>
                         <td className="px-6 py-4 text-sm text-slate-600">{plan.validity}</td>
-                        <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">₦{plan.user_price.toLocaleString()}</td>
-                        <td className="px-6 py-4 text-sm text-right font-medium text-slate-700">₦{plan.agent_price.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">N{plan.user_price.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-sm text-right font-medium text-slate-700">N{plan.agent_price.toLocaleString()}</td>
                         <td className="px-6 py-4 text-sm text-right">
                           <input
                             type="number"
-                            value={displayPrice || ''}
-                            onChange={e => handlePriceChange(plan.id, parseInt(e.target.value) || 0)}
-                            className={`w-24 px-3 py-2 rounded border text-sm text-right font-medium transition-colors ${
-                              isEdited
-                                ? 'border-yellow-500 bg-yellow-100 text-slate-900'
-                                : 'border-slate-300 bg-white text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
-                            }`}
+                            value={displayUserPrice || ''}
+                            onChange={(e) => handlePriceChange(plan, 'user_price', parseInt(e.target.value, 10) || 0)}
+                            className="w-24 px-3 py-2 rounded border border-slate-300 bg-white text-sm text-right font-medium text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="0"
+                          />
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right">
+                          <input
+                            type="number"
+                            value={displayAgentPrice || ''}
+                            onChange={(e) => handlePriceChange(plan, 'agent_price', parseInt(e.target.value, 10) || 0)}
+                            className="w-24 px-3 py-2 rounded border border-slate-300 bg-white text-sm text-right font-medium text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             placeholder="0"
                           />
                         </td>
@@ -171,7 +198,7 @@ export default function PricingPage() {
                               ? 'bg-slate-100 text-slate-800'
                               : 'bg-red-100 text-red-800'
                           }`}>
-                            ₦{currentMargin.toLocaleString()}
+                            N{currentMargin.toLocaleString()}
                           </span>
                         </td>
                       </tr>
@@ -184,7 +211,6 @@ export default function PricingPage() {
         ))}
       </div>
 
-      {/* Save Button */}
       {Object.keys(editedPrices).length > 0 && (
         <div className="fixed bottom-8 right-8">
           <button

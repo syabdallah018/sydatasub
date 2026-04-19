@@ -8,6 +8,7 @@ import {
   Package,
   Users,
   CreditCard,
+  Bell,
   LogOut,
   Menu,
   X,
@@ -25,8 +26,10 @@ interface AdminInfo {
 const NAV_ITEMS = [
   { icon: BarChart3, label: "Analytics", href: "/admin/analytics" },
   { icon: Package, label: "Data Plans", href: "/admin/plans" },
+  { icon: CreditCard, label: "Pricing", href: "/admin/pricing" },
   { icon: Users, label: "Users", href: "/admin/users" },
   { icon: CreditCard, label: "Transactions", href: "/admin/transactions" },
+  { icon: Bell, label: "Notices", href: "/admin/notices" },
 ];
 
 export function AdminSidebar() {

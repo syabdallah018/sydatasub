@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import * as smeplug from "@/lib/smeplug";
 import * as saiful from "@/lib/saiful";
+import { normalizeProviderFailureMessage } from "@/lib/purchase-utils";
 import { Transaction } from "@prisma/client";
 
 /**
@@ -47,13 +48,13 @@ export async function deliverGuestData(transaction: Transaction) {
       data: {
         status: result.success ? "SUCCESS" : "FAILED",
         externalReference: result.externalReference || undefined,
-        description: result.message,
+        description: result.success ? result.message : normalizeProviderFailureMessage(result.message),
       },
     });
 
     return {
       success: result.success,
-      message: result.message,
+      message: result.success ? result.message : normalizeProviderFailureMessage(result.message),
       externalReference: result.externalReference,
     };
   } catch (error: any) {

@@ -58,23 +58,40 @@ enum RewardStatus {
   CLAIMED
 }
 
+enum AgentRequestStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NoticeSeverity {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+  PROMO
+}
+
 // ============================================================================
 // MODELS
 // ============================================================================
 
 model User {
-  id        String     @id @default(cuid())
-  fullName  String
-  phone     String     @unique
-  pinHash   String?
-  email     String?
-  role      UserRole   @default(USER)
-  tier      String     @default("user") // "user" or "agent"
-  balance   Int        @default(0) // in KOBO
-  isBanned  Boolean    @default(false)
-  isActive  Boolean    @default(true)
-  joinedAt  DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id                 String             @id @default(cuid())
+  fullName           String
+  phone              String             @unique
+  pinHash            String?
+  email              String?
+  role               UserRole           @default(USER)
+  tier               String             @default("user") // "user" or "agent"
+  balance            Int                @default(0) // in KOBO
+  rewardBalance      Int                @default(0) // in KOBO, only spendable on data
+  agentRequestStatus AgentRequestStatus @default(NONE)
+  isBanned           Boolean            @default(false)
+  isActive           Boolean            @default(true)
+  joinedAt           DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   virtualAccount VirtualAccount?
   transactions   Transaction[]
@@ -181,4 +198,22 @@ model UserReward {
   @@index([userId])
   @@index([status])
   @@map("user_rewards")
+}
+
+model ServiceNotice {
+  id        String         @id @default(cuid())
+  title     String
+  message   String
+  severity  NoticeSeverity @default(INFO)
+  audience  String         @default("all")
+  network   NetworkType?
+  isActive  Boolean        @default(true)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([isActive, startsAt, endsAt])
+  @@index([audience])
+  @@map("service_notices")
 }

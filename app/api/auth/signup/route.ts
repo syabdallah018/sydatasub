@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
         role: "USER",
         tier: "user",
         balance: 0,
+        rewardBalance: 0,
+        agentRequestStatus: "NONE",
         isBanned: false,
       },
     });
@@ -108,7 +110,7 @@ export async function POST(req: NextRequest) {
     const SIGNUP_BONUS = 10000;
     await prisma.user.update({
       where: { id: user.id },
-      data: { balance: { increment: SIGNUP_BONUS } },
+      data: { rewardBalance: { increment: SIGNUP_BONUS } },
     });
 
     // Create transaction record for signup bonus
@@ -120,10 +122,10 @@ export async function POST(req: NextRequest) {
         data: {
           userId: user.id,
           type: "REWARD_CREDIT",
-          amount: SIGNUP_BONUS,
+          amount: SIGNUP_BONUS / 100,
           status: "SUCCESS",
           reference: `SIGNUP-BONUS-${user.id}-${Date.now()}`,
-          description: "Signup bonus credit",
+          description: "Signup bonus credit for data purchases",
           phone: user.phone,
         },
       });
@@ -171,6 +173,7 @@ export async function POST(req: NextRequest) {
           fullName: updatedUser.fullName,
           role: updatedUser.role,
           balance: updatedUser.balance,
+          rewardBalance: updatedUser.rewardBalance,
         },
         virtualAccount: {
           accountNumber: virtualAccount.account_number,

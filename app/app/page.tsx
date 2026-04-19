@@ -35,7 +35,9 @@ interface User {
   fullName: string;
   phone: string;
   balance: number;
+  rewardBalance: number;
   tier: "user" | "agent";
+  agentRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   virtualAccount?: { accountNumber: string; bankName: string } | null;
 }
 
@@ -945,6 +947,23 @@ export default function DashboardPage() {
     fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" }).then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
   }, [router]);
 
+  useEffect(() => {
+    fetch("/api/notices/active")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data?.data)) return;
+        data.data.slice(0, 2).forEach((notice: any) => {
+          const message = notice.title ? `${notice.title}: ${notice.message}` : notice.message;
+          if (notice.severity === "ERROR" || notice.severity === "WARNING") {
+            toast.error(message, { duration: 7000 });
+          } else {
+            toast.info(message, { duration: 7000 });
+          }
+        });
+      })
+      .catch((error) => console.error("[NOTICES]", error));
+  }, []);
+
   const formatBalance = (kobo: number) => {
     const naira = kobo / 100;
     return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(naira);
@@ -1005,6 +1024,70 @@ export default function DashboardPage() {
     }
   };
 
+  const refreshUser = async () => {
+    const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const response = await fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" });
+    const payload = await response.json();
+    if (payload?.success && payload?.data) {
+      setUser(payload.data);
+    }
+  };
+
+  const handlePinBoxInput = (
+    index: number,
+    value: string,
+    pinValues: string[],
+    setPinValues: (next: string[]) => void,
+    prefix: string
+  ) => {
+    const cleanValue = value.replace(/\D/g, "").slice(-1);
+    const next = [...pinValues];
+    next[index] = cleanValue;
+    setPinValues(next);
+    if (cleanValue && index < 5) document.getElementById(`${prefix}-${index + 1}`)?.focus();
+  };
+
+  const handlePinBoxKeyDown = (
+    index: number,
+    event: React.KeyboardEvent<HTMLInputElement>,
+    pinValues: string[],
+    setPinValues: (next: string[]) => void,
+    prefix: string
+  ) => {
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      const next = [...pinValues];
+      next[index] = event.key;
+      setPinValues(next);
+      if (index < 5) document.getElementById(`${prefix}-${index + 1}`)?.focus();
+      return;
+    }
+
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      const next = [...pinValues];
+      if (next[index]) {
+        next[index] = "";
+        setPinValues(next);
+      } else if (index > 0) {
+        next[index - 1] = "";
+        setPinValues(next);
+        document.getElementById(`${prefix}-${index - 1}`)?.focus();
+      }
+      return;
+    }
+
+    if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      document.getElementById(`${prefix}-${index - 1}`)?.focus();
+    }
+
+    if (event.key === "ArrowRight" && index < 5) {
+      event.preventDefault();
+      document.getElementById(`${prefix}-${index + 1}`)?.focus();
+    }
+  };
+
   const handleNetworkSelect = async (networkId: string) => {
     setSelectedNetwork(networkId);
     setPlansLoading(true);
@@ -1034,17 +1117,34 @@ export default function DashboardPage() {
 
     setPurchasingData(true);
     try {
-      const res = await fetch("/api/data/purchase", { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ 
-          planId: selectedPlan.id, 
-          buyerPhone: user.phone,
-          recipientPhone: phoneNumber, 
-          pin: pin.join("") 
-        }) 
+      const payload = {
+        planId: selectedPlan.id,
+        buyerPhone: user.phone,
+        recipientPhone: phoneNumber,
+        pin: pin.join(""),
+      };
+      let res = await fetch("/api/data/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      let data = await res.json();
+
+      if (res.status === 409 && data?.requiresConfirmation) {
+        const shouldContinue = window.confirm("This looks like a duplicate data transaction. Do you want to continue?");
+        if (!shouldContinue) {
+          setPurchasingData(false);
+          return;
+        }
+
+        res = await fetch("/api/data/purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, confirmDuplicate: true }),
+        });
+        data = await res.json();
+      }
+
       if (res.ok && data.success) {
         setSuccessData({
           type: "data",
@@ -1056,8 +1156,7 @@ export default function DashboardPage() {
         });
         setSuccessModalOpen(true);
         setBuyDataOpen(false);
-        const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" }).then((r) => r.json()).then((d) => d.success && setUser(d.data));
+        await refreshUser();
       } else { toast.error(data.error || "Purchase failed"); }
     } finally { setPurchasingData(false); }
   };
@@ -1073,24 +1172,40 @@ export default function DashboardPage() {
     }
     setPurchasingAirtime(true);
     try {
-      const res = await fetch("/api/airtime/purchase", { 
-        method: "POST", 
-        headers: { "Content-Type": "application/json" }, 
-        body: JSON.stringify({ 
-          buyerPhone: user.phone,
-          recipientPhone: airtimePhone, 
-          amount: airtimeAmount,
-          network: airtimeNetwork,
-          pin: airtimePin.join("")
-        }) 
+      const payload = {
+        buyerPhone: user.phone,
+        recipientPhone: airtimePhone,
+        amount: airtimeAmount,
+        network: airtimeNetwork,
+        pin: airtimePin.join(""),
+      };
+      let res = await fetch("/api/airtime/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      let data = await res.json();
+
+      if (res.status === 409 && data?.requiresConfirmation) {
+        const shouldContinue = window.confirm("This looks like a duplicate airtime transaction. Do you want to continue?");
+        if (!shouldContinue) {
+          setPurchasingAirtime(false);
+          return;
+        }
+
+        res = await fetch("/api/airtime/purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, confirmDuplicate: true }),
+        });
+        data = await res.json();
+      }
+
       if (data.success) {
         toast.success("Airtime purchased successfully!");
         setAirtimeOpen(false);
         setAirtimePin(["", "", "", "", "", ""]);
-        const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" }).then((r) => r.json()).then((d) => d.success && setUser(d.data));
+        await refreshUser();
       } else { 
         toast.error(data.error || "Purchase failed");
         console.error("[AIRTIME PURCHASE ERROR]", res.status, data);
@@ -1136,6 +1251,14 @@ export default function DashboardPage() {
                 <motion.h2 key={showBalance ? "shown" : "hidden"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 32, color: T.blue, margin: 0, letterSpacing: "-0.02em" }}>
                   {showBalance ? formatBalance(user.balance) : "••••••"}
                 </motion.h2>
+                <p style={{ fontFamily: T.font, fontSize: 12, color: T.amber, margin: "8px 0 0", fontWeight: 700 }}>
+                  Reward balance for data only: {showBalance ? formatBalance(user.rewardBalance || 0) : "••••••"}
+                </p>
+                {user.agentRequestStatus === "PENDING" && (
+                  <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: "8px 0 0" }}>
+                    Agent request pending admin approval.
+                  </p>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowBalance(!showBalance)} style={{ width: 40, height: 40, borderRadius: 12, background: T.blueLight, border: `2px solid ${T.blue}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
@@ -1272,12 +1395,9 @@ export default function DashboardPage() {
                       type="password"
                       maxLength={1}
                       value={d}
-                      onChange={(e) => {
-                        const np = [...pin];
-                        np[i] = e.target.value;
-                        setPin(np);
-                        if (e.target.value && i < 5) document.getElementById(`pin-${i + 1}`)?.focus();
-                      }}
+                      onChange={(e) => handlePinBoxInput(i, e.target.value, pin, setPin, "pin")}
+                      onKeyDown={(e) => handlePinBoxKeyDown(i, e, pin, setPin, "pin")}
+                      onFocus={(e) => e.currentTarget.select()}
                       style={{
                         flex: 1,
                         minWidth: 0,
@@ -1401,12 +1521,9 @@ export default function DashboardPage() {
                     type="password"
                     maxLength={1}
                     value={d}
-                    onChange={(e) => {
-                      const nap = [...airtimePin];
-                      nap[i] = e.target.value;
-                      setAirtimePin(nap);
-                      if (e.target.value && i < 5) document.getElementById(`airtime-pin-${i + 1}`)?.focus();
-                    }}
+                    onChange={(e) => handlePinBoxInput(i, e.target.value, airtimePin, setAirtimePin, "airtime-pin")}
+                    onKeyDown={(e) => handlePinBoxKeyDown(i, e, airtimePin, setAirtimePin, "airtime-pin")}
+                    onFocus={(e) => e.currentTarget.select()}
                     style={{
                       flex: 1,
                       minWidth: 0,

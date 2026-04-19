@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
         role: true,
         tier: true,
         balance: true,
+        rewardBalance: true,
+        agentRequestStatus: true,
         isBanned: true,
         isActive: true,
         joinedAt: true,

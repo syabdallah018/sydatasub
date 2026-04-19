@@ -5,7 +5,7 @@ import { Plus, Edit2, Trash2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,6 +25,8 @@ interface Plan {
   sizeLabel: string;
   validity: string;
   price: number;
+  user_price: number;
+  agent_price: number;
   apiSource: string;
   externalPlanId: number;
   externalNetworkId: number;
@@ -42,7 +44,8 @@ export default function PlansPage() {
     network: "MTN",
     sizeLabel: "",
     validity: "",
-    price: 0,
+    user_price: 0,
+    agent_price: 0,
     apiSource: "API_A",
     externalPlanId: 0,
     externalNetworkId: 0,
@@ -56,7 +59,7 @@ export default function PlansPage() {
     try {
       const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch("/api/admin/plans", {
-        headers: { "X-Admin-Password": adminPassword || "" }
+        headers: { "X-Admin-Password": adminPassword || "" },
       });
       if (!response.ok) throw new Error("Failed to fetch plans");
       const data = await response.json();
@@ -68,14 +71,30 @@ export default function PlansPage() {
     }
   };
 
+  const resetForm = () => {
+    setEditingId(null);
+    setFormData({
+      name: "",
+      network: "MTN",
+      sizeLabel: "",
+      validity: "",
+      user_price: 0,
+      agent_price: 0,
+      apiSource: "API_A",
+      externalPlanId: 0,
+      externalNetworkId: 0,
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const method = editingId ? "PATCH" : "POST";
-      const url = editingId
-        ? `/api/admin/plans/${editingId}`
-        : "/api/admin/plans";
+      if (formData.agent_price > formData.user_price) {
+        throw new Error("Agent price cannot exceed user price");
+      }
 
+      const method = editingId ? "PATCH" : "POST";
+      const url = editingId ? `/api/admin/plans/${editingId}` : "/api/admin/plans";
       const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(url, {
         method,
@@ -83,21 +102,14 @@ export default function PlansPage() {
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) throw new Error("Failed to save plan");
-      
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || "Failed to save plan");
+      }
+
       await fetchPlans();
       setOpenDialog(false);
-      setEditingId(null);
-      setFormData({
-        name: "",
-        network: "MTN",
-        sizeLabel: "",
-        validity: "",
-        price: 0,
-        apiSource: "API_A",
-        externalPlanId: 0,
-        externalNetworkId: 0,
-      });
+      resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }
@@ -109,7 +121,8 @@ export default function PlansPage() {
       network: plan.network,
       sizeLabel: plan.sizeLabel,
       validity: plan.validity,
-      price: plan.price,
+      user_price: plan.user_price,
+      agent_price: plan.agent_price,
       apiSource: plan.apiSource,
       externalPlanId: plan.externalPlanId,
       externalNetworkId: plan.externalNetworkId,
@@ -124,7 +137,7 @@ export default function PlansPage() {
       const adminPassword = sessionStorage.getItem("adminPassword");
       const response = await fetch(`/api/admin/plans/${planId}`, {
         method: "DELETE",
-        headers: { "X-Admin-Password": adminPassword || "" }
+        headers: { "X-Admin-Password": adminPassword || "" },
       });
       if (!response.ok) throw new Error("Failed to delete plan");
       await fetchPlans();
@@ -156,7 +169,10 @@ export default function PlansPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-900">Data Plans</h1>
-        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <Dialog open={openDialog} onOpenChange={(open) => {
+          setOpenDialog(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger>
             <Button onClick={() => setEditingId(null)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -170,26 +186,13 @@ export default function PlansPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>Name</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
+                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Network</Label>
-                  <Select
-                    value={formData.network}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, network: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={formData.network} onValueChange={(value) => setFormData({ ...formData, network: value })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MTN">MTN</SelectItem>
                       <SelectItem value="GLO">Glo</SelectItem>
@@ -200,61 +203,31 @@ export default function PlansPage() {
                 </div>
                 <div>
                   <Label>Size</Label>
-                  <Input
-                    value={formData.sizeLabel}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        sizeLabel: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., 1GB"
-                    required
-                  />
+                  <Input value={formData.sizeLabel} onChange={(e) => setFormData({ ...formData, sizeLabel: e.target.value })} placeholder="e.g., 1GB" required />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Validity</Label>
-                  <Input
-                    value={formData.validity}
-                    onChange={(e) =>
-                      setFormData({ ...formData, validity: e.target.value })
-                    }
-                    placeholder="e.g., Monthly"
-                    required
-                  />
+                  <Input value={formData.validity} onChange={(e) => setFormData({ ...formData, validity: e.target.value })} placeholder="e.g., Monthly" required />
                 </div>
                 <div>
-                  <Label>Price (₦)</Label>
-                  <Input
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        price: parseFloat(e.target.value),
-                      })
-                    }
-                    required
-                  />
+                  <Label>User Price (N)</Label>
+                  <Input type="number" value={formData.user_price} onChange={(e) => setFormData({ ...formData, user_price: parseFloat(e.target.value) || 0 })} required />
                 </div>
+              </div>
+              <div>
+                <Label>Agent Price (N)</Label>
+                <Input type="number" value={formData.agent_price} onChange={(e) => setFormData({ ...formData, agent_price: parseFloat(e.target.value) || 0 })} required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>API Source</Label>
-                  <Select
-                    value={formData.apiSource}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, apiSource: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={formData.apiSource} onValueChange={(value) => setFormData({ ...formData, apiSource: value })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="API_A">API A</SelectItem>
-                      <SelectItem value="API_B">API B</SelectItem>
+                      <SelectItem value="API_A">SMEPlug</SelectItem>
+                      <SelectItem value="API_B">Saiful</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -262,31 +235,11 @@ export default function PlansPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>External Plan ID</Label>
-                  <Input
-                    type="number"
-                    value={formData.externalPlanId}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        externalPlanId: parseInt(e.target.value),
-                      })
-                    }
-                    required
-                  />
+                  <Input type="number" value={formData.externalPlanId} onChange={(e) => setFormData({ ...formData, externalPlanId: parseInt(e.target.value, 10) || 0 })} required />
                 </div>
                 <div>
                   <Label>External Network ID</Label>
-                  <Input
-                    type="number"
-                    value={formData.externalNetworkId}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        externalNetworkId: parseInt(e.target.value),
-                      })
-                    }
-                    required
-                  />
+                  <Input type="number" value={formData.externalNetworkId} onChange={(e) => setFormData({ ...formData, externalNetworkId: parseInt(e.target.value, 10) || 0 })} required />
                 </div>
               </div>
               <Button type="submit" className="w-full">
@@ -313,7 +266,8 @@ export default function PlansPage() {
                 <th className="px-4 py-3 text-left font-semibold">Network</th>
                 <th className="px-4 py-3 text-left font-semibold">Size</th>
                 <th className="px-4 py-3 text-left font-semibold">Validity</th>
-                <th className="px-4 py-3 text-left font-semibold">Price</th>
+                <th className="px-4 py-3 text-left font-semibold">User Price</th>
+                <th className="px-4 py-3 text-left font-semibold">Agent Price</th>
                 <th className="px-4 py-3 text-left font-semibold">API</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-left font-semibold">Actions</th>
@@ -323,50 +277,25 @@ export default function PlansPage() {
               {plans.map((plan) => (
                 <tr key={plan.id} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium">{plan.name}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant="outline">{plan.network}</Badge>
-                  </td>
+                  <td className="px-4 py-3"><Badge variant="outline">{plan.network}</Badge></td>
                   <td className="px-4 py-3">{plan.sizeLabel}</td>
                   <td className="px-4 py-3">{plan.validity}</td>
-                  <td className="px-4 py-3 font-semibold">₦{plan.price}</td>
+                  <td className="px-4 py-3 font-semibold">N{plan.user_price}</td>
+                  <td className="px-4 py-3 font-semibold">N{plan.agent_price}</td>
+                  <td className="px-4 py-3"><Badge>{plan.apiSource}</Badge></td>
                   <td className="px-4 py-3">
-                    <Badge>{plan.apiSource}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      className={
-                        plan.isActive
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
-                      }
-                    >
+                    <Badge className={plan.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
                       {plan.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleEdit(plan)}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => handleEdit(plan)}>
                       <Edit2 className="w-4 h-4" />
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleToggleActive(plan)}
-                    >
-                      {plan.isActive ? (
-                        <Eye className="w-4 h-4" />
-                      ) : (
-                        <EyeOff className="w-4 h-4" />
-                      )}
+                    <Button size="sm" variant="ghost" onClick={() => handleToggleActive(plan)}>
+                      {plan.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(plan.id)}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(plan.id)}>
                       <Trash2 className="w-4 h-4 text-red-600" />
                     </Button>
                   </td>
