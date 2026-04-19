@@ -10,6 +10,8 @@ export function Providers({ children }: { children: ReactNode }) {
 
   // Register Service Worker for cache bypass (WebView compatibility)
   useEffect(() => {
+    let hasReloadedForNewWorker = false;
+
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
@@ -26,6 +28,13 @@ export function Providers({ children }: { children: ReactNode }) {
         .catch((err) => {
           console.error("[APP] Service Worker registration failed:", err);
         });
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hasReloadedForNewWorker) {
+          hasReloadedForNewWorker = true;
+          window.location.reload();
+        }
+      });
     }
   }, []);
 

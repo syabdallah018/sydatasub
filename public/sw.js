@@ -1,8 +1,8 @@
 // Service Worker for SY DATA SUB
 // Handles cache invalidation and real-time balance updates for WebView compatibility
 
-const CACHE_NAME = "sydatasub-v1";
-const API_CACHE = "sydatasub-api-v1";
+const CACHE_NAME = "sydatasub-v2";
+const API_CACHE = "sydatasub-api-v2";
 
 // Critical routes that should NEVER be cached
 const NO_CACHE_ROUTES = [
@@ -83,7 +83,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ===== Static assets (CSS, JS, fonts): Cache with network fallback =====
+// ===== Static assets (CSS, JS, fonts): Network first to avoid stale UI after deploy =====
   if (
     request.method === "GET" &&
     (url.pathname.endsWith(".css") ||
@@ -93,22 +93,20 @@ self.addEventListener("fetch", (event) => {
       url.pathname.startsWith("/fonts/"))
   ) {
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          console.log(`[SW] Cached asset: ${url.pathname}`);
-          return cachedResponse;
-        }
-        return fetch(request, { cache: "no-store" }).then((response) => {
-          if (!response || response.status !== 200) {
+      fetch(request, { cache: "no-store" })
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type === "error") {
             return response;
           }
+
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(request, responseToCache);
           });
+
           return response;
-        });
-      })
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }
