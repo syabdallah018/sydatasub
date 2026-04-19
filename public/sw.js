@@ -1,14 +1,13 @@
 // Service Worker for SY DATA SUB
 // Handles cache invalidation and real-time balance updates for WebView compatibility
 
-const CACHE_NAME = "sydatasub-v2";
-const API_CACHE = "sydatasub-api-v2";
+const CACHE_NAME = "sydatasub-v3";
+const API_CACHE = "sydatasub-api-v3";
 
 // Critical routes that should NEVER be cached
 const NO_CACHE_ROUTES = [
   "/api/auth/me",
   "/api/transactions",
-  "/api/rewards",
   "/api/data/purchase",
   "/api/airtime/purchase",
   "/api/flutterwave/webhook"

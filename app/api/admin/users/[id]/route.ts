@@ -65,7 +65,10 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(normalizeUserCompat(userData), { status: 200 });
+    const normalizedUser = normalizeUserCompat(userData);
+    const { rewardBalance: _rewardBalance, ...safeUser } = normalizedUser;
+
+    return NextResponse.json(safeUser, { status: 200 });
   } catch (error: any) {
     console.error("[GET USER ERROR]", error);
 
@@ -136,12 +139,14 @@ export async function PATCH(
         tier: true,
         balance: true,
         isBanned: true,
-        ...(dbCaps.userRewardBalance ? { rewardBalance: true } : {}),
         ...(dbCaps.userAgentRequestStatus ? { agentRequestStatus: true } : {}),
       },
     });
 
-    return NextResponse.json(normalizeUserCompat(updated), { status: 200 });
+    const normalizedUser = normalizeUserCompat(updated);
+    const { rewardBalance: _rewardBalance, ...safeUser } = normalizedUser;
+
+    return NextResponse.json(safeUser, { status: 200 });
   } catch (error: any) {
     console.error("[UPDATE USER ERROR]", error);
 

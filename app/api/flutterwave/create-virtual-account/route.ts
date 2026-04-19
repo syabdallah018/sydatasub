@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
         userId: user.userId,
         accountNumber: virtualAccount.account_number,
         bankName: virtualAccount.bank_name,
-        flwRef: `SYDATA-VA-${user.userId}-${Date.now()}`,
-        orderRef: userData.id,
+        flwRef: virtualAccount.flw_ref || `SYDATA-VA-${user.userId}-${Date.now()}`,
+        orderRef: virtualAccount.order_ref || virtualAccount.tx_ref || userData.id,
       },
     });
 

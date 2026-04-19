@@ -25,7 +25,6 @@ interface User {
   role: string;
   tier: "user" | "agent";
   balance: number;
-  rewardBalance: number;
   agentRequestStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   isBanned: boolean;
   accountNumber?: string;
@@ -196,7 +195,6 @@ export default function UsersPage() {
                 <th className="px-4 py-3 text-left font-semibold">Role</th>
                 <th className="px-4 py-3 text-left font-semibold">Tier</th>
                 <th className="px-4 py-3 text-left font-semibold">Wallet</th>
-                <th className="px-4 py-3 text-left font-semibold">Rewards</th>
                 <th className="px-4 py-3 text-left font-semibold">Agent Request</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-left">Action</th>
@@ -210,7 +208,6 @@ export default function UsersPage() {
                   <td className="px-4 py-3"><Badge variant="outline">{user.role}</Badge></td>
                   <td className="px-4 py-3"><Badge className={user.tier === "agent" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}>{user.tier}</Badge></td>
                   <td className="px-4 py-3 font-semibold">N{(user.balance / 100).toLocaleString()}</td>
-                  <td className="px-4 py-3 font-semibold">N{(user.rewardBalance / 100).toLocaleString()}</td>
                   <td className="px-4 py-3"><Badge className="bg-amber-100 text-amber-800">{user.agentRequestStatus}</Badge></td>
                   <td className="px-4 py-3">
                     <Badge className={user.isBanned ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}>
@@ -239,7 +236,6 @@ export default function UsersPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div><p className="text-xs text-slate-600">Role</p><p className="text-lg font-semibold text-slate-900">{selectedUser.role}</p></div>
                   <div><p className="text-xs text-slate-600">Wallet Balance</p><p className="text-lg font-bold text-green-600">N{(selectedUser.balance / 100).toLocaleString()}</p></div>
-                  <div><p className="text-xs text-slate-600">Reward Balance</p><p className="text-lg font-bold text-amber-600">N{(selectedUser.rewardBalance / 100).toLocaleString()}</p></div>
                   <div><p className="text-xs text-slate-600">Agent Request</p><p className="text-lg font-semibold text-slate-900">{selectedUser.agentRequestStatus}</p></div>
                 </div>
               </div>

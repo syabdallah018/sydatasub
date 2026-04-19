@@ -190,16 +190,20 @@ export interface VirtualAccountResponse {
   account_number: string;
   bank_name: string;
   bank_code: string;
-  amount: number;
+  amount?: number;
+  tx_ref?: string;
+  order_ref?: string;
+  flw_ref?: string;
 }
 
 export async function createFlutterwaveVirtualAccount(
   params: CreateVirtualAccountParams
 ): Promise<VirtualAccountResponse> {
   try {
+    const txRef = `SYDATA-VA-${params.userId}-${Date.now()}`;
     const response = await flutterwaveClient.post("/virtual-account-numbers", {
       email: params.email,
-      tx_ref: `SYDATA-VA-${params.userId}-${Date.now()}`,
+      tx_ref: txRef,
       phonenumber: params.phone,
       firstname: params.firstName,
       lastname: params.lastName,
@@ -208,7 +212,12 @@ export async function createFlutterwaveVirtualAccount(
       is_permanent: true,
     });
 
-    return response.data.data;
+    return {
+      ...response.data.data,
+      tx_ref: response.data.data?.tx_ref || txRef,
+      order_ref: response.data.data?.order_ref,
+      flw_ref: response.data.data?.flw_ref,
+    };
   } catch (error) {
     console.error("[FLUTTERWAVE ERROR]", error);
     throw new Error("Failed to create virtual account with Flutterwave");

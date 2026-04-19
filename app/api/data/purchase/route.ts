@@ -4,7 +4,6 @@ import { purchaseData as purchaseFromSmeplug } from "@/lib/smeplug";
 import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { findRecentDuplicateTransaction, normalizeProviderFailureMessage, DATA_INSUFFICIENT_FUNDS_MESSAGE } from "@/lib/purchase-utils";
 import { getPlanPriceForUser } from "@/lib/pricing";
-import { getDbCapabilities } from "@/lib/db-capabilities";
 import { getSessionUser } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
@@ -18,6 +17,12 @@ const purchaseSchema = z.object({
   confirmDuplicate: z.boolean().optional(),
 });
 
+const IDEMPOTENCY_WINDOW_MINUTES = 5;
+
+async function acquirePurchaseLock(tx: any, lockKey: string) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const originError = rejectCrossSiteMutation(req);
@@ -29,7 +34,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { planId, buyerPhone, recipientPhone, pin, confirmDuplicate = false } =
       purchaseSchema.parse(body);
-    const dbCaps = await getDbCapabilities();
     const sessionUser = await getSessionUser(req);
 
     if (!sessionUser) {
@@ -45,7 +49,6 @@ export async function POST(req: NextRequest) {
         isBanned: true,
         tier: true,
         balance: true,
-        ...(dbCaps.userRewardBalance ? { rewardBalance: true } : {}),
       },
     });
 
@@ -80,10 +83,8 @@ export async function POST(req: NextRequest) {
 
     const planPrice = getPlanPriceForUser(plan, user);
     const priceInKobo = planPrice * 100;
-    const rewardBalance = dbCaps.userRewardBalance ? user.rewardBalance ?? 0 : 0;
-    const totalSpendable = user.balance + rewardBalance;
 
-    if (totalSpendable < priceInKobo) {
+    if (user.balance < priceInKobo) {
       return NextResponse.json(
         { success: false, error: DATA_INSUFFICIENT_FUNDS_MESSAGE },
         { status: 400 }
@@ -110,21 +111,63 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rewardDebit = dbCaps.userRewardBalance ? Math.min(rewardBalance, priceInKobo) : 0;
-    const walletDebit = priceInKobo - rewardDebit;
     const reference = `DATA-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const lockKey = `data:${user.id}:${planId}:${recipientPhone}:${planPrice}`;
+    const txResult = await prisma.$transaction(async (tx) => {
+      await acquirePurchaseLock(tx, lockKey);
 
-    await prisma.$transaction(async (tx) => {
+      const existingDuplicate = await tx.transaction.findFirst({
+        where: {
+          userId: user.id,
+          type: "DATA_PURCHASE",
+          phone: recipientPhone,
+          amount: planPrice,
+          planId,
+          createdAt: {
+            gte: new Date(Date.now() - IDEMPOTENCY_WINDOW_MINUTES * 60 * 1000),
+          },
+          status: { in: ["PENDING", "SUCCESS"] },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          reference: true,
+          status: true,
+          amount: true,
+          phone: true,
+          createdAt: true,
+          description: true,
+        },
+      });
+
+      if (existingDuplicate?.status === "PENDING") {
+        return {
+          kind: "pending_duplicate" as const,
+          duplicateTransaction: existingDuplicate,
+        };
+      }
+
+      if (existingDuplicate && !confirmDuplicate) {
+        return {
+          kind: "needs_confirmation" as const,
+          duplicateTransaction: existingDuplicate,
+        };
+      }
+
+      const latestUser = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { balance: true },
+      });
+
+      if (!latestUser || latestUser.balance < priceInKobo) {
+        return { kind: "insufficient_funds" as const };
+      }
+
       await tx.user.update({
         where: { id: user.id },
-        data: dbCaps.userRewardBalance
-          ? {
-              balance: { decrement: walletDebit },
-              rewardBalance: { decrement: rewardDebit },
-            }
-          : {
-              balance: { decrement: priceInKobo },
-            },
+        data: {
+          balance: { decrement: priceInKobo },
+        },
       });
 
       await tx.transaction.create({
@@ -138,11 +181,46 @@ export async function POST(req: NextRequest) {
           phone: recipientPhone,
           planId,
           apiUsed: plan.apiSource,
-          balanceBefore: user.balance,
-          balanceAfter: user.balance - walletDebit,
+          balanceBefore: latestUser.balance,
+          balanceAfter: latestUser.balance - priceInKobo,
         },
       });
+
+      return {
+        kind: "created" as const,
+      };
     });
+
+    if (txResult.kind === "pending_duplicate") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "A similar data purchase is already processing.",
+          requiresConfirmation: false,
+          duplicateTransaction: txResult.duplicateTransaction,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (txResult.kind === "needs_confirmation") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Duplicate transaction detected. Confirm to continue.",
+          requiresConfirmation: true,
+          duplicateTransaction: txResult.duplicateTransaction,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (txResult.kind === "insufficient_funds") {
+      return NextResponse.json(
+        { success: false, error: DATA_INSUFFICIENT_FUNDS_MESSAGE },
+        { status: 400 }
+      );
+    }
 
     try {
       const apiResult =
@@ -166,14 +244,9 @@ export async function POST(req: NextRequest) {
         await prisma.$transaction(async (tx) => {
           await tx.user.update({
             where: { id: user.id },
-            data: dbCaps.userRewardBalance
-              ? {
-                  balance: { increment: walletDebit },
-                  rewardBalance: { increment: rewardDebit },
-                }
-              : {
-                  balance: { increment: priceInKobo },
-                },
+            data: {
+              balance: { increment: priceInKobo },
+            },
           });
 
           await tx.transaction.updateMany({
@@ -204,8 +277,7 @@ export async function POST(req: NextRequest) {
           message: apiResult.message,
           reference,
           amountCharged: planPrice,
-          walletUsed: walletDebit / 100,
-          rewardUsed: rewardDebit / 100,
+          walletUsed: priceInKobo / 100,
         },
         { status: 200 }
       );
@@ -215,14 +287,9 @@ export async function POST(req: NextRequest) {
       await prisma.$transaction(async (tx) => {
         await tx.user.update({
           where: { id: user.id },
-          data: dbCaps.userRewardBalance
-            ? {
-                balance: { increment: walletDebit },
-                rewardBalance: { increment: rewardDebit },
-              }
-            : {
-                balance: { increment: priceInKobo },
-              },
+          data: {
+            balance: { increment: priceInKobo },
+          },
         });
 
         await tx.transaction.updateMany({

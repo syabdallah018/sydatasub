@@ -88,7 +88,6 @@ export async function POST(req: NextRequest) {
           role: normalizedUser.role,
           tier: normalizedUser.tier || "user",
           balance: normalizedUser.balance,
-          rewardBalance: normalizedUser.rewardBalance,
           agentRequestStatus: normalizedUser.agentRequestStatus,
           virtualAccount: normalizedUser.virtualAccount,
         },

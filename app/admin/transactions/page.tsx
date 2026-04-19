@@ -135,7 +135,6 @@ export default function TransactionsPage() {
                 <SelectItem value="DATA_PURCHASE">Data Purchase</SelectItem>
                 <SelectItem value="AIRTIME_PURCHASE">Airtime Purchase</SelectItem>
                 <SelectItem value="WALLET_FUNDING">Wallet Funding</SelectItem>
-                <SelectItem value="REWARD_CREDIT">Reward Credit</SelectItem>
               </SelectContent>
             </Select>
           </div>

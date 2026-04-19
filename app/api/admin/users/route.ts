@@ -46,7 +46,6 @@ export async function GET(req: NextRequest) {
       role: u.role,
       tier: u.tier,
       balance: u.balance,
-      rewardBalance: normalizeUserCompat(u).rewardBalance,
       agentRequestStatus: normalizeUserCompat(u).agentRequestStatus,
       isBanned: u.isBanned,
       isActive: u.isActive,

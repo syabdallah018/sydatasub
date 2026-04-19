@@ -4,8 +4,7 @@ import { setUserSessionCookie, signToken } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { createFlutterwaveVirtualAccount } from "@/lib/flutterwave";
-import { getDbCapabilities } from "@/lib/db-capabilities";
-import { buildUserCreateCompatData, withCompatibleUserFields } from "@/lib/user-compat";
+import { buildUserCreateCompatData, getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
 const signupSchema = z.object({
@@ -30,9 +29,9 @@ export async function POST(req: NextRequest) {
     if (rateLimitError) return rateLimitError;
 
     const body = await req.json();
-    const { name, phone, pin, confirmPin, acceptTerms } = signupSchema.parse(body);
+    const { name, phone, pin } = signupSchema.parse(body);
+    const compat = await getUserSelectCompat();
 
-    // Check if phone already registered
     const existingUser = await prisma.user.findUnique({
       where: { phone },
     });
@@ -44,16 +43,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Hash PIN
     const pinHash = await bcryptjs.hash(pin, 12);
-
-    // Split name into first and last
     const nameParts = name.trim().split(" ");
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(" ") || firstName;
-    const dbCaps = await getDbCapabilities();
 
-    // Create user
     const user = await prisma.user.create({
       data: await buildUserCreateCompatData({
         fullName: name,
@@ -66,7 +60,6 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    // Create Flutterwave virtual account (with fallback if it fails)
     let virtualAccount = null;
     try {
       virtualAccount = await createFlutterwaveVirtualAccount({
@@ -78,16 +71,15 @@ export async function POST(req: NextRequest) {
       });
     } catch (flwError) {
       console.warn("[FLUTTERWAVE WARNING] Virtual account creation failed, continuing without it", flwError);
-      // Fallback: create a placeholder virtual account
       virtualAccount = {
         id: Math.floor(Math.random() * 999999),
         account_number: `PLACEHOLDER-${user.id.slice(0, 8)}`,
         bank_name: "SY DATA WALLET",
         bank_code: "000001",
+        tx_ref: `SYDATA-VA-${user.id}-${Date.now()}`,
       };
     }
 
-    // Save virtual account to DB if created successfully
     if (virtualAccount) {
       await prisma.virtualAccount.create({
         data: {
@@ -95,69 +87,17 @@ export async function POST(req: NextRequest) {
           accountNumber: virtualAccount.account_number || `PLACEHOLDER-${user.id.slice(0, 8)}`,
           bankName: virtualAccount.bank_name || "SY DATA WALLET",
           flwRef: String(virtualAccount.id || Math.floor(Math.random() * 999999)),
-          orderRef: `SYDATA-VA-${user.id}-${Date.now()}`,
+          orderRef: virtualAccount.order_ref || virtualAccount.tx_ref || `SYDATA-VA-${user.id}-${Date.now()}`,
         },
       });
     }
 
-    // Create UserReward records for all rewards
-    const rewards = await prisma.reward.findMany();
-    await Promise.all(
-      rewards.map((reward) =>
-        prisma.userReward.create({
-          data: {
-            userId: user.id,
-            rewardId: reward.id,
-            status: "IN_PROGRESS",
-          },
-        })
-      )
-    );
-
-    // Credit signup bonus (₦100 = 10000 kobo)
-    const SIGNUP_BONUS = 10000;
-    await prisma.user.update({
-      where: { id: user.id },
-      data: dbCaps.userRewardBalance
-        ? { rewardBalance: { increment: SIGNUP_BONUS } }
-        : { balance: { increment: SIGNUP_BONUS } },
-    });
-
-    // Create transaction record for signup bonus
-    const signupBonusReward = await prisma.reward.findFirst({
-      where: { type: "SIGNUP_BONUS" },
-    });
-    if (signupBonusReward) {
-      await prisma.transaction.create({
-        data: {
-          userId: user.id,
-          type: "REWARD_CREDIT",
-          amount: SIGNUP_BONUS / 100,
-          status: "SUCCESS",
-          reference: `SIGNUP-BONUS-${user.id}-${Date.now()}`,
-          description: "Signup bonus credit for data purchases",
-          phone: user.phone,
-        },
-      });
-
-      // Update UserReward status to CLAIMED
-      await prisma.userReward.updateMany({
-        where: {
-          userId: user.id,
-          rewardId: signupBonusReward.id,
-        },
-        data: { status: "CLAIMED" },
-      });
-    }
-
-    // Sign JWT
     const token = await signToken({
       userId: user.id,
       email: user.email || user.phone,
       role: user.role,
     });
 
-    // Get updated user with signup bonus balance
     const updatedUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: {
@@ -167,8 +107,8 @@ export async function POST(req: NextRequest) {
         role: true,
         balance: true,
         ...withCompatibleUserFields({}, {
-          rewardBalance: dbCaps.userRewardBalance,
-          agentRequestStatus: dbCaps.userAgentRequestStatus,
+          rewardBalance: false,
+          agentRequestStatus: compat.agentRequestStatus,
         }),
         virtualAccount: {
           select: { accountNumber: true, bankName: true },
@@ -192,7 +132,6 @@ export async function POST(req: NextRequest) {
           fullName: updatedUser.fullName,
           role: updatedUser.role,
           balance: updatedUser.balance,
-          rewardBalance: dbCaps.userRewardBalance ? updatedUser.rewardBalance : 0,
         },
         virtualAccount: {
           accountNumber: virtualAccount.account_number,

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Copy, Check, Eye, EyeOff, Loader2, LogOut, Zap, Phone, Gift, CreditCard, X, ChevronLeft, Settings } from "lucide-react";
+import { Copy, Check, Eye, EyeOff, Loader2, LogOut, Zap, Phone, CreditCard, X, ChevronLeft, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 const fontStyle = `
@@ -35,7 +35,6 @@ interface User {
   fullName: string;
   phone: string;
   balance: number;
-  rewardBalance: number;
   tier: "user" | "agent";
   agentRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   virtualAccount?: { accountNumber: string; bankName: string } | null;
@@ -176,7 +175,6 @@ function TransactionHistory() {
     if (type === "DATA_PURCHASE") return "📱";
     if (type === "AIRTIME_PURCHASE") return "☎️";
     if (type === "WALLET_FUNDING") return "💰";
-    if (type === "REWARD_CREDIT") return "🎁";
     return "💳";
   };
 
@@ -184,7 +182,6 @@ function TransactionHistory() {
     if (type === "DATA_PURCHASE") return "Data Purchase";
     if (type === "AIRTIME_PURCHASE") return "Airtime Purchase";
     if (type === "WALLET_FUNDING") return "Wallet Funding";
-    if (type === "REWARD_CREDIT") return "Reward Credit";
     return type;
   };
 
@@ -275,7 +272,6 @@ function TransactionReceipt({ open, onClose, transaction }: any) {
     if (type === "DATA_PURCHASE") return "Data Purchase";
     if (type === "AIRTIME_PURCHASE") return "Airtime Purchase";
     if (type === "WALLET_FUNDING") return "Wallet Funding";
-    if (type === "REWARD_CREDIT") return "Reward Credit";
     return type;
   };
 
@@ -365,111 +361,6 @@ function TransactionReceipt({ open, onClose, transaction }: any) {
           </motion.button>
         </div>
       </motion.div>
-    </motion.div>
-  );
-}
-
-function RewardsTab() {
-  const [rewards, setRewards] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userTier, setUserTier] = useState("user");
-
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/rewards").then(r => r.json()),
-      fetch("/api/auth/me").then(r => r.json())
-    ])
-    .then(([rewardsData, userData]) => {
-      if (Array.isArray(rewardsData)) {
-        setRewards(rewardsData);
-      }
-      if (userData?.success && userData?.data) {
-        setUserTier(userData.data.tier);
-      }
-    })
-    .catch(e => console.error("Error fetching data:", e))
-    .finally(() => setLoading(false));
-  }, []);
-
-  const getTierInfo = () => {
-    if (userTier === "agent") return { name: "Agent", color: T.purple, icon: "🚀" };
-    return { name: "User", color: T.amber, icon: "⭐" };
-  };
-  const tierInfo = getTierInfo();
-
-  const claimedRewards = rewards.filter(r => r.status === "CLAIMED");
-  const inProgressRewards = rewards.filter(r => r.status === "IN_PROGRESS");
-
-  const getRewardTitle = (type: string) => {
-    if (type === "SIGNUP_BONUS") return "Signup Bonus";
-    if (type === "DEPOSIT_2K") return "₦2K Deposit";
-    if (type === "DEPOSIT_10K") return "₦10K Deposit";
-    if (type === "REFERRAL") return "Referral Bonus";
-    return type;
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 16 }}>Rewards & Points</h3>
-      
-      <motion.div style={{ background: `linear-gradient(135deg, ${tierInfo.color}20, rgba(139,92,246,0.1))`, borderRadius: 16, padding: "24px", border: `2px solid ${tierInfo.color}30`, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 8px", fontWeight: 600, textTransform: "uppercase" }}>Current Tier</p>
-          <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: tierInfo.color, margin: "0 0 4px" }}>{tierInfo.icon} {tierInfo.name}</p>
-          <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>Unlock more rewards</p>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.textDim, margin: "0 0 4px", textTransform: "uppercase" }}>Claimed</p>
-          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 32, color: T.green, margin: 0 }}>{claimedRewards.length}</p>
-        </div>
-      </motion.div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
-        <div style={{ background: T.blueLight, borderRadius: 12, padding: 14, textAlign: "center" }}>
-          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.textDim, margin: "0 0 4px" }}>Total Rewards</p>
-          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 24, color: T.blue, margin: 0 }}>{rewards.length}</p>
-        </div>
-        <div style={{ background: "rgba(16,185,129,0.15)", borderRadius: 12, padding: 14, textAlign: "center" }}>
-          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.green, margin: "0 0 4px" }}>Claimed</p>
-          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 24, color: T.green, margin: 0 }}>{claimedRewards.length}</p>
-        </div>
-        <div style={{ background: "rgba(245,158,11,0.15)", borderRadius: 12, padding: 14, textAlign: "center" }}>
-          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 600, color: T.amber, margin: "0 0 4px" }}>In Progress</p>
-          <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 24, color: T.amber, margin: 0 }}>{inProgressRewards.length}</p>
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
-          <Loader2 size={28} className="animate-spin" color={T.blue} />
-        </div>
-      ) : rewards.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "40px 20px", background: T.surface, borderRadius: 16 }}>
-          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0 }}>Complete transactions to unlock rewards</p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {rewards.map((reward) => {
-            const isClaimed = reward.status === "CLAIMED";
-            return (
-              <motion.div key={reward.id} whileHover={{ scale: 1.02 }} style={{ background: isClaimed ? "rgba(16,185,129,0.1)" : T.surface, borderRadius: 14, padding: "16px", border: `2px solid ${isClaimed ? "rgba(16,185,129,0.3)" : T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>
-                    {isClaimed ? "✅" : "⏳"} {getRewardTitle(reward.type)}
-                  </p>
-                  <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>
-                    {isClaimed ? `Claimed on ${new Date(reward.claimedAt).toLocaleDateString()}` : "Pending claim"}
-                  </p>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 16, color: isClaimed ? T.green : T.amber, margin: 0 }}>+{reward.amount || "100"}</p>
-                  <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 700, color: isClaimed ? T.green : T.amber, textTransform: "uppercase" }}>₦ Naira</span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
     </motion.div>
   );
 }
@@ -939,7 +830,7 @@ export default function DashboardPage() {
   const [airtimePhone, setAirtimePhone] = useState("");
   const [airtimePin, setAirtimePin] = useState(["", "", "", "", "", ""]);
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
-  const [activeTab, setActiveTab] = useState<"home" | "rewards" | "history" | "settings">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "history" | "settings">("home");
   const [syncingBalance, setSyncingBalance] = useState(false);
 
   useEffect(() => {
@@ -1251,9 +1142,6 @@ export default function DashboardPage() {
                 <motion.h2 key={showBalance ? "shown" : "hidden"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 32, color: T.blue, margin: 0, letterSpacing: "-0.02em" }}>
                   {showBalance ? formatBalance(user.balance) : "••••••"}
                 </motion.h2>
-                <p style={{ fontFamily: T.font, fontSize: 12, color: T.amber, margin: "8px 0 0", fontWeight: 700 }}>
-                  Reward balance for data only: {showBalance ? formatBalance(user.rewardBalance || 0) : "••••••"}
-                </p>
                 {user.agentRequestStatus === "PENDING" && (
                   <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: "8px 0 0" }}>
                     Agent request pending admin approval.
@@ -1298,7 +1186,6 @@ export default function DashboardPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
               <ActionTile icon={<Zap size={22} color={T.blue} />} label="Buy Data" sub="All networks" color={T.blue} dimColor="rgba(37,99,235,0.12)" onClick={() => setBuyDataOpen(true)} />
               <ActionTile icon={<Phone size={22} color={T.green} />} label="Buy Airtime" sub="All networks" color={T.green} dimColor="rgba(16,185,129,0.12)" onClick={() => setAirtimeOpen(true)} />
-              <ActionTile icon={<Gift size={22} color={T.amber} />} label="Rewards" sub="Earn points" color={T.amber} dimColor="rgba(245,158,11,0.12)" onClick={() => setActiveTab("rewards")} />
               <ActionTile icon={<CreditCard size={22} color={T.purple} />} label="History" sub="Transactions" color={T.purple} dimColor="rgba(139,92,246,0.12)" onClick={() => setActiveTab("history")} />
               <ActionTile icon={<Settings size={22} color={T.gold} />} label="Settings" sub="Account" color={T.gold} dimColor="rgba(251,191,36,0.12)" onClick={() => setActiveTab("settings")} />
             </motion.div>
@@ -1309,7 +1196,6 @@ export default function DashboardPage() {
               </button>
 
               {activeTab === "history" && <TransactionHistory />}
-              {activeTab === "rewards" && <RewardsTab />}
               {activeTab === "settings" && <SettingsTab />}
             </motion.div>
           )}

@@ -39,7 +39,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Account suspended" }, { status: 403 })
     }
 
-    return NextResponse.json({ success: true, data: normalizeUserCompat(user) })
+    const normalizedUser = normalizeUserCompat(user)
+    const { rewardBalance: _rewardBalance, ...safeUser } = normalizedUser
+
+    return NextResponse.json({ success: true, data: safeUser })
   } catch (error) {
     console.error("[me]", error)
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })

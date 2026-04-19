@@ -2,28 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyTransaction } from "@/lib/flutterwave";
 import { deliverGuestData } from "@/lib/data-delivery";
-import { checkAndAwardRewards } from "@/lib/rewards";
 import { z } from "zod";
 
 const verifySchema = z.object({
   reference: z.string().min(1, "Reference is required"),
 });
 
-/**
- * POST /api/transactions/verify-manual
- * Body: { reference: string }
- *
- * Manual verification for guest payments
- * - If already SUCCESS: return { success: true, alreadyDelivered: true }
- * - If PENDING: check with Flutterwave, deliver if completed
- * - Return { success, message }
- */
+async function acquireFundingLock(tx: any, reference: string) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`wallet:${reference}`}))`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { reference } = verifySchema.parse(body);
 
-    // Find transaction by reference
     const transaction = await prisma.transaction.findFirst({
       where: { reference },
     });
@@ -35,7 +28,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If already successful, return immediately
     if (transaction.status === "SUCCESS") {
       return NextResponse.json({
         success: true,
@@ -45,7 +37,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // If failed, return error
     if (transaction.status === "FAILED") {
       return NextResponse.json({
         success: false,
@@ -55,7 +46,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // If pending, check with Flutterwave
     if (transaction.status === "PENDING") {
       try {
         const flwTransaction = await verifyTransaction(reference);
@@ -68,19 +58,13 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Check if payment is successful
         if (flwTransaction.status === "successful") {
-          // Update transaction with flw reference
           await prisma.transaction.update({
             where: { id: transaction.id },
             data: { flwRef: flwTransaction.flw_ref },
           });
 
-          // For guest transactions, deliver data
-          if (
-            transaction.type === "DATA_PURCHASE" &&
-            transaction.planId
-          ) {
+          if (transaction.type === "DATA_PURCHASE" && transaction.planId) {
             const result = await deliverGuestData(transaction);
 
             return NextResponse.json({
@@ -91,51 +75,68 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          // For wallet funding, credit balance
           if (transaction.type === "WALLET_FUNDING" && transaction.userId) {
             const amountInKobo = transaction.amount * 100;
 
-            await prisma.$transaction(async (tx) => {
+            const creditResult = await prisma.$transaction(async (tx) => {
+              await acquireFundingLock(tx, transaction.reference);
+
+              const currentTransaction = await tx.transaction.findUnique({
+                where: { id: transaction.id },
+                select: {
+                  id: true,
+                  status: true,
+                  balanceBefore: true,
+                },
+              });
+
+              if (!currentTransaction) {
+                throw new Error("Transaction not found");
+              }
+
+              if (currentTransaction.status === "SUCCESS") {
+                return { alreadyProcessed: true };
+              }
+
               const user = await tx.user.findUnique({
                 where: { id: transaction.userId || "" },
+                select: { balance: true },
               });
 
               if (!user) {
                 throw new Error("User not found");
               }
 
-              await tx.user.update({
+              const updatedUser = await tx.user.update({
                 where: { id: transaction.userId || "" },
                 data: {
                   balance: { increment: amountInKobo },
                 },
+                select: { balance: true },
               });
 
               await tx.transaction.update({
                 where: { id: transaction.id },
                 data: {
                   status: "SUCCESS",
-                  balanceAfter: user.balance + amountInKobo,
+                  balanceBefore: currentTransaction.balanceBefore ?? user.balance,
+                  balanceAfter: updatedUser.balance,
                 },
               });
-            });
 
-            // Award rewards
-            await checkAndAwardRewards(
-              transaction.userId,
-              transaction.amount,
-              "DEPOSIT"
-            );
+              return { alreadyProcessed: false };
+            });
 
             return NextResponse.json({
               success: true,
-              message: `₦${transaction.amount} credited to your wallet`,
+              message: creditResult.alreadyProcessed
+                ? "Deposit was already reflected in your wallet"
+                : `N${transaction.amount} credited to your wallet`,
               status: "SUCCESS",
               alreadyDelivered: false,
             });
           }
         } else if (flwTransaction.status === "failed") {
-          // Mark as failed
           await prisma.transaction.update({
             where: { id: transaction.id },
             data: {
@@ -151,7 +152,6 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Still pending at Flutterwave
         return NextResponse.json({
           success: false,
           message: "Payment still pending - please wait",
