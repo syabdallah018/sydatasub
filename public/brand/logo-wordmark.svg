@@ -1,0 +1,38 @@
+<svg width="1400" height="760" viewBox="0 0 1400 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1400" height="760" rx="48" fill="white"/>
+  <g transform="translate(390 40)">
+    <svg x="0" y="0" width="620" height="420" viewBox="0 0 512 512" fill="none">
+      <defs>
+        <linearGradient id="wtrail1" x1="138" y1="346" x2="324" y2="136" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#1C3E88"/>
+          <stop offset="1" stop-color="#147FC2"/>
+        </linearGradient>
+        <linearGradient id="wtrail2" x1="174" y1="356" x2="334" y2="126" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#2157A8"/>
+          <stop offset="1" stop-color="#1BA3C7"/>
+        </linearGradient>
+        <linearGradient id="wtrail3" x1="212" y1="366" x2="346" y2="118" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#178FBE"/>
+          <stop offset="1" stop-color="#35B7A5"/>
+        </linearGradient>
+        <linearGradient id="wtrail4" x1="247" y1="378" x2="360" y2="112" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#2FA7A4"/>
+          <stop offset="1" stop-color="#79C94E"/>
+        </linearGradient>
+      </defs>
+      <circle cx="256" cy="218" r="175" stroke="#1C3E88" stroke-width="18"/>
+      <path d="M148 336C217 324 252 257 309 160" stroke="url(#wtrail1)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M180 347C239 333 275 257 325 145" stroke="url(#wtrail2)" stroke-width="16" stroke-linecap="round"/>
+      <path d="M212 358C264 339 302 258 339 133" stroke="url(#wtrail3)" stroke-width="14" stroke-linecap="round"/>
+      <path d="M244 370C295 344 326 256 351 124" stroke="url(#wtrail4)" stroke-width="12" stroke-linecap="round"/>
+      <path d="M339 126L352 124L347 137" stroke="#79C94E" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M355 93C377 95 394 112 397 133" stroke="#415470" stroke-width="7" stroke-linecap="round"/>
+      <path d="M345 81C374 81 401 103 406 131" stroke="#415470" stroke-width="7" stroke-linecap="round"/>
+      <path d="M334 69C371 66 406 92 414 130" stroke="#415470" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="351" cy="126" r="9" fill="#79C94E"/>
+    </svg>
+  </g>
+  <text x="180" y="560" fill="#1C3E88" font-size="140" font-weight="800" font-family="Arial, Helvetica, sans-serif">SY</text>
+  <text x="450" y="560" fill="#198EC0" font-size="140" font-weight="800" font-family="Arial, Helvetica, sans-serif">DATA</text>
+  <text x="198" y="648" fill="#1B1B1B" font-size="64" font-weight="500" font-family="Arial, Helvetica, sans-serif">Affordable, always connected.</text>
+</svg>
