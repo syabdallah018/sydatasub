@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "brand:assets": "node scripts/generate-brand-assets.js"
+    "brand:assets": "node scripts/generate-brand-assets.js",
+    "migrate:legacy-neon": "node scripts/migrate-legacy-neon.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
