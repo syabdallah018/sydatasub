@@ -10,6 +10,7 @@ import {
   generateFlutterwaveTxRef,
   splitName,
 } from "@/lib/flutterwave";
+import { syncUserRewards } from "@/lib/rewards";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -307,6 +308,8 @@ export async function POST(request: NextRequest) {
        FROM "User" WHERE id = $1`,
       [userId]
     );
+
+    await syncUserRewards(userId);
 
     return NextResponse.json(
       {

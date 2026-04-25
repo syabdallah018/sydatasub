@@ -331,7 +331,7 @@ const migrationInserts = [
       u.phone,
       u."pinHash",
       NULL,
-      COALESCE(u.balance, 0)::numeric(15,2),
+      ROUND(COALESCE(u.balance, 0)::numeric / 100.0, 2)::numeric(15,2),
       CASE
         WHEN UPPER(u.role::text) IN ('USER', 'AGENT', 'ADMIN') THEN UPPER(u.role::text)
         WHEN LOWER(COALESCE(u.tier, '')) = 'agent' THEN 'AGENT'
@@ -472,7 +472,7 @@ const migrationInserts = [
   `INSERT INTO "Transaction" (user_id, amount, reference, type, status, created_at, updated_at)
     SELECT
       t."userId",
-      t.amount,
+      ROUND(t.amount::numeric / 100.0)::integer,
       COALESCE(t."externalReference", t.reference),
       CASE WHEN t.type::text = 'WALLET_FUNDING' THEN 'deposit' ELSE LOWER(t.type::text) END,
       LOWER(t.status::text),
@@ -493,12 +493,12 @@ const migrationInserts = [
       0,
       'Unknown',
       t.phone,
-      t.amount::numeric(15,2),
+      ROUND(t.amount::numeric / 100.0, 2)::numeric(15,2),
       UPPER(t.status::text),
       t.description,
       t.description,
-      t."balanceBefore"::numeric(15,2),
-      t."balanceAfter"::numeric(15,2),
+      ROUND(t."balanceBefore"::numeric / 100.0, 2)::numeric(15,2),
+      ROUND(t."balanceAfter"::numeric / 100.0, 2)::numeric(15,2),
       COALESCE(t."createdAt"::timestamptz, NOW()),
       COALESCE(t."createdAt"::timestamptz, NOW()),
       COALESCE(t."updatedAt"::timestamptz, NOW())

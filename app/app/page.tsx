@@ -6,12 +6,13 @@ import Image from "next/image";
 
 import {
   Wifi, Phone, Tv, Zap, BookOpen, Home, History, Settings as SettingsIcon,
-  Eye, EyeOff, Copy, Loader2, ChevronRight, X, ArrowLeft, Check, Mail, Landmark, Megaphone,
+  Eye, EyeOff, Copy, Loader2, ChevronRight, X, ArrowLeft, Check, Mail, Landmark, Megaphone, Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 import PinInput from "@/components/PinInput";
 import SuccessCheck from "@/components/SuccessCheck";
 import EnhancedSettingsPanel from "@/components/EnhancedSettingsPanel";
+import RewardsPanel from "@/components/RewardsPanel";
 
 // ---
 const T = {
@@ -67,10 +68,45 @@ interface User {
   fullName: string;
   phone: string;
   balance: number;
+  rewardBalance: number;
   tier: "user" | "agent";
   accountNumber?: string;
   bankName?: string;
   accountName?: string;
+}
+
+interface RewardSummaryItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  rewardAmount: number;
+  thresholdAmount?: number | null;
+  claimedAt?: string | null;
+  createdAt?: string;
+}
+
+interface RewardProgressItem {
+  code: string;
+  title: string;
+  description?: string | null;
+  thresholdAmount: number;
+  rewardAmount: number;
+  currentAmount: number;
+  percentage: number;
+  remainingAmount: number;
+}
+
+interface RewardsDashboard {
+  rewardBalance: number;
+  availableRewards: RewardSummaryItem[];
+  claimedRewards: RewardSummaryItem[];
+  progress: RewardProgressItem[];
+  stats: {
+    maxDeposit: number;
+    totalAvailableAmount: number;
+    totalClaimedAmount: number;
+    totalClaimedCount: number;
+  };
 }
 
 interface ReservedAccount {
@@ -141,8 +177,15 @@ const detectDataNetworkId = (msisdn: string): number | null => {
 const getInitials = (name: string) =>
   name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
+const formatMoney = (value: number) =>
+  value.toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
 const ACCOUNT_SERVICES = [
   { id: "accounts",     label: "Accounts",      icon: Landmark },
+  { id: "rewards",      label: "Rewards",       icon: Gift },
   { id: "transactions", label: "Transactions",  icon: History },
   { id: "settings",    label: "Settings",       icon: SettingsIcon },
 ];
@@ -162,6 +205,9 @@ export default function TwoGoDataApp() {
   const [accounts, setAccounts]                 = useState<ReservedAccount[]>([]);
   const [accountsLoading, setAccountsLoading]   = useState(false);
   const [creatingVirtualAccount, setCreatingVirtualAccount] = useState(false);
+  const [rewards, setRewards]                   = useState<RewardsDashboard | null>(null);
+  const [rewardsLoading, setRewardsLoading]     = useState(false);
+  const [claimingRewards, setClaimingRewards]   = useState(false);
   const [broadcasts, setBroadcasts]             = useState<BroadcastMessage[]>([]);
   const [broadcastsLoading, setBroadcastsLoading] = useState(false);
   const [dismissingBroadcastId, setDismissingBroadcastId] = useState<string | null>(null);
@@ -299,6 +345,50 @@ export default function TwoGoDataApp() {
     }
   };
 
+  const fetchRewards = async () => {
+    try {
+      setRewardsLoading(true);
+      const res = await fetch("/api/rewards", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch rewards");
+      const data = await res.json();
+      setRewards(data);
+    } catch {
+      toast.error("Failed to load rewards");
+      setRewards(null);
+    } finally {
+      setRewardsLoading(false);
+    }
+  };
+
+  const claimRewards = async (rewardIds?: string[]) => {
+    try {
+      setClaimingRewards(true);
+      const res = await fetch("/api/rewards/claim", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rewardIds?.length ? { rewardIds } : {}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to claim rewards");
+      if (data.dashboard) {
+        setRewards(data.dashboard);
+      } else {
+        await fetchRewards();
+      }
+      const meRes = await fetch("/api/auth/me", { credentials: "include" });
+      if (meRes.ok) {
+        const me = await meRes.json();
+        setUser(me);
+      }
+      toast.success(data.message || "Rewards claimed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to claim rewards");
+    } finally {
+      setClaimingRewards(false);
+    }
+  };
+
   const createVirtualAccount = async () => {
     try {
       setCreatingVirtualAccount(true);
@@ -330,6 +420,11 @@ export default function TwoGoDataApp() {
   useEffect(() => {
     if (activeTab !== "accounts") return;
     fetchAccounts();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "rewards") return;
+    fetchRewards();
   }, [activeTab]);
 
   // Load networks when data tab is accessed
@@ -519,6 +614,7 @@ export default function TwoGoDataApp() {
 
   const NAV = [
     { id: "home",         icon: Home,           label: "Home"         },
+    { id: "rewards",      icon: Gift,           label: "Rewards"      },
     { id: "accounts",     icon: Landmark,       label: "Accounts"     },
     { id: "transactions", icon: History,         label: "Transactions" },
     { id: "settings",     icon: SettingsIcon,    label: "Settings"     },
@@ -3139,7 +3235,7 @@ export default function TwoGoDataApp() {
                         textShadow: "0 1px 0 rgba(255,255,255,0.85)",
                       }}
                     >
-                      {balanceVisible ? user.balance.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "******"}
+                      {balanceVisible ? formatMoney(user.balance) : "******"}
                     </span>
                   </div>
 
@@ -3304,6 +3400,7 @@ export default function TwoGoDataApp() {
                       key={item.id}
                       onClick={() => {
                         if (item.id === "accounts") setActiveTab("accounts");
+                        else if (item.id === "rewards") setActiveTab("rewards");
                         else if (item.id === "transactions") setShowTransactionsModal(true);
                         else setShowSettingsModal(true);
                       }}
@@ -3508,6 +3605,17 @@ export default function TwoGoDataApp() {
             </div>
           )}
 
+          {activeTab === "rewards" && (
+            <RewardsPanel
+              rewards={rewards}
+              loading={rewardsLoading}
+              claiming={claimingRewards}
+              onBack={() => setActiveTab("home")}
+              onClaimAll={() => claimRewards()}
+              onClaimOne={(rewardId) => claimRewards([rewardId])}
+            />
+          )}
+
           {/* --- */}
           {/* FIX: Called as {BuyDataCard()} not <BuyDataCard /> so React does
               not treat it as a new component type on each render, preventing
@@ -3683,6 +3791,8 @@ export default function TwoGoDataApp() {
           const Icon  = tab.icon;
           const isActive = tab.id === "home"
             ? activeTab === "home"
+            : tab.id === "rewards"
+              ? activeTab === "rewards"
             : tab.id === "accounts"
               ? activeTab === "accounts"
               : false;
@@ -3692,6 +3802,7 @@ export default function TwoGoDataApp() {
               key={tab.id}
               onClick={() => {
                 if (tab.id === "home")         setActiveTab("home");
+                if (tab.id === "rewards")      setActiveTab("rewards");
                 if (tab.id === "accounts")     setActiveTab("accounts");
                 if (tab.id === "transactions") setShowTransactionsModal(true);
                 if (tab.id === "settings")     setShowSettingsModal(true);

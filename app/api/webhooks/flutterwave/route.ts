@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne, query, execute } from "@/lib/db";
 import { verifyFlutterwaveTransaction } from "@/lib/flutterwave";
+import { syncUserRewards } from "@/lib/rewards";
+import { getWalletLimitForRole } from "@/lib/wallet";
 
 export const dynamic = "force-dynamic";
 
@@ -70,8 +72,9 @@ export async function POST(request: NextRequest) {
     const user = await queryOne<{
       id: string;
       balance: number | string;
+      role: string;
     }>(
-      `SELECT id, balance
+      `SELECT id, balance, role
        FROM "User"
        WHERE "flutterwave_tx_ref" = $1`,
       [txRef]
@@ -95,7 +98,7 @@ export async function POST(request: NextRequest) {
 
     const currentBalance =
       typeof user.balance === "string" ? parseFloat(user.balance) : user.balance;
-    const MAX_BALANCE = 30000;
+    const MAX_BALANCE = getWalletLimitForRole(user.role);
     const creditAmount = Math.max(0, Math.min(amount, MAX_BALANCE - currentBalance));
     const newBalance = currentBalance + creditAmount;
 
@@ -110,6 +113,8 @@ export async function POST(request: NextRequest) {
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
       [user.id, creditAmount, flwRef, "deposit", "success"]
     );
+
+    await syncUserRewards(user.id);
 
     return NextResponse.json(
       { status: "processed", userId: user.id, newBalance },

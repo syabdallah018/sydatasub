@@ -19,6 +19,11 @@ const T = {
 };
 
 const font = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif';
+const formatMoney = (value: number) =>
+  value.toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 interface AdminUser {
   id: string;
@@ -411,7 +416,7 @@ export default function UsersTab() {
                   style={{ padding: "12px 8px", textAlign: "right", color: T.textPrimary, fontWeight: 600 }}
                   onClick={() => handleSelectUser(user)}
                 >
-                  ₦{((user.balance || 0)).toLocaleString()}
+                  ₦{formatMoney(user.balance || 0)}
                 </td>
                 <td style={{ padding: "12px 8px" }}>
                   <span
@@ -643,7 +648,7 @@ export default function UsersTab() {
               <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16 }}>
                 <p style={{ margin: "0 0 8px", fontSize: 12, color: T.textMuted, fontWeight: 600 }}>Current Balance</p>
                 <p style={{ margin: 0, fontSize: 32, fontWeight: 800, color: T.green }}>
-                  ₦{(selectedUser.balance || 0).toLocaleString()}
+                  ₦{formatMoney(selectedUser.balance || 0)}
                 </p>
               </div>
             </div>
@@ -765,7 +770,7 @@ export default function UsersTab() {
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: T.textPrimary }}>
-                          ₦{(tx.amount || 0).toLocaleString()}
+                          ₦{formatMoney(tx.amount || 0)}
                         </p>
                         <span style={{
                           fontSize: 11,

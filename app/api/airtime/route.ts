@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/auth";
 import { query, queryOne, execute } from "@/lib/db";
 import { withRateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
+import { getProviderAConfig } from "@/lib/providers";
+import { getWalletLimitForRole } from "@/lib/wallet";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -101,8 +103,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. VALIDATE PIN AND GET USER DETAILS
-    const user = await queryOne<{ balance: number; pin: string | null }>(
-      `SELECT balance, pin FROM "User" WHERE id = $1`,
+    const user = await queryOne<{ balance: number; pin: string | null; role: string }>(
+      `SELECT balance, pin, role FROM "User" WHERE id = $1`,
       [userId]
     );
 
@@ -137,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     log("PIN_VALID", { userId });
 
-    const MAX_BALANCE = 30000; // ₦30,000 limit
+    const MAX_BALANCE = getWalletLimitForRole(user.role);
     const userBalance = typeof user.balance === 'number' ? user.balance : parseFloat(String(user.balance));
     log("BALANCE_CHECK", { userBalance, amountNum, sufficient: userBalance >= amountNum, maxAllowed: MAX_BALANCE });
 
@@ -196,7 +198,7 @@ export async function POST(request: NextRequest) {
     const balanceAfterDebit = typeof updateResult.balance === 'number' ? updateResult.balance : parseFloat(String(updateResult.balance));
     log("WALLET_DEBITED", { transactionId, debitAmount: amountNum, newBalance: balanceAfterDebit });
 
-    // 6. CALL PROVIDER (PROVIDER_B)
+    // 6. CALL PROVIDER A
     let providerRef: string | null = null;
     let providerResponse: string | null = null;
     let providerSuccess = false;
@@ -204,19 +206,25 @@ export async function POST(request: NextRequest) {
     let apiResponse: any = null;
 
     try {
+      const providerA = getProviderAConfig();
+      if (!providerA.baseUrl || !providerA.token) {
+        throw new Error("Provider A is not configured");
+      }
+
       const payload = {
-        network,
-        mobile_number,
+        network_id: network,
+        phone: mobile_number,
         amount: amountNum,
+        customer_reference: customerRef,
       };
-      log("PROVIDER_REQUEST", { url: `${process.env.PROVIDER_B_BASE_URL}/topup`, payload });
+      log("PROVIDER_REQUEST", { url: `${providerA.baseUrl}/airtime/purchase`, payload });
 
       const providerBResponse = await fetch(
-        `${process.env.PROVIDER_B_BASE_URL}/topup`,
+        `${providerA.baseUrl.replace(/\/+$/, "")}/airtime/purchase`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.PROVIDER_B_TOKEN}`,
+            Authorization: `Bearer ${providerA.token}`,
             Accept: "application/json",
             "Content-Type": "application/json; charset=utf-8",
           },
@@ -229,13 +237,13 @@ export async function POST(request: NextRequest) {
       apiResponse = providerData;
       log("PROVIDER_RESPONSE", { status: providerStatus, data: providerData });
 
-      if (providerData && providerData.Status === "successful") {
+      if (providerData?.status === true) {
         providerSuccess = true;
-        providerRef = providerData.ident || providerData.reference || customerRef;
-        providerResponse = providerData.api_response || providerData.message || "Success";
+        providerRef = providerData?.data?.reference || customerRef;
+        providerResponse = providerData?.data?.msg || providerData?.message || "Success";
         log("PROVIDER_SUCCESS", { providerRef, message: providerResponse });
       } else {
-        providerResponse = providerData?.api_response || providerData?.message || "Provider request failed";
+        providerResponse = providerData?.data?.msg || providerData?.message || "Provider request failed";
         log("PROVIDER_FAILED", { message: providerResponse, data: providerData });
       }
     } catch (providerError: any) {

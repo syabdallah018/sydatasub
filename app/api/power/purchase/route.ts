@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 import { withRateLimit } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
+import { getProviderBConfig } from "@/lib/providers";
+import { getWalletLimitForRole } from "@/lib/wallet";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -111,8 +113,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. VALIDATE PIN AND GET USER DETAILS
-    const user = await queryOne<{ balance: number; pin: string | null }>(
-      `SELECT balance, pin FROM "User" WHERE id = $1`,
+    const user = await queryOne<{ balance: number; pin: string | null; role: string }>(
+      `SELECT balance, pin, role FROM "User" WHERE id = $1`,
       [userId]
     );
 
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
     log("PIN_VALID", { userId });
 
     // 5. BALANCE CHECK
-    const MAX_BALANCE = 30000; // ₦30,000 limit
+    const MAX_BALANCE = getWalletLimitForRole(user.role);
     const userBalance = typeof user.balance === "number" ? user.balance : parseFloat(String(user.balance));
     log("BALANCE_CHECK", { userBalance, amountNum, sufficient: userBalance >= amountNum, maxAllowed: MAX_BALANCE });
 
@@ -226,10 +228,15 @@ export async function POST(request: NextRequest) {
 
       log("PROVIDER_B_REQUEST", payloadB);
 
-      const providerBResponse = await fetch(`${process.env.PROVIDER_B_BASE_URL}/power`, {
+      const providerB = getProviderBConfig();
+      if (!providerB.baseUrl || !providerB.token) {
+        throw new Error("Provider B is not configured");
+      }
+
+      const providerBResponse = await fetch(`${providerB.baseUrl}/power`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.PROVIDER_B_TOKEN}`,
+          Authorization: `Bearer ${providerB.token}`,
           Accept: "application/json",
           "Content-Type": "application/json; charset=utf-8",
         },

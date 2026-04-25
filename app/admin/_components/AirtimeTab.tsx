@@ -34,6 +34,13 @@ const T = {
 };
 
 const font = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif';
+const formatMoney = (value: number | string) => {
+  const amount = typeof value === "number" ? value : parseFloat(String(value || 0));
+  return amount.toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
 
 export default function AirtimeTab() {
   const [transactions, setTransactions] = useState<AirtimeTransaction[]>([]);
@@ -188,7 +195,7 @@ export default function AirtimeTab() {
                     </td>
                     <td style={{ padding: "12px 16px", color: T.textPrimary }}>{tx.mobile_number}</td>
                     <td style={{ padding: "12px 16px", textAlign: "right", color: T.green, fontWeight: 600 }}>
-                      ₦{tx.amount.toLocaleString()}
+                      ₦{formatMoney(tx.amount)}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
                       <span style={{
@@ -200,7 +207,7 @@ export default function AirtimeTab() {
                       </span>
                     </td>
                     <td style={{ padding: "12px 16px", color: T.textSecondary, fontSize: 12 }}>
-                      {tx.balance_before} → {tx.balance_after}
+                      ₦{formatMoney(tx.balance_before)} → ₦{formatMoney(tx.balance_after)}
                     </td>
                   </tr>
                 ))}

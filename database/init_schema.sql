@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS "User" (
   "pin" TEXT,
   bvn TEXT,
   balance NUMERIC(15, 2) NOT NULL DEFAULT 0,
+  reward_balance NUMERIC(15, 2) NOT NULL DEFAULT 0,
   role VARCHAR(50) NOT NULL DEFAULT 'USER',
   "isActive" BOOLEAN NOT NULL DEFAULT true,
   "flutterwave_tx_ref" VARCHAR(255) UNIQUE,
@@ -82,6 +83,7 @@ CREATE TABLE IF NOT EXISTS "DataTransaction" (
   status TEXT NOT NULL DEFAULT 'PENDING',
   "balanceBefore" NUMERIC(15, 2),
   "balanceAfter" NUMERIC(15, 2),
+  "rewardApplied" NUMERIC(15, 2) NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -260,6 +262,50 @@ ON "BroadcastDismissal" ("broadcastId", "userId");
 CREATE INDEX IF NOT EXISTS "BroadcastMessage_isActive_createdAt_idx"
 ON "BroadcastMessage" ("isActive", "createdAt" DESC);
 
+CREATE TABLE IF NOT EXISTS "RewardRule" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  description TEXT,
+  "triggerType" TEXT NOT NULL,
+  "thresholdAmount" NUMERIC(15, 2),
+  "maxThresholdAmount" NUMERIC(15, 2),
+  "rewardAmount" NUMERIC(15, 2) NOT NULL,
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "displayOrder" INTEGER NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "RewardRule_triggerType_check" CHECK ("triggerType" IN ('SIGNUP', 'DEPOSIT'))
+);
+
+CREATE INDEX IF NOT EXISTS "RewardRule_active_order_idx"
+ON "RewardRule" ("isActive", "displayOrder", "thresholdAmount");
+
+CREATE TABLE IF NOT EXISTS "UserReward" (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "userId" TEXT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  "ruleId" UUID NOT NULL REFERENCES "RewardRule"(id) ON DELETE CASCADE,
+  "ruleCode" TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  "triggerType" TEXT NOT NULL,
+  "thresholdAmount" NUMERIC(15, 2),
+  "maxThresholdAmount" NUMERIC(15, 2),
+  "rewardAmount" NUMERIC(15, 2) NOT NULL,
+  "sourceAmount" NUMERIC(15, 2),
+  "sourceReference" TEXT,
+  status TEXT NOT NULL DEFAULT 'AVAILABLE',
+  "claimedAt" TIMESTAMPTZ,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT "UserReward_status_check" CHECK (status IN ('AVAILABLE', 'CLAIMED')),
+  CONSTRAINT "UserReward_triggerType_check" CHECK ("triggerType" IN ('SIGNUP', 'DEPOSIT')),
+  CONSTRAINT "UserReward_user_rule_code_key" UNIQUE ("userId", "ruleCode")
+);
+
+CREATE INDEX IF NOT EXISTS "UserReward_user_status_idx"
+ON "UserReward" ("userId", status, "createdAt" DESC);
+
 DROP VIEW IF EXISTS "CablePlan";
 CREATE VIEW "CablePlan" AS
 SELECT id, "planName" AS name, provider, "planCode", price, "isActive", "createdAt", "updatedAt"
@@ -358,5 +404,17 @@ EXECUTE FUNCTION set_updatedat_column();
 DROP TRIGGER IF EXISTS broadcast_messages_set_updated_at ON "BroadcastMessage";
 CREATE TRIGGER broadcast_messages_set_updated_at
 BEFORE UPDATE ON "BroadcastMessage"
+FOR EACH ROW
+EXECUTE FUNCTION set_updatedat_column();
+
+DROP TRIGGER IF EXISTS reward_rule_set_updated_at ON "RewardRule";
+CREATE TRIGGER reward_rule_set_updated_at
+BEFORE UPDATE ON "RewardRule"
+FOR EACH ROW
+EXECUTE FUNCTION set_updatedat_column();
+
+DROP TRIGGER IF EXISTS user_reward_set_updated_at ON "UserReward";
+CREATE TRIGGER user_reward_set_updated_at
+BEFORE UPDATE ON "UserReward"
 FOR EACH ROW
 EXECUTE FUNCTION set_updatedat_column();

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "brand:assets": "node scripts/generate-brand-assets.js",
-    "migrate:legacy-neon": "node scripts/migrate-legacy-neon.mjs"
+    "migrate:legacy-neon": "node scripts/migrate-legacy-neon.mjs",
+    "normalize:legacy-money": "node scripts/normalize-legacy-money.mjs",
+    "restore:wallet-balances": "node scripts/restore-wallet-balances.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

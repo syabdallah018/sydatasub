@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Loader2, LogOut, BarChart3, Database, Users, Phone, Tv, Zap, Megaphone } from "lucide-react";
+import { Loader2, LogOut, BarChart3, Database, Users, Phone, Tv, Zap, Megaphone, Gift } from "lucide-react";
 import { toast } from "sonner";
 import AnalyticsTab from "./_components/AnalyticsTab";
 import DataPlansTab from "./_components/DataPlansTab";
@@ -12,6 +12,7 @@ import AirtimeTab from "./_components/AirtimeTab";
 import CableTab from "./_components/CableTab";
 import BroadcastsTab from "./_components/BroadcastsTab";
 import PowerTab from "./_components/PowerTab";
+import RewardSettingsTab from "./_components/RewardSettingsTab";
 // Design tokens
 const T = {
   bg:         "#07090F",
@@ -34,7 +35,7 @@ export default function AdminDashboard() {
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"analytics" | "broadcasts" | "plans" | "users" | "airtime" | "cable" | "power">("analytics");
+  const [activeTab, setActiveTab] = useState<"analytics" | "broadcasts" | "plans" | "users" | "airtime" | "cable" | "power" | "rewards">("analytics");
 
   // Check if already authenticated via JWT/session
   useEffect(() => {
@@ -203,6 +204,7 @@ export default function AdminDashboard() {
     { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
     { id: "broadcasts" as const, label: "Broadcasts", icon: Megaphone },
     { id: "plans" as const, label: "Data Plans", icon: Database },
+    { id: "rewards" as const, label: "Rewards", icon: Gift },
     { id: "users" as const, label: "Users", icon: Users },
     { id: "airtime" as const, label: "Airtime", icon: Phone },
     { id: "cable" as const, label: "Cable TV", icon: Tv },
@@ -312,6 +314,7 @@ export default function AdminDashboard() {
         {activeTab === "analytics" && <AnalyticsTab />}
         {activeTab === "broadcasts" && <BroadcastsTab />}
         {activeTab === "plans" && <DataPlansTab />}
+        {activeTab === "rewards" && <RewardSettingsTab />}
         {activeTab === "users" && <UsersTab />}
         {activeTab === "airtime" && <AirtimeTab />}
         {activeTab === "cable" && <CableTab />}
