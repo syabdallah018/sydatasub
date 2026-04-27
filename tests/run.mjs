@@ -82,7 +82,7 @@ async function testWebhookSignatureAndIdempotency() {
   };
 
   const payload = {
-    event: "PAYMENT_NOTIFIFICATION",
+    event: "PAYMENT_NOTIFICATION",
     data: {
       type: "RESERVED_ACCOUNT_TRANSACTION",
       reference: "trx-ref-001",
@@ -90,7 +90,7 @@ async function testWebhookSignatureAndIdempotency() {
       wiaxy_ref: "wiaxy-ref-001",
       amount: "2500",
       account: { account_number: "0001112223" },
-      payer: { account_number: "1111111111" },
+      payer: [],
     },
   };
 
@@ -124,4 +124,3 @@ async function main() {
 }
 
 await main();
-

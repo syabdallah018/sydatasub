@@ -70,3 +70,41 @@ test("processBillstackWebhookWithAdapter processes once and dedupes duplicates",
   assert.equal(second.reason, "already_processed");
 });
 
+test("processBillstackWebhookWithAdapter accepts PAYMENT_NOTIFICATION and payer array", async () => {
+  const processed = new Map();
+  const adapter = {
+    findProcessedEvent: async ({ transactionReference, interbankReference }) =>
+      processed.get(`${transactionReference || ""}:${interbankReference || ""}`) || null,
+    resolveAccount: async () => ({ userId: "user_2" }),
+    withLock: async (_key, fn) => fn(),
+    recordReceived: async () => "event_1",
+    creditWallet: async ({ amountNaira, transactionReference, interbankReference }) => {
+      const key = `${transactionReference || ""}:${interbankReference || ""}`;
+      const transactionId = "tx_1";
+      processed.set(key, { transactionId });
+      return { transactionId, balanceAfter: amountNaira * 100 };
+    },
+    markProcessed: async () => undefined,
+  };
+
+  const payload = {
+    event: "PAYMENT_NOTIFICATION",
+    data: {
+      type: "RESERVED_ACCOUNT_TRANSACTION",
+      reference: "R-JKNMLYHDHF",
+      merchant_reference: "BS-VA-user_2-9PSB",
+      wiaxy_ref: "090405260427111304137139066827",
+      amount: "10000",
+      account: {
+        account_number: "6017966621",
+        account_name: "Sauki Data Links",
+        bank_name: "9PSB Bank",
+      },
+      payer: [],
+    },
+  };
+
+  const result = await processBillstackWebhookWithAdapter(payload, adapter);
+  assert.equal(result.status, "processed");
+  assert.equal(result.reason, "credited");
+});
