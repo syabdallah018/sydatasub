@@ -201,12 +201,13 @@ async function awardRewardInTx(
 
   const user = await tx.user.findUnique({
     where: { id: params.userId },
-    select: { rewardBalance: true },
+    select: { rewardBalance: true, balance: true },
   });
 
   if (!user) return false;
 
   const amountInKobo = params.reward.amount * 100;
+  const creditsMainWallet = params.reward.type === RT.SIGNUP_BONUS;
 
   await tx.userReward.create({
     data: {
@@ -220,7 +221,9 @@ async function awardRewardInTx(
   await tx.user.update({
     where: { id: params.userId },
     data: {
-      rewardBalance: { increment: amountInKobo },
+      ...(creditsMainWallet
+        ? { balance: { increment: amountInKobo } }
+        : { rewardBalance: { increment: amountInKobo } }),
     },
   });
 
@@ -233,8 +236,8 @@ async function awardRewardInTx(
       amount: params.reward.amount,
       reference: `REWARD-${params.reward.type}-${params.userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       description: params.reward.title,
-      balanceBefore: user.rewardBalance,
-      balanceAfter: user.rewardBalance + amountInKobo,
+      balanceBefore: creditsMainWallet ? user.balance : user.rewardBalance,
+      balanceAfter: creditsMainWallet ? user.balance + amountInKobo : user.rewardBalance + amountInKobo,
     },
   });
 

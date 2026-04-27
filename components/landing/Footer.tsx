@@ -14,8 +14,8 @@ export function Footer() {
           <div>
             <Link href="/" className="flex items-center gap-2 mb-6">
               <img 
-                src="/logo.jpeg" 
-                alt="SY DATA" 
+                src="https://anjalventures.com/logo.png"
+                alt="Anjal Ventures"
                 className="h-7 w-7 object-contain"
               />
               <span className="font-semibold text-sm">SY DATA SUB</span>
@@ -57,19 +57,19 @@ export function Footer() {
             <h4 className="font-semibold text-sm mb-4">Company</h4>
             <ul className="space-y-2">
               <li>
-                <a href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
                   About
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
                   Contact
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
                   Support
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -79,14 +79,14 @@ export function Footer() {
             <h4 className="font-semibold text-sm mb-4">Legal</h4>
             <ul className="space-y-2">
               <li>
-                <a href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
                   Privacy Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm">
                   Terms of Service
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -111,6 +111,14 @@ export function Footer() {
             <p>
               © {currentYear} SY DATA SUB. All rights reserved.
             </p>
+            <a
+              href="https://wa.me/2348164135836"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded-md border border-gray-700 px-3 py-1 text-xs text-gray-300 hover:text-white hover:border-white transition-colors"
+            >
+              WhatsApp
+            </a>
           </div>
         </div>
       </div>

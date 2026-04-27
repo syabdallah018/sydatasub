@@ -5,6 +5,13 @@ export type BillstackBank = "9PSB" | "SAFEHAVEN" | "PROVIDUS" | "BANKLY" | "PALM
 
 const SIGNUP_BANK_FALLBACK: BillstackBank[] = ["PALMPAY", "9PSB", "SAFEHAVEN"];
 
+function isMissingUserBankAccountsTable(error: unknown) {
+  if (typeof error !== "object" || error === null) return false;
+  if (!("code" in error) || (error as { code?: string }).code !== "P2021") return false;
+  const table = String((error as { meta?: { table?: string } }).meta?.table || "");
+  return table.includes("user_bank_accounts");
+}
+
 function splitName(fullName: string) {
   const normalized = (fullName || "").trim().replace(/\s+/g, " ");
   if (!normalized) return { firstName: "Customer", lastName: "User" };
@@ -30,11 +37,17 @@ type CreateAccountParams = {
 };
 
 export async function listUserBankAccounts(userId: string) {
-  const accounts = await prisma.userBankAccount.findMany({
-    where: { userId },
-    orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-  });
-  if (accounts.length > 0) return accounts;
+  try {
+    const accounts = await prisma.userBankAccount.findMany({
+      where: { userId },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    });
+    if (accounts.length > 0) return accounts;
+  } catch (error) {
+    if (!isMissingUserBankAccountsTable(error)) {
+      throw error;
+    }
+  }
 
   const legacy = await prisma.virtualAccount.findUnique({
     where: { userId },
@@ -59,14 +72,26 @@ export async function listUserBankAccounts(userId: string) {
 }
 
 export async function createBillstackBankAccount(params: CreateAccountParams) {
-  const existingForBank = await prisma.userBankAccount.findUnique({
-    where: {
-      userId_bankCode: {
-        userId: params.userId,
-        bankCode: params.bank,
+  let supportsUserBankAccounts = true;
+  let existingForBank: Awaited<ReturnType<typeof prisma.userBankAccount.findUnique>> | null = null;
+
+  try {
+    existingForBank = await prisma.userBankAccount.findUnique({
+      where: {
+        userId_bankCode: {
+          userId: params.userId,
+          bankCode: params.bank,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (isMissingUserBankAccountsTable(error)) {
+      supportsUserBankAccounts = false;
+    } else {
+      throw error;
+    }
+  }
+
   if (existingForBank) {
     return {
       created: false,
@@ -86,6 +111,43 @@ export async function createBillstackBankAccount(params: CreateAccountParams) {
     lastName: names.lastName,
     bank: params.bank,
   });
+
+  if (!supportsUserBankAccounts) {
+    await prisma.virtualAccount.upsert({
+      where: { userId: params.userId },
+      update: {
+        accountNumber: result.accountNumber,
+        bankName: result.bankName,
+        flwRef: result.providerReference,
+        orderRef: merchantReference,
+      },
+      create: {
+        userId: params.userId,
+        accountNumber: result.accountNumber,
+        bankName: result.bankName,
+        flwRef: result.providerReference,
+        orderRef: merchantReference,
+      },
+    });
+
+    return {
+      created: true,
+      reason: "created_legacy_mode",
+      account: {
+        id: `legacy-${params.userId}-${params.bank}`,
+        userId: params.userId,
+        bankCode: params.bank,
+        accountNumber: result.accountNumber,
+        accountName: result.accountName,
+        bankName: result.bankName,
+        merchantReference,
+        providerReference: result.providerReference,
+        isPrimary: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    };
+  }
 
   const primaryAccount = await prisma.userBankAccount.findFirst({
     where: { userId: params.userId, isPrimary: true },

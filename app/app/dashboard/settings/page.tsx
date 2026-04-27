@@ -311,6 +311,25 @@ export default function SettingsPage() {
             Log Out
           </Button>
         </div>
+
+        <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <img
+              src="https://anjalventures.com/logo.png"
+              alt="Anjal Ventures"
+              className="h-8 w-8 rounded-md object-cover"
+            />
+            <p className="text-xs text-white/80 font-semibold">Built by Anjal Ventures</p>
+          </div>
+          <a
+            href="https://wa.me/2348164135836"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-200"
+          >
+            WhatsApp
+          </a>
+        </div>
       </div>
 
       {/* Terms Sheet */}

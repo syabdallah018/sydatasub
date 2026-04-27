@@ -16,8 +16,24 @@ function buildFundingReference(input: { interbankReference?: string | null; tran
   return `BILLSTACK-${stable}`;
 }
 
+function isMissingUserBankAccountsTable(error: unknown) {
+  if (typeof error !== "object" || error === null) return false;
+  if (!("code" in error) || (error as { code?: string }).code !== "P2021") return false;
+  const table = String((error as { meta?: { table?: string } }).meta?.table || "");
+  return table.includes("user_bank_accounts");
+}
+
+function isMissingWebhookEventsTable(error: unknown) {
+  if (typeof error !== "object" || error === null) return false;
+  if (!("code" in error) || (error as { code?: string }).code !== "P2021") return false;
+  const table = String((error as { meta?: { table?: string } }).meta?.table || "");
+  return table.includes("payment_webhook_events");
+}
+
 export async function processBillstackWebhook(payload: RawPayload) {
   return prisma.$transaction(async (tx) => {
+    let webhookEventStoreAvailable = true;
+
     return processBillstackWebhookWithAdapter(payload, {
       findProcessedEvent: async ({
         transactionReference,
@@ -27,20 +43,45 @@ export async function processBillstackWebhook(payload: RawPayload) {
         interbankReference?: string | null;
       }) => {
         if (!transactionReference && !interbankReference) return null;
-        const candidates = await tx.paymentWebhookEvent.findMany({
+        if (webhookEventStoreAvailable) {
+          try {
+            const candidates = await tx.paymentWebhookEvent.findMany({
+              where: {
+                provider: "BILLSTACK",
+                OR: [
+                  ...(transactionReference ? [{ transactionReference }] : []),
+                  ...(interbankReference ? [{ interbankReference }] : []),
+                ],
+              },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            });
+            const hit = candidates[0];
+            if (hit && hit.status === "PROCESSED") {
+              return { id: hit.id, transactionId: hit.transactionId };
+            }
+          } catch (error) {
+            if (isMissingWebhookEventsTable(error)) {
+              webhookEventStoreAvailable = false;
+            } else {
+              throw error;
+            }
+          }
+        }
+
+        const existingFunding = await tx.transaction.findFirst({
           where: {
-            provider: "BILLSTACK",
+            type: "WALLET_FUNDING",
+            status: "SUCCESS",
             OR: [
-              ...(transactionReference ? [{ transactionReference }] : []),
-              ...(interbankReference ? [{ interbankReference }] : []),
+              ...(interbankReference ? [{ externalReference: interbankReference }] : []),
+              ...(transactionReference ? [{ flwRef: transactionReference }] : []),
             ],
           },
-          orderBy: { createdAt: "desc" },
-          take: 1,
+          select: { id: true },
         });
-        const hit = candidates[0];
-        if (!hit || hit.status !== "PROCESSED") return null;
-        return { id: hit.id, transactionId: hit.transactionId };
+        if (!existingFunding) return null;
+        return { id: existingFunding.id, transactionId: existingFunding.id };
       },
       resolveAccount: async ({
         merchantReference,
@@ -49,16 +90,22 @@ export async function processBillstackWebhook(payload: RawPayload) {
         merchantReference?: string | null;
         accountNumber?: string | null;
       }) => {
-        const bankAccount = await tx.userBankAccount.findFirst({
-          where: {
-            OR: [
-              ...(merchantReference ? [{ merchantReference }] : []),
-              ...(accountNumber ? [{ accountNumber }] : []),
-            ],
-          },
-          select: { userId: true },
-        });
-        if (bankAccount) return { userId: bankAccount.userId };
+        try {
+          const bankAccount = await tx.userBankAccount.findFirst({
+            where: {
+              OR: [
+                ...(merchantReference ? [{ merchantReference }] : []),
+                ...(accountNumber ? [{ accountNumber }] : []),
+              ],
+            },
+            select: { userId: true },
+          });
+          if (bankAccount) return { userId: bankAccount.userId };
+        } catch (error) {
+          if (!isMissingUserBankAccountsTable(error)) {
+            throw error;
+          }
+        }
 
         const legacy = await tx.virtualAccount.findFirst({
           where: {
@@ -83,20 +130,31 @@ export async function processBillstackWebhook(payload: RawPayload) {
         amountNaira: number;
         raw: unknown;
       }) => {
-        const event = await tx.paymentWebhookEvent.create({
-          data: {
-            provider: "BILLSTACK",
-            eventType: normalizedPayload.event,
-            transactionReference: normalizedPayload.transactionReference || undefined,
-            interbankReference: normalizedPayload.interbankReference || undefined,
-            merchantReference: normalizedPayload.merchantReference || undefined,
-            amount: normalizedPayload.amountNaira,
-            payload: normalizedPayload.raw as object,
-            status: "RECEIVED",
-          },
-          select: { id: true },
-        });
-        return event.id;
+        if (!webhookEventStoreAvailable) {
+          return "billstack-event-store-unavailable";
+        }
+        try {
+          const event = await tx.paymentWebhookEvent.create({
+            data: {
+              provider: "BILLSTACK",
+              eventType: normalizedPayload.event,
+              transactionReference: normalizedPayload.transactionReference || undefined,
+              interbankReference: normalizedPayload.interbankReference || undefined,
+              merchantReference: normalizedPayload.merchantReference || undefined,
+              amount: normalizedPayload.amountNaira,
+              payload: normalizedPayload.raw as object,
+              status: "RECEIVED",
+            },
+            select: { id: true },
+          });
+          return event.id;
+        } catch (error) {
+          if (isMissingWebhookEventsTable(error)) {
+            webhookEventStoreAvailable = false;
+            return "billstack-event-store-unavailable";
+          }
+          throw error;
+        }
       },
       creditWallet: async ({
         userId,
@@ -154,14 +212,22 @@ export async function processBillstackWebhook(payload: RawPayload) {
         };
       },
       markProcessed: async (eventId: string, transactionId: string) => {
-        await tx.paymentWebhookEvent.update({
-          where: { id: eventId },
-          data: {
-            status: "PROCESSED",
-            processedAt: new Date(),
-            transactionId,
-          },
-        });
+        if (!webhookEventStoreAvailable || eventId === "billstack-event-store-unavailable") return;
+        try {
+          await tx.paymentWebhookEvent.update({
+            where: { id: eventId },
+            data: {
+              status: "PROCESSED",
+              processedAt: new Date(),
+              transactionId,
+            },
+          });
+        } catch (error) {
+          if (!isMissingWebhookEventsTable(error)) {
+            throw error;
+          }
+          webhookEventStoreAvailable = false;
+        }
       },
     });
   });

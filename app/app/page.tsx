@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Phone,
   Receipt,
+  ShieldCheck,
   Sparkles,
   User,
   Wallet,
@@ -51,7 +52,7 @@ const T = {
   mono: "'DM Mono', monospace",
 };
 
-type AppTab = "home" | "transactions" | "accounts" | "profile";
+type AppTab = "home" | "transactions" | "accounts" | "agent" | "profile";
 
 interface UserData {
   id: string;
@@ -1639,7 +1640,7 @@ function ProfileTab({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img src="/anjal-ventures.svg" alt="Anjal Ventures" style={{ width: 28, height: 28, borderRadius: 8 }} />
+            <img src="https://anjalventures.com/logo.png" alt="Anjal Ventures" style={{ width: 28, height: 28, borderRadius: 8 }} />
             <p style={{ margin: 0, fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.text }}>
               Built by Anjal Ventures
             </p>
@@ -1825,7 +1826,7 @@ function TabBar({
   const items = [
     { id: "home" as const, label: "Home", icon: Home },
     { id: "transactions" as const, label: "Transactions", icon: Receipt },
-    { id: "accounts" as const, label: "Accounts", icon: Building2 },
+    { id: "agent" as const, label: "Agent", icon: ShieldCheck },
     { id: "profile" as const, label: "Profile", icon: User },
   ];
 
@@ -2306,6 +2307,8 @@ export default function DashboardPage() {
             <TransactionsTab />
           ) : activeTab === "accounts" ? (
             <AccountsTab user={user} accounts={bankAccounts} onAccountsUpdated={setBankAccounts} />
+          ) : activeTab === "agent" ? (
+            <AgentTab />
           ) : (
             <ProfileTab user={user} onLogout={handleLogout} />
           )}
