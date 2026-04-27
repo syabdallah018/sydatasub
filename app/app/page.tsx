@@ -1497,7 +1497,7 @@ function ProfileTab({
 
         {[
           ["Name", user.fullName],
-          ["Email", user.email || "No email on file"],
+          ["Email", user.email || "nil"],
           ["Phone", user.phone],
           ["Date joined", user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : "—"],
           ["Transaction volume", `₦${metrics.volume.toLocaleString()}`],

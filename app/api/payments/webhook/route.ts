@@ -13,6 +13,18 @@ function logWebhook(stage: string, details: Record<string, unknown>) {
   );
 }
 
+export async function GET() {
+  return NextResponse.json(
+    {
+      ok: true,
+      provider: "billstack",
+      endpoint: "/api/payments/webhook",
+      at: new Date().toISOString(),
+    },
+    { status: 200 }
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const rateLimitError = enforceRateLimit(req, "webhook", "billstack-webhook");
@@ -29,6 +41,23 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = await req.json();
+    const event = typeof payload?.event === "string" ? payload.event : null;
+    const type = typeof payload?.data?.type === "string" ? payload.data.type : null;
+    const transactionReference =
+      typeof payload?.data?.reference === "string" ? payload.data.reference : null;
+    const interbankReference =
+      typeof payload?.data?.wiaxy_ref === "string" ? payload.data.wiaxy_ref : null;
+    const merchantReference =
+      typeof payload?.data?.merchant_reference === "string" ? payload.data.merchant_reference : null;
+
+    logWebhook("received", {
+      event,
+      type,
+      transactionReference,
+      interbankReference,
+      merchantReference,
+    });
+
     const result = await processBillstackWebhook(payload);
 
     logWebhook(result.status, {

@@ -74,10 +74,6 @@ export default function AuthPage() {
       toast.error("Enter your 11-digit phone number to continue.");
       return;
     }
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Enter a valid email address to continue.");
-      return;
-    }
     if (pin.length !== 6) {
       toast.error("Enter your 6-digit PIN to sign in.");
       return;

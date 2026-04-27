@@ -16,11 +16,22 @@ function buildFundingReference(input: { interbankReference?: string | null; tran
   return `BILLSTACK-${stable}`;
 }
 
-function isMissingUserBankAccountsTable(error: unknown) {
-  if (typeof error !== "object" || error === null) return false;
-  if (!("code" in error) || (error as { code?: string }).code !== "P2021") return false;
-  const table = String((error as { meta?: { table?: string } }).meta?.table || "");
-  return table.includes("user_bank_accounts");
+function extractEmbeddedUserId(value?: string | null) {
+  const source = String(value || "");
+  const patterns = [
+    /SYDATA-VA-([a-z0-9]{20,40})-/i,
+    /BS-VA-([a-z0-9]{20,40})-/i,
+    /^cm[a-z0-9]{20,40}$/i,
+  ];
+
+  for (const re of patterns) {
+    const match = source.match(re);
+    if (!match) continue;
+    const candidate = match[1] || match[0];
+    if (candidate) return candidate;
+  }
+
+  return null;
 }
 
 function isMissingWebhookEventsTable(error: unknown) {
@@ -75,7 +86,7 @@ export async function processBillstackWebhook(payload: RawPayload) {
             status: "SUCCESS",
             OR: [
               ...(interbankReference ? [{ externalReference: interbankReference }] : []),
-              ...(transactionReference ? [{ flwRef: transactionReference }] : []),
+              ...(transactionReference ? [{ externalReference: transactionReference }] : []),
             ],
           },
           select: { id: true },
@@ -86,37 +97,37 @@ export async function processBillstackWebhook(payload: RawPayload) {
       resolveAccount: async ({
         merchantReference,
         accountNumber,
+        transactionReference,
       }: {
         merchantReference?: string | null;
         accountNumber?: string | null;
+        transactionReference?: string | null;
       }) => {
-        try {
+        const clauses = [
+          ...(merchantReference ? [{ merchantReference }] : []),
+          ...(accountNumber ? [{ accountNumber }] : []),
+        ];
+
+        if (clauses.length > 0) {
           const bankAccount = await tx.userBankAccount.findFirst({
-            where: {
-              OR: [
-                ...(merchantReference ? [{ merchantReference }] : []),
-                ...(accountNumber ? [{ accountNumber }] : []),
-              ],
-            },
+            where: { OR: clauses },
             select: { userId: true },
           });
           if (bankAccount) return { userId: bankAccount.userId };
-        } catch (error) {
-          if (!isMissingUserBankAccountsTable(error)) {
-            throw error;
-          }
         }
 
-        const legacy = await tx.virtualAccount.findFirst({
-          where: {
-            OR: [
-              ...(merchantReference ? [{ orderRef: merchantReference }] : []),
-              ...(accountNumber ? [{ accountNumber }] : []),
-            ],
-          },
-          select: { userId: true },
+        const embeddedUserId =
+          extractEmbeddedUserId(merchantReference) ||
+          extractEmbeddedUserId(transactionReference);
+
+        if (!embeddedUserId) return null;
+
+        const user = await tx.user.findUnique({
+          where: { id: embeddedUserId },
+          select: { id: true },
         });
-        return legacy ? { userId: legacy.userId } : null;
+
+        return user ? { userId: user.id } : null;
       },
       withLock: async (lockKey: string, fn: () => Promise<unknown>) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
@@ -192,7 +203,6 @@ export async function processBillstackWebhook(payload: RawPayload) {
             amount: amountNaira,
             reference: buildFundingReference({ interbankReference, transactionReference }),
             externalReference: interbankReference || transactionReference || undefined,
-            flwRef: transactionReference || undefined,
             description: "Wallet funding via Billstack webhook",
             balanceBefore: user.balance,
             balanceAfter: updatedUser.balance,

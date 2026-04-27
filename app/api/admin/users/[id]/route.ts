@@ -33,9 +33,25 @@ export async function GET(
         role: true,
         tier: true,
         balance: true,
+        isActive: true,
         isBanned: true,
         joinedAt: true,
+        updatedAt: true,
         ...withCompatibleUserFields({}, compat),
+        bankAccounts: {
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+          select: {
+            id: true,
+            bankCode: true,
+            bankName: true,
+            accountName: true,
+            accountNumber: true,
+            merchantReference: true,
+            providerReference: true,
+            isPrimary: true,
+            createdAt: true,
+          },
+        },
         transactions: {
           take: 10,
           orderBy: { createdAt: "desc" },
@@ -60,9 +76,7 @@ export async function GET(
     }
 
     const normalizedUser = normalizeUserCompat(userData);
-    const { rewardBalance: _rewardBalance, ...safeUser } = normalizedUser;
-
-    return NextResponse.json(safeUser, { status: 200 });
+    return NextResponse.json(normalizedUser, { status: 200 });
   } catch (error: any) {
     console.error("[GET USER ERROR]", error);
 
@@ -138,23 +152,80 @@ export async function PATCH(
     });
 
     const normalizedUser = normalizeUserCompat(updated);
-    const { rewardBalance: _rewardBalance, ...safeUser } = normalizedUser;
 
     logAdminAction(req, "user_profile_update", {
       targetUserId: id,
       changes: data,
-      resultingRole: safeUser.role,
-      resultingTier: safeUser.tier,
-      resultingAgentRequestStatus: "agentRequestStatus" in safeUser ? safeUser.agentRequestStatus : "NONE",
+      resultingRole: normalizedUser.role,
+      resultingTier: normalizedUser.tier,
+      resultingAgentRequestStatus:
+        "agentRequestStatus" in normalizedUser ? normalizedUser.agentRequestStatus : "NONE",
     });
 
-    return NextResponse.json(safeUser, { status: 200 });
+    return NextResponse.json(normalizedUser, { status: 200 });
   } catch (error: any) {
     console.error("[UPDATE USER ERROR]", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     }
+
+    if (error.message.includes("Unauthorized")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (error.message.includes("Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const originError = enforceAdminMutationGuard(req);
+    if (originError) return originError;
+
+    await requireAdmin(req);
+    const { id } = await params;
+
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, phone: true, role: true },
+    });
+
+    if (!target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (target.role === "ADMIN") {
+      return NextResponse.json({ error: "Admin user cannot be deleted" }, { status: 403 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: {
+          isActive: false,
+          isBanned: true,
+        },
+      });
+    });
+
+    logAdminAction(req, "user_soft_delete", {
+      targetUserId: id,
+      targetPhone: target.phone,
+    });
+
+    return NextResponse.json(
+      { success: true, message: "User deactivated successfully" },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("[DELETE USER ERROR]", error);
 
     if (error.message.includes("Unauthorized")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
