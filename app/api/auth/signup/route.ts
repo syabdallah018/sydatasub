@@ -106,8 +106,9 @@ export async function POST(req: NextRequest) {
         fullName: true,
         role: true,
         balance: true,
+        email: true,
         ...withCompatibleUserFields({}, {
-          rewardBalance: false,
+          rewardBalance: compat.rewardBalance,
           agentRequestStatus: compat.agentRequestStatus,
         }),
         virtualAccount: {
@@ -130,8 +131,10 @@ export async function POST(req: NextRequest) {
           id: updatedUser.id,
           phone: updatedUser.phone,
           fullName: updatedUser.fullName,
+          email: updatedUser.email,
           role: updatedUser.role,
           balance: updatedUser.balance,
+          rewardBalance: "rewardBalance" in updatedUser ? updatedUser.rewardBalance ?? 0 : 0,
         },
         virtualAccount: {
           accountNumber: virtualAccount.account_number,

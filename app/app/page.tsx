@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/user-feedback";
 
 const fontStyle = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@400;500&display=swap');
@@ -49,6 +50,7 @@ const T = {
 };
 
 type AppTab = "home" | "accounts" | "transactions" | "profile";
+type DetailScreen = "none" | "rewards";
 
 interface UserData {
   id: string;
@@ -56,6 +58,7 @@ interface UserData {
   phone: string;
   email?: string | null;
   balance: number;
+  rewardBalance?: number;
   tier: "user" | "agent";
   isActive?: boolean;
   joinedAt?: string;
@@ -83,6 +86,36 @@ interface TransactionItem {
   phone?: string | null;
   createdAt: string;
   reference: string;
+}
+
+interface RewardItem {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  amount: number;
+  claimed: boolean;
+  claimable: boolean;
+  status: "CLAIMED" | "IN_PROGRESS" | "MISSED";
+  progressValue: number;
+  targetValue: number;
+  progressPercent: number;
+  unit: "NGN" | "GB";
+  claimedAt: string | null;
+  isActive: boolean;
+}
+
+interface RewardSnapshot {
+  rewardBalance: number;
+  earnedTotal: number;
+  items: RewardItem[];
+}
+
+interface BroadcastNotice {
+  id: string;
+  title?: string;
+  message: string;
+  severity: string;
 }
 
 const NETWORKS = [
@@ -297,6 +330,176 @@ function HomeActionCard({
   );
 }
 
+function BroadcastBanner({
+  notice,
+  onDismiss,
+}: {
+  notice: BroadcastNotice | null;
+  onDismiss: () => void;
+}) {
+  if (!notice) return null;
+
+  const tone =
+    notice.severity === "ERROR" || notice.severity === "WARNING"
+      ? { bg: "#fff4e5", border: "#f5c27a", accent: T.amber }
+      : notice.severity === "SUCCESS"
+        ? { bg: "#ecfdf3", border: "#86efac", accent: T.green }
+        : { bg: "#eef5ff", border: "#bfd4ff", accent: T.blue };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        marginBottom: 16,
+        borderRadius: 20,
+        border: `1px solid ${tone.border}`,
+        background: tone.bg,
+        padding: 16,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 14, color: T.text, margin: "0 0 6px" }}>
+            {notice.title || "Update"}
+          </p>
+          <p style={{ fontFamily: T.font, fontSize: 13, color: T.textMid, margin: 0, lineHeight: 1.5 }}>
+            {notice.message}
+          </p>
+        </div>
+        <button
+          onClick={onDismiss}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: tone.accent,
+            fontFamily: T.font,
+            fontWeight: 800,
+            fontSize: 12,
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function RewardsScreen({
+  rewardSnapshot,
+  onBack,
+}: {
+  rewardSnapshot: RewardSnapshot | null;
+  onBack: () => void;
+}) {
+  const items = rewardSnapshot?.items || [];
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <button
+        onClick={onBack}
+        style={{ border: "none", background: "transparent", color: T.blue, fontFamily: T.font, fontWeight: 800, cursor: "pointer", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}
+      >
+        <ChevronLeft size={16} />
+        Back
+      </button>
+
+      <div
+        style={{
+          background: "linear-gradient(135deg, #fff8eb 0%, #ffffff 100%)",
+          borderRadius: 24,
+          border: `1px solid ${T.borderStrong}`,
+          padding: 22,
+          marginBottom: 18,
+        }}
+      >
+        <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 8px", textTransform: "uppercase" }}>
+          Earned Rewards
+        </p>
+        <p style={{ fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.text, margin: "0 0 6px" }}>
+          ₦{((rewardSnapshot?.rewardBalance || 0) / 100).toLocaleString()}
+        </p>
+        <p style={{ fontFamily: T.font, fontSize: 13, color: T.textMid, margin: 0 }}>
+          Reward balance can be used for data purchases only.
+        </p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {items.map((item) => {
+          const tone =
+            item.status === "CLAIMED"
+              ? { label: "Claimed", color: T.green, bg: "rgba(22,163,74,0.12)" }
+              : item.status === "MISSED"
+                ? { label: "Missed", color: T.rose, bg: "rgba(225,29,72,0.12)" }
+                : { label: item.claimable ? "Ready" : "In progress", color: T.blue, bg: T.blueLight };
+
+          return (
+            <div
+              key={item.id}
+              style={{
+                borderRadius: 20,
+                border: `1px solid ${T.border}`,
+                background: T.card,
+                padding: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                <div>
+                  <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text, margin: "0 0 6px" }}>
+                    {item.title}
+                  </p>
+                  <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0, lineHeight: 1.5 }}>
+                    {item.description}
+                  </p>
+                </div>
+                <span
+                  style={{
+                    borderRadius: 999,
+                    padding: "5px 10px",
+                    background: tone.bg,
+                    color: tone.color,
+                    fontFamily: T.font,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {tone.label}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <p style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 800, color: T.text, margin: 0 }}>
+                  ₦{item.amount.toLocaleString()}
+                </p>
+                <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>
+                  {item.progressValue.toLocaleString()} / {item.targetValue.toLocaleString()} {item.unit}
+                </p>
+              </div>
+
+              <div style={{ width: "100%", height: 10, borderRadius: 999, background: T.surface, overflow: "hidden", marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: `${item.progressPercent}%`,
+                    height: "100%",
+                    borderRadius: 999,
+                    background: item.status === "MISSED" ? T.rose : item.status === "CLAIMED" ? T.green : T.blue,
+                  }}
+                />
+              </div>
+
+              <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>
+                {item.claimedAt ? `Claimed on ${new Date(item.claimedAt).toLocaleDateString()}` : "One-time reward"}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 function TransactionReceipt({
   open,
   onClose,
@@ -405,12 +608,12 @@ function SecurityModal({
 
   const submit = async () => {
     if (currentPin.length !== 6 || newPin.length !== 6 || confirmPin.length !== 6) {
-      toast.error("PIN must be 6 digits");
+      toast.error("Each PIN entry must be 6 digits.");
       return;
     }
 
     if (newPin !== confirmPin) {
-      toast.error("New PINs do not match");
+      toast.error("Your new PIN entries do not match yet.");
       return;
     }
 
@@ -424,17 +627,17 @@ function SecurityModal({
       const payload = await response.json();
 
       if (!response.ok) {
-        toast.error(payload.error || "Failed to change PIN");
+        toast.error(getFriendlyMessage(payload.error, "We could not change your PIN right now."));
         return;
       }
 
-      toast.success("PIN changed successfully");
+      toast.success("Your PIN has been updated.");
       setCurrentPin("");
       setNewPin("");
       setConfirmPin("");
       onClose();
     } catch {
-      toast.error("Unable to change PIN right now");
+      toast.error("We could not change your PIN right now.");
     } finally {
       setLoading(false);
     }
@@ -543,7 +746,7 @@ function InfiniteTransactionFeed({
         setNextCursor(payload.nextCursor);
         setHasMore(Boolean(payload.nextCursor));
       } catch {
-        if (!cancelled) toast.error("Could not load transactions");
+        if (!cancelled) toast.error("Transactions could not load right now.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -571,7 +774,7 @@ function InfiniteTransactionFeed({
             setNextCursor(payload.nextCursor);
             setHasMore(Boolean(payload.nextCursor));
           })
-          .catch(() => toast.error("Unable to load more transactions"))
+          .catch(() => toast.error("More transactions could not load right now."))
           .finally(() => setLoadingMore(false));
       },
       { threshold: 0.25 }
@@ -707,6 +910,7 @@ function HomeTab({
   showBalance,
   syncingBalance,
   copied,
+  rewardBalance,
   onToggleBalance,
   onSyncBalance,
   onCopyAccount,
@@ -718,6 +922,7 @@ function HomeTab({
   showBalance: boolean;
   syncingBalance: boolean;
   copied: boolean;
+  rewardBalance: number;
   onToggleBalance: () => void;
   onSyncBalance: () => void;
   onCopyAccount: () => void;
@@ -859,7 +1064,7 @@ function HomeTab({
           <HomeActionCard
             icon={<Sparkles size={16} color={T.amber} />}
             title="Rewards"
-            subtitle="Coming soon"
+            subtitle={`₦${rewardBalance.toLocaleString()}`}
             color={T.amber}
             background="rgba(217,119,6,0.12)"
             onClick={onOpenRewards}
@@ -958,12 +1163,12 @@ function ProfileTab({
 
   const toggleHaptics = () => {
     setHapticsEnabled((value) => !value);
-    toast.success(`Haptics ${hapticsEnabled ? "disabled" : "enabled"}`);
+    toast.success(`Haptics ${hapticsEnabled ? "disabled" : "enabled"}.`);
   };
 
   const toggleTheme = () => {
     setDarkThemeEnabled((value) => !value);
-    toast.info("Theme preference saved locally");
+    toast.info("Theme preference saved on this device.");
   };
 
   return (
@@ -1166,9 +1371,12 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [detailScreen, setDetailScreen] = useState<DetailScreen>("none");
   const [copied, setCopied] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
+  const [rewardSnapshot, setRewardSnapshot] = useState<RewardSnapshot | null>(null);
+  const [broadcasts, setBroadcasts] = useState<BroadcastNotice[]>([]);
 
   const [buyDataOpen, setBuyDataOpen] = useState(false);
   const [buyDataStep, setBuyDataStep] = useState(1);
@@ -1176,7 +1384,7 @@ export default function DashboardPage() {
   const [dataPlans, setDataPlans] = useState<DataPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<DataPlan | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [pin, setPin] = useState(["", "", "", "", "", ""]);
+  const [pin, setPin] = useState("");
   const [purchasingData, setPurchasingData] = useState(false);
   const [plansLoading, setPlansLoading] = useState(false);
 
@@ -1184,7 +1392,7 @@ export default function DashboardPage() {
   const [airtimeNetwork, setAirtimeNetwork] = useState<string | null>(null);
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
-  const [airtimePin, setAirtimePin] = useState(["", "", "", "", "", ""]);
+  const [airtimePin, setAirtimePin] = useState("");
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
 
   useEffect(() => {
@@ -1203,18 +1411,14 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    fetch("/api/notices/active")
+    fetch("/api/notices/active", { cache: "no-store" })
       .then((response) => response.json())
       .then((payload) => {
         if (!Array.isArray(payload?.data)) return;
-        payload.data.slice(0, 2).forEach((notice: { title?: string; message: string; severity: string }) => {
-          const message = notice.title ? `${notice.title}: ${notice.message}` : notice.message;
-          if (notice.severity === "ERROR" || notice.severity === "WARNING") {
-            toast.error(message, { duration: 7000 });
-            return;
-          }
-          toast.info(message, { duration: 7000 });
-        });
+        const dismissed = typeof window !== "undefined" ? JSON.parse(localStorage.getItem("dismissed_notices") || "[]") : [];
+        setBroadcasts(
+          payload.data.filter((notice: BroadcastNotice) => !dismissed.includes(notice.id)).slice(0, 3)
+        );
       })
       .catch(() => undefined);
   }, []);
@@ -1226,15 +1430,38 @@ export default function DashboardPage() {
     if (payload?.success && payload?.data) setUser(payload.data);
   };
 
+  const refreshRewards = async () => {
+    const response = await fetch("/api/rewards", { credentials: "include", cache: "no-store" });
+    const payload = await response.json();
+    if (response.ok && payload?.success) {
+      setRewardSnapshot(payload.data);
+      return;
+    }
+    throw new Error(payload?.error || "Could not load rewards");
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    refreshRewards().catch(() => undefined);
+  }, [user?.id]);
+
+  const dismissBroadcast = (id: string) => {
+    setBroadcasts((current) => current.filter((item) => item.id !== id));
+    if (typeof window !== "undefined") {
+      const dismissed = JSON.parse(localStorage.getItem("dismissed_notices") || "[]");
+      localStorage.setItem("dismissed_notices", JSON.stringify([...new Set([...dismissed, id])]));
+    }
+  };
+
   const handleCopy = () => {
     const accountNumber = user?.virtualAccount?.accountNumber;
     if (!accountNumber) {
-      toast.error("No account number available");
+      toast.error("There is no account number available yet.");
       return;
     }
     navigator.clipboard.writeText(accountNumber);
     setCopied(true);
-    toast.success("Account number copied");
+    toast.success("Account number copied.");
     setTimeout(() => setCopied(false), 1800);
   };
 
@@ -1242,9 +1469,10 @@ export default function DashboardPage() {
     setSyncingBalance(true);
     try {
       await refreshUser();
-      toast.success("Balance refreshed");
+      await refreshRewards().catch(() => undefined);
+      toast.success("Your balance is up to date.");
     } catch {
-      toast.error("Could not refresh balance");
+      toast.error("We could not refresh your balance just now.");
     } finally {
       setSyncingBalance(false);
     }
@@ -1262,60 +1490,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handlePinBoxInput = (
-    index: number,
-    value: string,
-    pinValues: string[],
-    setPinValues: (next: string[]) => void,
-    prefix: string
-  ) => {
-    const cleanValue = value.replace(/\D/g, "").slice(-1);
-    const next = [...pinValues];
-    next[index] = cleanValue;
-    setPinValues(next);
-    if (cleanValue && index < 5) document.getElementById(`${prefix}-${index + 1}`)?.focus();
-  };
-
-  const handlePinBoxKeyDown = (
-    index: number,
-    event: React.KeyboardEvent<HTMLInputElement>,
-    pinValues: string[],
-    setPinValues: (next: string[]) => void,
-    prefix: string
-  ) => {
-    if (/^\d$/.test(event.key)) {
-      event.preventDefault();
-      const next = [...pinValues];
-      next[index] = event.key;
-      setPinValues(next);
-      if (index < 5) document.getElementById(`${prefix}-${index + 1}`)?.focus();
-      return;
-    }
-
-    if (event.key === "Backspace") {
-      event.preventDefault();
-      const next = [...pinValues];
-      if (next[index]) {
-        next[index] = "";
-      } else if (index > 0) {
-        next[index - 1] = "";
-        document.getElementById(`${prefix}-${index - 1}`)?.focus();
-      }
-      setPinValues(next);
-      return;
-    }
-
-    if (event.key === "ArrowLeft" && index > 0) {
-      event.preventDefault();
-      document.getElementById(`${prefix}-${index - 1}`)?.focus();
-    }
-
-    if (event.key === "ArrowRight" && index < 5) {
-      event.preventDefault();
-      document.getElementById(`${prefix}-${index + 1}`)?.focus();
-    }
-  };
-
   const handleNetworkSelect = async (networkId: string) => {
     setSelectedNetwork(networkId);
     setPlansLoading(true);
@@ -1325,15 +1499,15 @@ export default function DashboardPage() {
       setDataPlans(payload.data || []);
       setBuyDataStep(2);
     } catch {
-      toast.error("Failed to load plans");
+      toast.error("Plans could not load right now. Please try again shortly.");
     } finally {
       setPlansLoading(false);
     }
   };
 
   const handleDataPurchase = async () => {
-    if (!selectedPlan || !phoneNumber || pin.some((item) => !item) || !user) {
-      toast.error("Complete all fields");
+    if (!selectedPlan || phoneNumber.length !== 11 || pin.length !== 6 || !user) {
+      toast.error("Complete the phone number and PIN before continuing.");
       return;
     }
 
@@ -1343,7 +1517,7 @@ export default function DashboardPage() {
         planId: selectedPlan.id,
         buyerPhone: user.phone,
         recipientPhone: phoneNumber,
-        pin: pin.join(""),
+        pin,
       };
 
       let response = await fetch("/api/data/purchase", {
@@ -1366,26 +1540,29 @@ export default function DashboardPage() {
       }
 
       if (!response.ok || !result.success) {
-        toast.error(result.error || "Purchase failed");
+        toast.error(getFriendlyMessage(result.error, "We could not complete that data purchase right now."));
         return;
       }
 
-      toast.success(result.message || "Data purchased successfully");
+      toast.success(result.message || "Your data purchase was successful.");
       setBuyDataOpen(false);
       setBuyDataStep(1);
       setSelectedNetwork(null);
       setSelectedPlan(null);
       setPhoneNumber("");
-      setPin(["", "", "", "", "", ""]);
+      setPin("");
       await refreshUser();
+      await refreshRewards().catch(() => undefined);
+    } catch {
+      toast.error("We could not complete that data purchase right now.");
     } finally {
       setPurchasingData(false);
     }
   };
 
   const handleAirtimePurchase = async () => {
-    if (!airtimeNetwork || !airtimeAmount || !airtimePhone || airtimePin.some((item) => !item) || !user) {
-      toast.error("Complete all fields");
+    if (!airtimeNetwork || !airtimeAmount || airtimePhone.length !== 11 || airtimePin.length !== 6 || !user) {
+      toast.error("Complete the phone number and PIN before continuing.");
       return;
     }
 
@@ -1396,7 +1573,7 @@ export default function DashboardPage() {
         recipientPhone: airtimePhone,
         amount: airtimeAmount,
         network: airtimeNetwork,
-        pin: airtimePin.join(""),
+        pin: airtimePin,
       };
 
       let response = await fetch("/api/airtime/purchase", {
@@ -1419,17 +1596,20 @@ export default function DashboardPage() {
       }
 
       if (!response.ok || !result.success) {
-        toast.error(result.error || "Airtime purchase failed");
+        toast.error(getFriendlyMessage(result.error, "We could not complete that airtime purchase right now."));
         return;
       }
 
-      toast.success(result.message || "Airtime purchased successfully");
+      toast.success(result.message || "Your airtime purchase was successful.");
       setAirtimeOpen(false);
       setAirtimeNetwork(null);
       setAirtimeAmount(null);
       setAirtimePhone("");
-      setAirtimePin(["", "", "", "", "", ""]);
+      setAirtimePin("");
       await refreshUser();
+      await refreshRewards().catch(() => undefined);
+    } catch {
+      toast.error("We could not complete that airtime purchase right now.");
     } finally {
       setPurchasingAirtime(false);
     }
@@ -1527,26 +1707,40 @@ export default function DashboardPage() {
         </div>
 
         <main style={{ maxWidth: 520, margin: "0 auto", padding: "20px 20px 0" }}>
-          {activeTab === "home" && (
+          <BroadcastBanner notice={broadcasts[0] || null} onDismiss={() => broadcasts[0] && dismissBroadcast(broadcasts[0].id)} />
+
+          {detailScreen === "rewards" ? (
+            <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setDetailScreen("none")} />
+          ) : activeTab === "home" ? (
             <HomeTab
               user={user}
               showBalance={showBalance}
               syncingBalance={syncingBalance}
               copied={copied}
+              rewardBalance={Math.round((rewardSnapshot?.rewardBalance || user.rewardBalance || 0) / 100)}
               onToggleBalance={() => setShowBalance((value) => !value)}
               onSyncBalance={handleSyncBalance}
               onCopyAccount={handleCopy}
               onOpenData={() => setBuyDataOpen(true)}
               onOpenAirtime={() => setAirtimeOpen(true)}
-              onOpenRewards={() => toast.info("Rewards screen is coming soon")}
+              onOpenRewards={() => setDetailScreen("rewards")}
             />
+          ) : activeTab === "accounts" ? (
+            <AccountsTab />
+          ) : activeTab === "transactions" ? (
+            <TransactionsTab />
+          ) : (
+            <ProfileTab user={user} onLogout={handleLogout} />
           )}
-          {activeTab === "accounts" && <AccountsTab />}
-          {activeTab === "transactions" && <TransactionsTab />}
-          {activeTab === "profile" && <ProfileTab user={user} onLogout={handleLogout} />}
         </main>
 
-        <TabBar activeTab={activeTab} onChange={setActiveTab} />
+        <TabBar
+          activeTab={activeTab}
+          onChange={(tab) => {
+            setDetailScreen("none");
+            setActiveTab(tab);
+          }}
+        />
       </div>
 
       <BottomSheet
@@ -1556,6 +1750,8 @@ export default function DashboardPage() {
           setBuyDataStep(1);
           setSelectedNetwork(null);
           setSelectedPlan(null);
+          setPhoneNumber("");
+          setPin("");
         }}
         title="Buy Data"
         accentColor={T.blue}
@@ -1675,32 +1871,28 @@ export default function DashboardPage() {
               <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
                 Transaction PIN
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-                {pin.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`data-pin-${index}`}
-                    type="password"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(event) => handlePinBoxInput(index, event.target.value, pin, setPin, "data-pin")}
-                    onKeyDown={(event) => handlePinBoxKeyDown(index, event, pin, setPin, "data-pin")}
-                    onFocus={(event) => event.currentTarget.select()}
-                    style={{
-                      width: "100%",
-                      padding: "14px 0",
-                      textAlign: "center",
-                      borderRadius: 14,
-                      border: `1px solid ${digit ? T.blue : T.borderStrong}`,
-                      background: digit ? T.blueLight : T.surface,
-                      fontFamily: T.mono,
-                      fontSize: 18,
-                      fontWeight: 800,
-                      outline: "none",
-                    }}
-                  />
-                ))}
-              </div>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={pin}
+                onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                style={{
+                  width: "100%",
+                  padding: "15px 16px",
+                  textAlign: "center",
+                  borderRadius: 14,
+                  border: `1px solid ${pin ? T.blue : T.borderStrong}`,
+                  background: pin ? T.blueLight : T.surface,
+                  fontFamily: T.mono,
+                  fontSize: 18,
+                  fontWeight: 800,
+                  outline: "none",
+                  boxSizing: "border-box",
+                  letterSpacing: "0.18em",
+                }}
+              />
             </div>
 
             <button
@@ -1733,7 +1925,7 @@ export default function DashboardPage() {
           setAirtimeNetwork(null);
           setAirtimeAmount(null);
           setAirtimePhone("");
-          setAirtimePin(["", "", "", "", "", ""]);
+          setAirtimePin("");
         }}
         title="Buy Airtime"
         accentColor={T.green}
@@ -1807,32 +1999,28 @@ export default function DashboardPage() {
           <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
             Transaction PIN
           </label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-            {airtimePin.map((digit, index) => (
-              <input
-                key={index}
-                id={`airtime-pin-${index}`}
-                type="password"
-                maxLength={1}
-                value={digit}
-                onChange={(event) => handlePinBoxInput(index, event.target.value, airtimePin, setAirtimePin, "airtime-pin")}
-                onKeyDown={(event) => handlePinBoxKeyDown(index, event, airtimePin, setAirtimePin, "airtime-pin")}
-                onFocus={(event) => event.currentTarget.select()}
-                style={{
-                  width: "100%",
-                  padding: "14px 0",
-                  textAlign: "center",
-                  borderRadius: 14,
-                  border: `1px solid ${digit ? T.green : T.borderStrong}`,
-                  background: digit ? "rgba(22,163,74,0.12)" : T.surface,
-                  fontFamily: T.mono,
-                  fontSize: 18,
-                  fontWeight: 800,
-                  outline: "none",
-                }}
-              />
-            ))}
-          </div>
+          <input
+            type="password"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            value={airtimePin}
+            onChange={(event) => setAirtimePin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            style={{
+              width: "100%",
+              padding: "15px 16px",
+              textAlign: "center",
+              borderRadius: 14,
+              border: `1px solid ${airtimePin ? T.green : T.borderStrong}`,
+              background: airtimePin ? "rgba(22,163,74,0.12)" : T.surface,
+              fontFamily: T.mono,
+              fontSize: 18,
+              fontWeight: 800,
+              outline: "none",
+              boxSizing: "border-box",
+              letterSpacing: "0.18em",
+            }}
+          />
         </div>
 
         <button

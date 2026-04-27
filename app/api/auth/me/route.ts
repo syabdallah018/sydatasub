@@ -41,9 +41,8 @@ export async function GET(req: NextRequest) {
     }
 
     const normalizedUser = normalizeUserCompat(user)
-    const { rewardBalance: _rewardBalance, ...safeUser } = normalizedUser
 
-    return NextResponse.json({ success: true, data: safeUser })
+    return NextResponse.json({ success: true, data: normalizedUser })
   } catch (error) {
     console.error("[me]", error)
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })

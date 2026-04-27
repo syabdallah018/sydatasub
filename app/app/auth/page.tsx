@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Loader2, User } from "lucide-react";
 import { toast } from "sonner";
+import { getFriendlyMessage } from "@/lib/user-feedback";
 
 const T = {
   bg: "#ffffff",
@@ -29,8 +30,8 @@ export default function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [phone, setPhone] = useState("");
-  const [pin, setPin] = useState(["", "", "", "", "", ""]);
-  const [confirmPin, setConfirmPin] = useState(["", "", "", "", "", ""]);
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
   const [name, setName] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [showConfirmPin, setShowConfirmPin] = useState(false);
@@ -69,11 +70,11 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || phone.length !== 11) {
-      toast.error("Enter valid 11-digit phone");
+      toast.error("Enter your 11-digit phone number to continue.");
       return;
     }
-    if (pin.some((p) => !p)) {
-      toast.error("Enter 6-digit PIN");
+    if (pin.length !== 6) {
+      toast.error("Enter your 6-digit PIN to sign in.");
       return;
     }
 
@@ -83,7 +84,7 @@ export default function AuthPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, pin: pin.join("") }),
+        body: JSON.stringify({ phone, pin }),
       });
 
       if (res.ok) {
@@ -91,14 +92,14 @@ export default function AuthPage() {
         if (typeof window !== "undefined") {
           localStorage.setItem("saved_phone", phone);
         }
-        toast.success("Login successful!");
+        toast.success("You are signed in.");
         router.push("/app");
       } else {
         const data = await res.json();
-        toast.error(data.error || "Login failed");
+        toast.error(getFriendlyMessage(data.error, "We could not sign you in right now."));
       }
     } catch {
-      toast.error("Connection error");
+      toast.error("Connection is unstable right now. Please try again shortly.");
     } finally {
       setLoading(false);
     }
@@ -107,23 +108,23 @@ export default function AuthPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || name.length < 2) {
-      toast.error("Enter your full name");
+      toast.error("Enter your full name to continue.");
       return;
     }
     if (!phone || phone.length !== 11) {
-      toast.error("Enter valid 11-digit phone");
+      toast.error("Enter your 11-digit phone number to continue.");
       return;
     }
-    if (pin.some((p) => !p)) {
-      toast.error("Enter 6-digit PIN");
+    if (pin.length !== 6) {
+      toast.error("Choose a 6-digit PIN for your account.");
       return;
     }
-    if (pin.join("") !== confirmPin.join("")) {
-      toast.error("PINs don't match");
+    if (pin !== confirmPin) {
+      toast.error("Those PIN entries do not match yet.");
       return;
     }
     if (!acceptTerms) {
-      toast.error("Accept terms");
+      toast.error("Accept the terms to continue.");
       return;
     }
 
@@ -136,28 +137,28 @@ export default function AuthPage() {
         body: JSON.stringify({
           name,
           phone,
-          pin: pin.join(""),
-          confirmPin: confirmPin.join(""),
+          pin,
+          confirmPin,
           acceptTerms,
         }),
       });
 
       if (res.status === 409) {
-        toast.error("Phone already registered. Please login.");
+        toast.error("That phone number already has an account. Please sign in instead.");
         setMode("login");
         setPhone(phone);
         return;
       }
 
       if (res.ok) {
-        toast.success("Account created!");
+        toast.success("Your account is ready.");
         router.push("/app");
       } else {
         const data = await res.json();
-        toast.error(data.error || "Signup failed");
+        toast.error(getFriendlyMessage(data.error, "We could not create your account right now."));
       }
     } catch {
-      toast.error("Connection error");
+      toast.error("Connection is unstable right now. Please try again shortly.");
     } finally {
       setLoading(false);
     }
@@ -290,39 +291,29 @@ export default function AuthPage() {
                       {showPin ? "Hide" : "Show"}
                     </button>
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {pin.map((d, i) => (
-                      <input
-                        key={i}
-                        id={`pin-${i}`}
-                        type={showPin ? "text" : "password"}
-                        maxLength={1}
-                        value={d}
-                        onChange={(e) => {
-                          const np = [...pin];
-                          np[i] = e.target.value;
-                          setPin(np);
-                          if (e.target.value && i < 5) document.getElementById(`pin-${i + 1}`)?.focus();
-                        }}
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          padding: "9px 0",
-                          textAlign: "center",
-                          borderRadius: 12,
-                          background: d ? T.blueDim : T.surface,
-                          border: `1.5px solid ${d ? T.blue : T.border}`,
-                          fontFamily: T.mono,
-                          fontSize: 18,
-                          fontWeight: 700,
-                          color: T.text,
-                          outline: "none",
-                          transition: "all 0.2s",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <input
+                    type={showPin ? "text" : "password"}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    style={{
+                      width: "100%",
+                      padding: "13px 14px",
+                      borderRadius: 14,
+                      background: pin ? T.blueDim : T.surface,
+                      border: `1.5px solid ${pin ? T.blue : T.border}`,
+                      fontFamily: T.mono,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: T.text,
+                      outline: "none",
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      letterSpacing: "0.18em",
+                    }}
+                  />
                 </div>
 
                 <motion.button
@@ -356,11 +347,12 @@ export default function AuthPage() {
                   No account?{" "}
                   <button
                     type="button"
-                    onClick={() => {
-                      setMode("signup");
-                      setPhone("");
-                      setPin(["", "", "", "", "", ""]);
-                    }}
+                      onClick={() => {
+                        setMode("signup");
+                        setPhone("");
+                        setPin("");
+                        setConfirmPin("");
+                      }}
                     style={{ background: "none", border: "none", color: T.blue, cursor: "pointer", fontWeight: 600, fontSize: 13 }}
                   >
                     Create
@@ -437,39 +429,29 @@ export default function AuthPage() {
                       {showPin ? "Hide" : "Show"}
                     </button>
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {pin.map((d, i) => (
-                      <input
-                        key={i}
-                        id={`sig-pin-${i}`}
-                        type={showPin ? "text" : "password"}
-                        maxLength={1}
-                        value={d}
-                        onChange={(e) => {
-                          const np = [...pin];
-                          np[i] = e.target.value;
-                          setPin(np);
-                          if (e.target.value && i < 5) document.getElementById(`sig-pin-${i + 1}`)?.focus();
-                        }}
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          padding: "9px 0",
-                          textAlign: "center",
-                          borderRadius: 12,
-                          background: d ? T.blueDim : T.surface,
-                          border: `1.5px solid ${d ? T.blue : T.border}`,
-                          fontFamily: T.mono,
-                          fontSize: 18,
-                          fontWeight: 700,
-                          color: T.text,
-                          outline: "none",
-                          transition: "all 0.2s",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <input
+                    type={showPin ? "text" : "password"}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    style={{
+                      width: "100%",
+                      padding: "13px 14px",
+                      borderRadius: 14,
+                      background: pin ? T.blueDim : T.surface,
+                      border: `1.5px solid ${pin ? T.blue : T.border}`,
+                      fontFamily: T.mono,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: T.text,
+                      outline: "none",
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      letterSpacing: "0.18em",
+                    }}
+                  />
                 </div>
 
                 {/* Confirm PIN */}
@@ -484,39 +466,29 @@ export default function AuthPage() {
                       {showConfirmPin ? "Hide" : "Show"}
                     </button>
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {confirmPin.map((d, i) => (
-                      <input
-                        key={i}
-                        id={`sig-confirm-${i}`}
-                        type={showConfirmPin ? "text" : "password"}
-                        maxLength={1}
-                        value={d}
-                        onChange={(e) => {
-                          const np = [...confirmPin];
-                          np[i] = e.target.value;
-                          setConfirmPin(np);
-                          if (e.target.value && i < 5) document.getElementById(`sig-confirm-${i + 1}`)?.focus();
-                        }}
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          padding: "9px 0",
-                          textAlign: "center",
-                          borderRadius: 12,
-                          background: d ? T.greenDim : T.surface,
-                          border: `1.5px solid ${d ? T.green : T.border}`,
-                          fontFamily: T.mono,
-                          fontSize: 18,
-                          fontWeight: 700,
-                          color: T.text,
-                          outline: "none",
-                          transition: "all 0.2s",
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    ))}
-                  </div>
+                  <input
+                    type={showConfirmPin ? "text" : "password"}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={confirmPin}
+                    onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    style={{
+                      width: "100%",
+                      padding: "13px 14px",
+                      borderRadius: 14,
+                      background: confirmPin ? T.greenDim : T.surface,
+                      border: `1.5px solid ${confirmPin ? T.green : T.border}`,
+                      fontFamily: T.mono,
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: T.text,
+                      outline: "none",
+                      transition: "all 0.2s",
+                      boxSizing: "border-box",
+                      letterSpacing: "0.18em",
+                    }}
+                  />
                 </div>
 
                 {/* Terms */}
@@ -561,12 +533,13 @@ export default function AuthPage() {
                   Have account?{" "}
                   <button
                     type="button"
-                    onClick={() => {
-                      setMode("login");
-                      setName("");
-                      setPhone("");
-                      setPin(["", "", "", "", "", ""]);
-                    }}
+                      onClick={() => {
+                        setMode("login");
+                        setName("");
+                        setPhone("");
+                        setPin("");
+                        setConfirmPin("");
+                      }}
                     style={{ background: "none", border: "none", color: T.blue, cursor: "pointer", fontWeight: 600, fontSize: 13 }}
                   >
                     Sign in

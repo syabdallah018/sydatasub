@@ -4,10 +4,12 @@ import { purchaseData as purchaseFromSmeplug } from "@/lib/smeplug";
 import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { findRecentDuplicateTransaction, normalizeProviderFailureMessage, DATA_INSUFFICIENT_FUNDS_MESSAGE } from "@/lib/purchase-utils";
 import { getPlanPriceForUser } from "@/lib/pricing";
+import { checkAndAwardRewards } from "@/lib/rewards";
 import { getSessionUser } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
+import { getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
 
 const purchaseSchema = z.object({
   planId: z.string().min(1, "Plan ID is required"),
@@ -20,7 +22,7 @@ const purchaseSchema = z.object({
 const IDEMPOTENCY_WINDOW_MINUTES = 5;
 
 async function acquirePurchaseLock(tx: any, lockKey: string) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
 }
 
 export async function POST(req: NextRequest) {
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest) {
     const { planId, buyerPhone, recipientPhone, pin, confirmDuplicate = false } =
       purchaseSchema.parse(body);
     const sessionUser = await getSessionUser(req);
+    const compat = await getUserSelectCompat();
 
     if (!sessionUser) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -49,6 +52,7 @@ export async function POST(req: NextRequest) {
         isBanned: true,
         tier: true,
         balance: true,
+        ...withCompatibleUserFields({}, compat),
       },
     });
 
@@ -84,7 +88,9 @@ export async function POST(req: NextRequest) {
     const planPrice = getPlanPriceForUser(plan, user);
     const priceInKobo = planPrice * 100;
 
-    if (user.balance < priceInKobo) {
+    const rewardBalance = "rewardBalance" in user ? user.rewardBalance ?? 0 : 0;
+
+    if (user.balance + rewardBalance < priceInKobo) {
       return NextResponse.json(
         { success: false, error: DATA_INSUFFICIENT_FUNDS_MESSAGE },
         { status: 400 }
@@ -156,17 +162,24 @@ export async function POST(req: NextRequest) {
 
       const latestUser = await tx.user.findUnique({
         where: { id: user.id },
-        select: { balance: true },
+        select: withCompatibleUserFields({ balance: true }, compat),
       });
 
-      if (!latestUser || latestUser.balance < priceInKobo) {
+      const latestRewardBalance =
+        latestUser && "rewardBalance" in latestUser ? latestUser.rewardBalance ?? 0 : 0;
+
+      if (!latestUser || latestUser.balance + latestRewardBalance < priceInKobo) {
         return { kind: "insufficient_funds" as const };
       }
+
+      const rewardDebit = Math.min(latestRewardBalance, priceInKobo);
+      const walletDebit = priceInKobo - rewardDebit;
 
       await tx.user.update({
         where: { id: user.id },
         data: {
-          balance: { decrement: priceInKobo },
+          ...(walletDebit > 0 ? { balance: { decrement: walletDebit } } : {}),
+          ...(rewardDebit > 0 ? { rewardBalance: { decrement: rewardDebit } } : {}),
         },
       });
 
@@ -182,12 +195,14 @@ export async function POST(req: NextRequest) {
           planId,
           apiUsed: plan.apiSource,
           balanceBefore: latestUser.balance,
-          balanceAfter: latestUser.balance - priceInKobo,
+          balanceAfter: latestUser.balance - walletDebit,
         },
       });
 
       return {
         kind: "created" as const,
+        rewardDebit,
+        walletDebit,
       };
     });
 
@@ -245,7 +260,8 @@ export async function POST(req: NextRequest) {
           await tx.user.update({
             where: { id: user.id },
             data: {
-              balance: { increment: priceInKobo },
+              ...(txResult.walletDebit > 0 ? { balance: { increment: txResult.walletDebit } } : {}),
+              ...(txResult.rewardDebit > 0 ? { rewardBalance: { increment: txResult.rewardDebit } } : {}),
             },
           });
 
@@ -271,13 +287,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      await checkAndAwardRewards(user.id);
+
       return NextResponse.json(
         {
           success: true,
           message: apiResult.message,
           reference,
           amountCharged: planPrice,
-          walletUsed: priceInKobo / 100,
+          walletUsed: txResult.walletDebit / 100,
+          rewardUsed: txResult.rewardDebit / 100,
         },
         { status: 200 }
       );
@@ -288,7 +307,8 @@ export async function POST(req: NextRequest) {
         await tx.user.update({
           where: { id: user.id },
           data: {
-            balance: { increment: priceInKobo },
+            ...(txResult.walletDebit > 0 ? { balance: { increment: txResult.walletDebit } } : {}),
+            ...(txResult.rewardDebit > 0 ? { rewardBalance: { increment: txResult.rewardDebit } } : {}),
           },
         });
 

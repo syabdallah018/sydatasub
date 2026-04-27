@@ -9,6 +9,7 @@ import {
   Users,
   CreditCard,
   Bell,
+  Gift,
   LogOut,
   Menu,
   X,
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { icon: CreditCard, label: "Pricing", href: "/admin/pricing" },
   { icon: Users, label: "Users", href: "/admin/users" },
   { icon: CreditCard, label: "Transactions", href: "/admin/transactions" },
+  { icon: Gift, label: "Rewards", href: "/admin/rewards" },
   { icon: Bell, label: "Notices", href: "/admin/notices" },
 ];
 

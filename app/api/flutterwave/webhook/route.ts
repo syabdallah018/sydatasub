@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { deliverGuestData } from "@/lib/data-delivery";
+import { evaluateDepositRewardInTx } from "@/lib/rewards";
 import { secureCompare } from "@/lib/security";
 
 type WebhookLogContext = Record<string, unknown>;
@@ -17,7 +18,7 @@ function logWebhook(stage: string, context: WebhookLogContext) {
 }
 
 async function acquireFundingLock(tx: any, reference: string) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`wallet:${reference}`}))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`wallet:${reference}`}))`;
 }
 
 export async function OPTIONS() {
@@ -276,6 +277,12 @@ export async function POST(req: NextRequest) {
         where: { id: accountUser.id },
         data: { balance: { increment: amountInKobo } },
         select: { balance: true },
+      });
+
+      await evaluateDepositRewardInTx(tx, {
+        userId: accountUser.id,
+        phone: accountUser.phone,
+        depositAmount: amount,
       });
 
       await tx.transaction.update({
