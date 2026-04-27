@@ -24,12 +24,6 @@ export async function GET(req: NextRequest) {
         isActive: true,
         joinedAt: true,
         ...withCompatibleUserFields({}, compat),
-        virtualAccount: {
-          select: {
-            accountNumber: true,
-            bankName: true,
-          },
-        },
         _count: {
           select: { transactions: true },
         },
@@ -50,8 +44,6 @@ export async function GET(req: NextRequest) {
       isBanned: u.isBanned,
       isActive: u.isActive,
       joinedAt: u.joinedAt,
-      accountNumber: u.virtualAccount?.accountNumber,
-      bankName: u.virtualAccount?.bankName,
       transactionCount: u._count.transactions,
     }));
 

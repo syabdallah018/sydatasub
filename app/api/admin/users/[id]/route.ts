@@ -36,12 +36,6 @@ export async function GET(
         isBanned: true,
         joinedAt: true,
         ...withCompatibleUserFields({}, compat),
-        virtualAccount: {
-          select: {
-            accountNumber: true,
-            bankName: true,
-          },
-        },
         transactions: {
           take: 10,
           orderBy: { createdAt: "desc" },

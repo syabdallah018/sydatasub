@@ -26,9 +26,6 @@ export async function GET(req: NextRequest) {
         isActive: true,
         joinedAt: true,
         ...withCompatibleUserFields({}, compat),
-        virtualAccount: {
-          select: { accountNumber: true, bankName: true, flwRef: true }
-        },
       },
     })
 

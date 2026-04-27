@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
         pinHash: true,
         isBanned: true,
         ...withCompatibleUserFields({}, compat),
-        virtualAccount: true,
       },
     });
 
@@ -91,7 +90,6 @@ export async function POST(req: NextRequest) {
           balance: normalizedUser.balance,
           rewardBalance: normalizedUser.rewardBalance,
           agentRequestStatus: normalizedUser.agentRequestStatus,
-          virtualAccount: normalizedUser.virtualAccount,
         },
       },
       { status: 200 }

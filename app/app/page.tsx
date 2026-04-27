@@ -7,7 +7,6 @@ import {
   Bolt,
   Check,
   ChevronLeft,
-  Copy,
   CreditCard,
   Eye,
   EyeOff,
@@ -63,7 +62,6 @@ interface UserData {
   isActive?: boolean;
   joinedAt?: string;
   agentRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
-  virtualAccount?: { accountNumber: string; bankName: string } | null;
 }
 
 interface DataPlan {
@@ -1076,11 +1074,9 @@ function HomeTab({
   user,
   showBalance,
   syncingBalance,
-  copied,
   rewardBalance,
   onToggleBalance,
   onSyncBalance,
-  onCopyAccount,
   onOpenData,
   onOpenAirtime,
   onOpenRewards,
@@ -1088,11 +1084,9 @@ function HomeTab({
   user: UserData;
   showBalance: boolean;
   syncingBalance: boolean;
-  copied: boolean;
   rewardBalance: number;
   onToggleBalance: () => void;
   onSyncBalance: () => void;
-  onCopyAccount: () => void;
   onOpenData: () => void;
   onOpenAirtime: () => void;
   onOpenRewards: () => void;
@@ -1120,7 +1114,7 @@ function HomeTab({
               {showBalance ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(user.balance / 100) : "••••••"}
             </p>
             <p style={{ display: "none", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textMid, margin: 0 }}>
-              {user.virtualAccount?.bankName || "Virtual Account"}
+              Payment channel update in progress
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1171,35 +1165,9 @@ function HomeTab({
             background: "rgba(255,255,255,0.82)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div>
-              <p style={{ display: "none", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
-                Funding Account
-              </p>
-              <p style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>
-                {user.virtualAccount?.accountNumber || "Unavailable"} {user.virtualAccount?.bankName ? `• ${user.virtualAccount.bankName}` : ""}
-              </p>
-            </div>
-            <button
-              onClick={onCopyAccount}
-              style={{
-                border: "none",
-                borderRadius: 14,
-                padding: "10px 12px",
-                background: copied ? "rgba(22,163,74,0.12)" : T.blueLight,
-                color: copied ? T.green : T.blue,
-                fontFamily: T.font,
-                fontWeight: 800,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                cursor: "pointer",
-              }}
-            >
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
+          <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.textMid, margin: 0 }}>
+            Wallet funding via Billstack integration will be enabled soon.
+          </p>
         </div>
       </motion.div>
 
@@ -1316,8 +1284,6 @@ function ProfileTab({
           ["Email", user.email || "No email on file"],
           ["Phone", user.phone],
           ["Date joined", user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : "—"],
-          ["Bank", user.virtualAccount?.bankName || "Unavailable"],
-          ["Account number", user.virtualAccount?.accountNumber || "Unavailable"],
           ["Transaction volume", `₦${metrics.volume.toLocaleString()}`],
           ["Transaction count", metrics.count.toString()],
         ].map(([label, value]) => (
@@ -1334,7 +1300,7 @@ function ProfileTab({
             <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
               {label}
             </p>
-            <p style={{ fontFamily: label === "Account number" ? T.mono : T.font, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>
+            <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>
               {value}
             </p>
           </div>
@@ -1642,7 +1608,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [showRewards, setShowRewards] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
   const [rewardSnapshot, setRewardSnapshot] = useState<RewardSnapshot | null>(null);
@@ -1755,18 +1720,6 @@ export default function DashboardPage() {
       const dismissed = JSON.parse(localStorage.getItem("dismissed_notices") || "[]");
       localStorage.setItem("dismissed_notices", JSON.stringify([...new Set([...dismissed, id])]));
     }
-  };
-
-  const handleCopy = () => {
-    const accountNumber = user?.virtualAccount?.accountNumber;
-    if (!accountNumber) {
-      toast.error("Ahh, sorry, your funding account is not ready yet.");
-      return;
-    }
-    navigator.clipboard.writeText(accountNumber);
-    setCopied(true);
-    toast.success("Account number copied.");
-    setTimeout(() => setCopied(false), 1800);
   };
 
   const handleSyncBalance = async () => {
@@ -2033,11 +1986,9 @@ export default function DashboardPage() {
               user={user}
               showBalance={showBalance}
               syncingBalance={syncingBalance}
-              copied={copied}
               rewardBalance={Math.round((rewardSnapshot?.rewardBalance || user.rewardBalance || 0) / 100)}
               onToggleBalance={() => setShowBalance((value) => !value)}
               onSyncBalance={handleSyncBalance}
-              onCopyAccount={handleCopy}
               onOpenData={() => setBuyDataOpen(true)}
               onOpenAirtime={() => setAirtimeOpen(true)}
               onOpenRewards={() => setShowRewards(true)}

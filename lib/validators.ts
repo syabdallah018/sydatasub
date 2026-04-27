@@ -36,10 +36,6 @@ export const airtimePurchaseSchema = z.object({
   network: z.enum(["MTN", "AIRTEL", "GLO", "9MOBILE"]),
 });
 
-export const createVirtualAccountSchema = z.object({
-  accountName: z.string().min(2, "Account name is required"),
-});
-
 export const setPINSchema = z.object({
   pin: z.string().regex(/^\d{4}$/, "PIN must be 4 digits"),
   confirmPin: z.string(),
@@ -49,7 +45,4 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type DataPurchaseInput = z.infer<typeof dataPurchaseSchema>;
 export type AirtimePurchaseInput = z.infer<typeof airtimePurchaseSchema>;
-export type CreateVirtualAccountInput = z.infer<
-  typeof createVirtualAccountSchema
->;
 export type SetPINInput = z.infer<typeof setPINSchema>;

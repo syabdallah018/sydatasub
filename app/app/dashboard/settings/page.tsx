@@ -8,11 +8,9 @@ import { useState, useEffect } from "react";
 import {
   ChevronLeft,
   Phone,
-  Building2,
   Lock,
   Sun,
   Moon,
-  Copy,
   LogOut,
   HelpCircle,
   FileText,
@@ -33,10 +31,6 @@ interface User {
   phone: string;
   role: string;
   joinedAt: string;
-  virtualAccount?: {
-    accountNumber: string;
-    bankName: string;
-  };
 }
 
 export default function SettingsPage() {
@@ -63,11 +57,6 @@ export default function SettingsPage() {
       router.push("/app");
     }
   }, [isLoading, user, router]);
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
-  };
 
   const handleLogout = async () => {
     try {
@@ -195,24 +184,6 @@ export default function SettingsPage() {
               label="Phone"
               value={user.phone}
             />
-          )}
-          {user?.virtualAccount?.accountNumber && (
-            <>
-              <SettingsItem
-                icon={<Building2 className="h-5 w-5" />}
-                label="Account Number"
-                value={user.virtualAccount.accountNumber}
-                copyable
-                onCopy={() => copyToClipboard(user.virtualAccount?.accountNumber || "")}
-              />
-              {user?.virtualAccount?.bankName && (
-                <SettingsItem
-                  icon={<Building2 className="h-5 w-5" />}
-                  label="Bank Name"
-                  value={user.virtualAccount.bankName}
-                />
-              )}
-            </>
           )}
           {user?.role && (
             <SettingsItem
@@ -421,16 +392,12 @@ interface SettingsItemProps {
   icon: React.ReactNode;
   label: string;
   value?: string | React.ReactNode;
-  copyable?: boolean;
-  onCopy?: () => void;
 }
 
 function SettingsItem({
   icon,
   label,
   value,
-  copyable,
-  onCopy,
 }: SettingsItemProps) {
   return (
     <motion.div
@@ -446,14 +413,6 @@ function SettingsItem({
           <span className="text-sm text-white font-mono">{value}</span>
         ) : (
           value
-        )}
-        {copyable && (
-          <button
-            onClick={onCopy}
-            className="p-1 hover:bg-white/10 rounded transition"
-          >
-            <Copy className="h-4 w-4 text-white/60" />
-          </button>
         )}
       </div>
     </motion.div>

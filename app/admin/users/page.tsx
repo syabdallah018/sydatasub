@@ -27,17 +27,11 @@ interface User {
   balance: number;
   agentRequestStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   isBanned: boolean;
-  accountNumber?: string;
-  bankName?: string;
   transactionCount: number;
   joinedAt: string;
 }
 
 interface UserDetails extends User {
-  virtualAccount?: {
-    accountNumber: string;
-    bankName: string;
-  };
   transactions: Array<{
     id: string;
     reference: string;

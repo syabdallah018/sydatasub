@@ -5,10 +5,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "api.flutterwave.com",
-      },
-      {
-        protocol: "https",
         hostname: "res.cloudinary.com",
       },
     ],

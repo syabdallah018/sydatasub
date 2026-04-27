@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import { setUserSessionCookie, signToken } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
-import { createFlutterwaveVirtualAccount } from "@/lib/flutterwave";
 import { buildUserCreateCompatData, getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 import { evaluateSignupRewardInTx } from "@/lib/rewards";
@@ -45,10 +44,6 @@ export async function POST(req: NextRequest) {
     }
 
     const pinHash = await bcryptjs.hash(pin, 12);
-    const nameParts = name.trim().split(" ");
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(" ") || firstName;
-
     const user = await prisma.user.create({
       data: await buildUserCreateCompatData({
         fullName: name,
@@ -67,38 +62,6 @@ export async function POST(req: NextRequest) {
         phone: user.phone,
       });
     });
-
-    let virtualAccount = null;
-    try {
-      virtualAccount = await createFlutterwaveVirtualAccount({
-        userId: user.id,
-        email: process.env.FLW_ACCOUNT_EMAIL || "noreply@sydatasub.local",
-        firstName,
-        lastName,
-        phone,
-      });
-    } catch (flwError) {
-      console.warn("[FLUTTERWAVE WARNING] Virtual account creation failed, continuing without it", flwError);
-      virtualAccount = {
-        id: Math.floor(Math.random() * 999999),
-        account_number: `PLACEHOLDER-${user.id.slice(0, 8)}`,
-        bank_name: "SY DATA WALLET",
-        bank_code: "000001",
-        tx_ref: `SYDATA-VA-${user.id}-${Date.now()}`,
-      };
-    }
-
-    if (virtualAccount) {
-      await prisma.virtualAccount.create({
-        data: {
-          userId: user.id,
-          accountNumber: virtualAccount.account_number || `PLACEHOLDER-${user.id.slice(0, 8)}`,
-          bankName: virtualAccount.bank_name || "SY DATA WALLET",
-          flwRef: String(virtualAccount.id || Math.floor(Math.random() * 999999)),
-          orderRef: virtualAccount.order_ref || virtualAccount.tx_ref || `SYDATA-VA-${user.id}-${Date.now()}`,
-        },
-      });
-    }
 
     const token = await signToken({
       userId: user.id,
@@ -119,9 +82,6 @@ export async function POST(req: NextRequest) {
           rewardBalance: compat.rewardBalance,
           agentRequestStatus: compat.agentRequestStatus,
         }),
-        virtualAccount: {
-          select: { accountNumber: true, bankName: true },
-        },
       },
     });
 
@@ -143,10 +103,6 @@ export async function POST(req: NextRequest) {
           role: updatedUser.role,
           balance: updatedUser.balance,
           rewardBalance: "rewardBalance" in updatedUser ? updatedUser.rewardBalance ?? 0 : 0,
-        },
-        virtualAccount: {
-          accountNumber: virtualAccount.account_number,
-          bankName: virtualAccount.bank_name,
         },
       },
       { status: 201 }

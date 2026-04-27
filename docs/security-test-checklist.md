@@ -37,10 +37,9 @@ This checklist is intended for release smoke-tests and incident response checks.
 
 ## Webhook Routes
 
-- Route: `POST /api/flutterwave/webhook`
-- Check: rejects invalid/missing `verif-hash`
-- Check: idempotency is keyed by `flw_ref` (not static reserved account refs)
-- Check: supports fallback account resolution when `account_number` is absent
+- Route: `POST /api/payments/webhook` (Billstack target)
+- Check: rejects invalid/missing gateway signature header
+- Check: idempotency is keyed by gateway transaction reference
 - Check: repeated delivery of same event does not double-credit wallet
 
 ## Admin Auth and Mutations
