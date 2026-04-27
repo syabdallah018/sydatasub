@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     const existingSuccess = await prisma.transaction.findFirst({
       where: {
-        OR: [{ flwRef: eventData.flw_ref }, { reference: eventData.tx_ref }],
+        flwRef: eventData.flw_ref,
         status: "SUCCESS",
       },
       select: {
@@ -200,13 +200,13 @@ export async function POST(req: NextRequest) {
     const amountInKobo = Math.round(amount * 100);
 
     const creditResult = await prisma.$transaction(async (tx) => {
-      await acquireFundingLock(tx, String(eventData.tx_ref));
+      await acquireFundingLock(tx, String(eventData.flw_ref));
 
       const existingTransaction = await tx.transaction.findFirst({
         where: {
           userId: accountUser.id,
           type: "WALLET_FUNDING",
-          reference: eventData.tx_ref,
+          flwRef: eventData.flw_ref,
         },
         select: {
           id: true,
@@ -234,8 +234,10 @@ export async function POST(req: NextRequest) {
             type: "WALLET_FUNDING",
             status: "PENDING",
             amount,
-            reference: eventData.tx_ref,
-            description: "Wallet top-up via Flutterwave",
+            reference: eventData.flw_ref,
+            externalReference: eventData.tx_ref,
+            flwRef: eventData.flw_ref,
+            description: `Wallet top-up via Flutterwave (${eventData.tx_ref})`,
           },
           select: {
             id: true,
@@ -252,6 +254,7 @@ export async function POST(req: NextRequest) {
           data: {
             status: "FAILED",
             flwRef: eventData.flw_ref,
+            externalReference: eventData.tx_ref,
             description: `Amount mismatch: expected ${transaction.amount}, received ${amount}`,
           },
         });
@@ -290,9 +293,10 @@ export async function POST(req: NextRequest) {
         data: {
           status: "SUCCESS",
           flwRef: eventData.flw_ref,
+          externalReference: eventData.tx_ref,
           balanceBefore: transaction.balanceBefore ?? currentUser.balance,
           balanceAfter: updatedUser.balance,
-          description: "Wallet top-up via Flutterwave",
+          description: `Wallet top-up via Flutterwave (${eventData.tx_ref})`,
         },
       });
 

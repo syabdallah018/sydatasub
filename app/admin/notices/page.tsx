@@ -34,6 +34,7 @@ const emptyForm = {
 
 export default function AdminNoticesPage() {
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [featureUnavailable, setFeatureUnavailable] = useState(false);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Notice | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -42,9 +43,10 @@ export default function AdminNoticesPage() {
     const res = await fetch("/api/admin/notices", { cache: "no-store" });
     const data = await res.json();
     if (!res.ok || !data.success) {
-      toast.error(data.error || "Could not load broadcasts");
+      toast.error(data.error || "Ahh, sorry, broadcasts could not load right now.");
       return;
     }
+    setFeatureUnavailable(Boolean(data.featureUnavailable));
     setNotices(data.data || []);
   };
 
@@ -90,11 +92,11 @@ export default function AdminNoticesPage() {
     const payload = await res.json();
 
     if (!res.ok || !payload.success) {
-      toast.error(payload.error || "Could not save broadcast");
+      toast.error(payload.error || "Ahh, sorry, that broadcast could not be saved right now.");
       return;
     }
 
-    toast.success(editing ? "Broadcast updated" : "Broadcast created");
+    toast.success(editing ? "Broadcast updated." : "Broadcast created.");
     setOpen(false);
     setEditing(null);
     setForm(emptyForm);
@@ -106,10 +108,10 @@ export default function AdminNoticesPage() {
     const res = await fetch(`/api/admin/notices/${notice.id}`, { method: "DELETE" });
     const payload = await res.json();
     if (!res.ok || !payload.success) {
-      toast.error(payload.error || "Could not delete broadcast");
+      toast.error(payload.error || "Ahh, sorry, that broadcast could not be removed right now.");
       return;
     }
-    toast.success("Broadcast deleted");
+    toast.success("Broadcast deleted.");
     fetchNotices();
   };
 
@@ -121,7 +123,7 @@ export default function AdminNoticesPage() {
     });
     const payload = await res.json();
     if (!res.ok || !payload.success) {
-      toast.error(payload.error || "Could not update broadcast");
+      toast.error(payload.error || "Ahh, sorry, that broadcast could not be updated right now.");
       return;
     }
     fetchNotices();
@@ -180,6 +182,13 @@ export default function AdminNoticesPage() {
       </div>
 
       <div className="space-y-4">
+        {featureUnavailable ? (
+          <Card className="p-5">
+            <p className="text-sm text-slate-600">
+              Broadcast storage is not available in this database yet. Apply the service notice migration, then this tab will become fully active.
+            </p>
+          </Card>
+        ) : null}
         {notices.map((notice) => (
           <Card key={notice.id} className="p-5">
             <div className="flex items-start justify-between gap-4">

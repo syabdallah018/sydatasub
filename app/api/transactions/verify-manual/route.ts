@@ -9,7 +9,7 @@ const verifySchema = z.object({
 });
 
 async function acquireFundingLock(tx: any, reference: string) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`wallet:${reference}`}))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`wallet:${reference}`}))`;
 }
 
 export async function POST(req: NextRequest) {
@@ -77,9 +77,10 @@ export async function POST(req: NextRequest) {
 
           if (transaction.type === "WALLET_FUNDING" && transaction.userId) {
             const amountInKobo = transaction.amount * 100;
+            const fundingRef = flwTransaction.flw_ref || transaction.reference;
 
             const creditResult = await prisma.$transaction(async (tx) => {
-              await acquireFundingLock(tx, transaction.reference);
+              await acquireFundingLock(tx, fundingRef);
 
               const currentTransaction = await tx.transaction.findUnique({
                 where: { id: transaction.id },
@@ -119,6 +120,9 @@ export async function POST(req: NextRequest) {
                 where: { id: transaction.id },
                 data: {
                   status: "SUCCESS",
+                  reference: fundingRef,
+                  externalReference: flwTransaction.tx_ref || transaction.reference,
+                  flwRef: flwTransaction.flw_ref || null,
                   balanceBefore: currentTransaction.balanceBefore ?? user.balance,
                   balanceAfter: updatedUser.balance,
                 },

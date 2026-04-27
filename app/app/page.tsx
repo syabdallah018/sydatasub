@@ -49,7 +49,7 @@ const T = {
   mono: "'DM Mono', monospace",
 };
 
-type AppTab = "home" | "rewards" | "transactions" | "profile";
+type AppTab = "home" | "transactions" | "profile";
 
 interface UserData {
   id: string;
@@ -425,6 +425,23 @@ function RewardsScreen({
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {!items.length ? (
+          <div
+            style={{
+              borderRadius: 20,
+              border: `1px solid ${T.border}`,
+              background: T.card,
+              padding: 18,
+            }}
+          >
+            <p style={{ fontFamily: T.font, fontSize: 14, fontWeight: 800, color: T.text, margin: "0 0 6px" }}>
+              Rewards will show here
+            </p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0, lineHeight: 1.5 }}>
+              Ahh, sorry, your reward progress is not ready yet. Please refresh in a moment after your latest activity is recorded.
+            </p>
+          </div>
+        ) : null}
         {items.map((item) => {
           const tone =
             item.status === "CLAIMED"
@@ -943,12 +960,12 @@ function HomeTab({
           marginBottom: 22,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Wallet Balance
             </p>
-            <p style={{ fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.blueDark, margin: "0 0 8px" }}>
+            <p style={{ display: "none", fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.blueDark, margin: "0 0 8px" }}>
               {showBalance ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(user.balance / 100) : "••••••"}
             </p>
             <p style={{ display: "none", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textMid, margin: 0 }}>
@@ -990,6 +1007,10 @@ function HomeTab({
             </button>
           </div>
         </div>
+
+        <p style={{ fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.blueDark, margin: "0 0 10px" }}>
+          {showBalance ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(user.balance / 100) : "••••••"}
+        </p>
 
         <div
           style={{
@@ -1265,7 +1286,6 @@ function TabBar({
 }) {
   const items = [
     { id: "home" as const, label: "Home", icon: Home },
-    { id: "rewards" as const, label: "Rewards", icon: Sparkles },
     { id: "transactions" as const, label: "Transactions", icon: Receipt },
     { id: "profile" as const, label: "Profile", icon: User },
   ];
@@ -1283,7 +1303,7 @@ function TabBar({
           boxShadow: T.blueShadow,
           padding: 10,
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(3, 1fr)",
           gap: 8,
         }}
       >
@@ -1327,6 +1347,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [showRewards, setShowRewards] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
@@ -1411,7 +1432,7 @@ export default function DashboardPage() {
   const handleCopy = () => {
     const accountNumber = user?.virtualAccount?.accountNumber;
     if (!accountNumber) {
-      toast.error("There is no account number available yet.");
+      toast.error("Ahh, sorry, your funding account is not ready yet.");
       return;
     }
     navigator.clipboard.writeText(accountNumber);
@@ -1427,7 +1448,7 @@ export default function DashboardPage() {
       await refreshRewards().catch(() => undefined);
       toast.success("Your balance is up to date.");
     } catch {
-      toast.error("We could not refresh your balance just now.");
+      toast.error("Ahh, sorry, your balance could not refresh just now.");
     } finally {
       setSyncingBalance(false);
     }
@@ -1454,7 +1475,7 @@ export default function DashboardPage() {
       setDataPlans(payload.data || []);
       setBuyDataStep(2);
     } catch {
-      toast.error("Plans could not load right now. Please try again shortly.");
+      toast.error("Ahh, sorry, plans could not load right now. Please try again shortly.");
     } finally {
       setPlansLoading(false);
     }
@@ -1462,7 +1483,7 @@ export default function DashboardPage() {
 
   const handleDataPurchase = async () => {
     if (!selectedPlan || phoneNumber.length !== 11 || pin.length !== 6 || !user) {
-      toast.error("Complete the phone number and PIN before continuing.");
+      toast.error("Ahh, sorry, please complete the phone number and PIN before continuing.");
       return;
     }
 
@@ -1483,7 +1504,7 @@ export default function DashboardPage() {
       let result = await response.json();
 
       if (response.status === 409 && result?.requiresConfirmation) {
-        const shouldContinue = window.confirm("Duplicate transaction detected. Continue?");
+        const shouldContinue = window.confirm("Ahh, sorry, a similar data request was noticed. Do you still want to continue?");
         if (!shouldContinue) return;
 
         response = await fetch("/api/data/purchase", {
@@ -1509,7 +1530,7 @@ export default function DashboardPage() {
       await refreshUser();
       await refreshRewards().catch(() => undefined);
     } catch {
-      toast.error("We could not complete that data purchase right now.");
+      toast.error("Ahh, sorry, we could not complete that data purchase right now.");
     } finally {
       setPurchasingData(false);
     }
@@ -1517,7 +1538,7 @@ export default function DashboardPage() {
 
   const handleAirtimePurchase = async () => {
     if (!airtimeNetwork || !airtimeAmount || airtimePhone.length !== 11 || airtimePin.length !== 6 || !user) {
-      toast.error("Complete the phone number and PIN before continuing.");
+      toast.error("Ahh, sorry, please complete the phone number and PIN before continuing.");
       return;
     }
 
@@ -1539,7 +1560,7 @@ export default function DashboardPage() {
       let result = await response.json();
 
       if (response.status === 409 && result?.requiresConfirmation) {
-        const shouldContinue = window.confirm("Duplicate airtime transaction detected. Continue?");
+        const shouldContinue = window.confirm("Ahh, sorry, a similar airtime request was noticed. Do you still want to continue?");
         if (!shouldContinue) return;
 
         response = await fetch("/api/airtime/purchase", {
@@ -1564,7 +1585,7 @@ export default function DashboardPage() {
       await refreshUser();
       await refreshRewards().catch(() => undefined);
     } catch {
-      toast.error("We could not complete that airtime purchase right now.");
+      toast.error("Ahh, sorry, we could not complete that airtime purchase right now.");
     } finally {
       setPurchasingAirtime(false);
     }
@@ -1664,7 +1685,9 @@ export default function DashboardPage() {
         <main style={{ maxWidth: 520, margin: "0 auto", padding: "20px 20px 0" }}>
           <BroadcastBanner notice={broadcasts[0] || null} onDismiss={() => broadcasts[0] && dismissBroadcast(broadcasts[0].id)} />
 
-          {activeTab === "home" ? (
+          {showRewards ? (
+            <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setShowRewards(false)} />
+          ) : activeTab === "home" ? (
             <HomeTab
               user={user}
               showBalance={showBalance}
@@ -1676,10 +1699,8 @@ export default function DashboardPage() {
               onCopyAccount={handleCopy}
               onOpenData={() => setBuyDataOpen(true)}
               onOpenAirtime={() => setAirtimeOpen(true)}
-              onOpenRewards={() => setActiveTab("rewards")}
+              onOpenRewards={() => setShowRewards(true)}
             />
-          ) : activeTab === "rewards" ? (
-            <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setActiveTab("home")} />
           ) : activeTab === "transactions" ? (
             <TransactionsTab />
           ) : (
@@ -1689,7 +1710,10 @@ export default function DashboardPage() {
 
         <TabBar
           activeTab={activeTab}
-          onChange={setActiveTab}
+          onChange={(tab) => {
+            setShowRewards(false);
+            setActiveTab(tab);
+          }}
         />
       </div>
 

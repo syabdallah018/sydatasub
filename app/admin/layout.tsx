@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Providers } from "@/components/providers";
-import { Loader2, BarChart3, Users, Database, LogOut } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { Loader2, BarChart3, Users, Database, LogOut, Bell, Gift, Receipt } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 
 const SIDEBAR_ITEMS = [
@@ -12,6 +12,9 @@ const SIDEBAR_ITEMS = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/plans", label: "Data Plans", icon: Database },
   { href: "/admin/pricing", label: "Pricing Tiers", icon: Database },
+  { href: "/admin/transactions", label: "Transactions", icon: Receipt },
+  { href: "/admin/rewards", label: "Rewards", icon: Gift },
+  { href: "/admin/notices", label: "Broadcasts", icon: Bell },
 ];
 
 export default function AdminLayout({
@@ -55,13 +58,13 @@ export default function AdminLayout({
       const data = await res.json();
       if (data.success) {
         setAuthenticated(true);
-        toast.success("Admin authenticated");
+        toast.success("Ahh, nice. Admin access confirmed.");
       } else {
-        toast.error("Invalid password");
+        toast.error("Ahh, sorry, that admin password did not match.");
         setPassword("");
       }
     } catch {
-      toast.error("Authentication failed");
+      toast.error("Ahh, sorry, admin sign-in could not be completed right now.");
     } finally {
       setAuthAttempted(false);
     }
@@ -72,9 +75,9 @@ export default function AdminLayout({
       await fetch("/api/admin/logout", { method: "POST" });
       setAuthenticated(false);
       setPassword("");
-      toast.success("Logged out");
+      toast.success("You have been signed out of admin.");
     } catch {
-      toast.error("Unable to end admin session");
+      toast.error("Ahh, sorry, admin sign-out could not finish right now.");
     }
   };
 

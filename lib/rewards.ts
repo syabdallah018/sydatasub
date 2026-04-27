@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient, Reward, RewardStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
-type ManagedRewardType =
+export type ManagedRewardType =
   | "FIRST_DEPOSIT_2K"
   | "DEPOSIT_10K_UPGRADE"
   | "SALES_50GB_WEEKLY"
@@ -89,6 +89,43 @@ const MANAGED_REWARD_TYPES: ManagedRewardType[] = [
 
 type RewardDbClient = PrismaClient | Prisma.TransactionClient;
 
+async function getRewardDbSupport(db: RewardDbClient) {
+  const [enumRows, tableRows] = await Promise.all([
+    db.$queryRawUnsafe<{ value: string }[]>(`
+      SELECT e.enumlabel AS value
+      FROM pg_type t
+      JOIN pg_enum e ON t.oid = e.enumtypid
+      WHERE t.typname = 'RewardType'
+      ORDER BY e.enumsortorder
+    `).catch(() => []),
+    db.$queryRawUnsafe<{ table_name: string }[]>(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('rewards', 'user_rewards')
+    `).catch(() => []),
+  ]);
+
+  const enumValues = new Set(enumRows.map((row) => row.value));
+  const tableSet = new Set(tableRows.map((row) => row.table_name));
+
+  return {
+    enumValues,
+    hasRewardsTable: tableSet.has("rewards"),
+    hasUserRewardsTable: tableSet.has("user_rewards"),
+  };
+}
+
+export async function getSupportedManagedRewardTypes(db: RewardDbClient) {
+  const support = await getRewardDbSupport(db);
+  const supportedTypes = MANAGED_REWARD_TYPES.filter((type) => support.enumValues.has(type));
+
+  return {
+    ...support,
+    supportedTypes,
+  };
+}
+
 function asManagedRewardType(value: string): ManagedRewardType | null {
   return MANAGED_REWARD_TYPES.includes(value as ManagedRewardType) ? (value as ManagedRewardType) : null;
 }
@@ -112,14 +149,17 @@ export function parsePlanSizeToGb(sizeLabel?: string | null) {
 }
 
 export async function ensureDefaultRewardCatalog(db: RewardDbClient = prisma) {
+  const support = await getSupportedManagedRewardTypes(db);
+  if (!support.hasRewardsTable || support.supportedTypes.length === 0) return;
+
   const existingCount = await db.reward.count({
-    where: { type: { in: MANAGED_REWARD_TYPES as any } },
+    where: { type: { in: support.supportedTypes as any } },
   });
 
   if (existingCount > 0) return;
 
   await db.reward.createMany({
-    data: MANAGED_REWARD_TYPES.map((type) => {
+    data: support.supportedTypes.map((type) => {
       const definition = REWARD_DEFINITIONS[type];
       return {
         type: type as any,
@@ -213,6 +253,8 @@ export async function evaluateDepositRewardInTx(
   params: { userId: string; phone: string; depositAmount: number }
 ) {
   await ensureDefaultRewardCatalog(tx);
+  const support = await getSupportedManagedRewardTypes(tx);
+  if (!support.hasRewardsTable || !support.hasUserRewardsTable) return;
 
   const priorSuccessfulDeposits = await tx.transaction.count({
     where: {
@@ -232,6 +274,7 @@ export async function evaluateDepositRewardInTx(
   }
 
   if (!rewardType) return;
+  if (!support.supportedTypes.includes(rewardType)) return;
 
   const reward = await tx.reward.findFirst({
     where: {
@@ -253,6 +296,9 @@ export async function checkAndAwardRewards(userId: string) {
   await ensureDefaultRewardCatalog(prisma);
 
   return prisma.$transaction(async (tx) => {
+    const support = await getSupportedManagedRewardTypes(tx);
+    if (!support.hasRewardsTable || !support.hasUserRewardsTable) return;
+
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`reward:${userId}`}))`;
 
     const user = await tx.user.findUnique({
@@ -264,7 +310,7 @@ export async function checkAndAwardRewards(userId: string) {
 
     const rewardRows = await tx.reward.findMany({
       where: {
-        type: { in: MANAGED_REWARD_TYPES as any },
+        type: { in: support.supportedTypes as any },
         isActive: true,
       },
     });
@@ -293,27 +339,32 @@ export async function checkAndAwardRewards(userId: string) {
 
 export async function getRewardProgressForUser(userId: string) {
   await ensureDefaultRewardCatalog(prisma);
+  const support = await getSupportedManagedRewardTypes(prisma);
 
   const [user, rewards, claims, firstDeposit, weeklyTransactions] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { rewardBalance: true },
     }),
-    prisma.reward.findMany({
-      where: { type: { in: MANAGED_REWARD_TYPES as any } },
-      orderBy: { title: "asc" },
-    }),
-    prisma.userReward.findMany({
-      where: {
-        userId,
-        reward: { type: { in: MANAGED_REWARD_TYPES as any } },
-      },
-      include: {
-        reward: {
-          select: { type: true },
-        },
-      },
-    }),
+    support.hasRewardsTable
+      ? prisma.reward.findMany({
+          where: { type: { in: support.supportedTypes as any } },
+          orderBy: { title: "asc" },
+        })
+      : Promise.resolve([]),
+    support.hasUserRewardsTable && support.supportedTypes.length > 0
+      ? prisma.userReward.findMany({
+          where: {
+            userId,
+            reward: { type: { in: support.supportedTypes as any } },
+          },
+          include: {
+            reward: {
+              select: { type: true },
+            },
+          },
+        })
+      : Promise.resolve([]),
     prisma.transaction.findFirst({
       where: {
         userId,
@@ -340,6 +391,15 @@ export async function getRewardProgressForUser(userId: string) {
     }),
   ]);
 
+  const rewardMap = new Map(
+    rewards
+      .map((reward) => {
+        const type = asManagedRewardType(reward.type);
+        return type ? [type, reward] : null;
+      })
+      .filter(Boolean) as [ManagedRewardType, (typeof rewards)[number]][]
+  );
+
   const claimMap = new Map(
     claims
       .map((claim) => {
@@ -354,21 +414,19 @@ export async function getRewardProgressForUser(userId: string) {
     0
   );
 
-  const items: RewardProgressItem[] = rewards
-    .map((reward) => {
-      const type = asManagedRewardType(reward.type);
-      if (!type) return null;
-
+  const items: RewardProgressItem[] = MANAGED_REWARD_TYPES
+    .map((type) => {
       const definition = REWARD_DEFINITIONS[type];
+      const reward = rewardMap.get(type);
       const claim = claimMap.get(type);
 
       if (claim) {
         return {
-          id: reward.id,
+          id: reward?.id || type,
           type,
-          title: reward.title,
-          description: reward.description,
-          amount: reward.amount,
+          title: reward?.title || definition.title,
+          description: reward?.description || definition.description,
+          amount: reward?.amount || definition.amount,
           claimed: true,
           claimable: false,
           status: "CLAIMED" as const,
@@ -377,7 +435,7 @@ export async function getRewardProgressForUser(userId: string) {
           progressPercent: 100,
           unit: definition.unit,
           claimedAt: claim.claimedAt ? claim.claimedAt.toISOString() : null,
-          isActive: reward.isActive,
+          isActive: reward?.isActive ?? true,
         };
       }
 
@@ -386,11 +444,11 @@ export async function getRewardProgressForUser(userId: string) {
 
         if (!firstDeposit) {
           return {
-            id: reward.id,
+            id: reward?.id || type,
             type,
-            title: reward.title,
-            description: reward.description,
-            amount: reward.amount,
+            title: reward?.title || definition.title,
+            description: reward?.description || definition.description,
+            amount: reward?.amount || definition.amount,
             claimed: false,
             claimable: false,
             status: "IN_PROGRESS",
@@ -399,7 +457,7 @@ export async function getRewardProgressForUser(userId: string) {
             progressPercent: 0,
             unit: definition.unit,
             claimedAt: null,
-            isActive: reward.isActive,
+            isActive: reward?.isActive ?? true,
           };
         }
 
@@ -409,11 +467,11 @@ export async function getRewardProgressForUser(userId: string) {
             : firstAmount >= 10000;
 
         return {
-          id: reward.id,
+          id: reward?.id || type,
           type,
-          title: reward.title,
-          description: reward.description,
-          amount: reward.amount,
+          title: reward?.title || definition.title,
+          description: reward?.description || definition.description,
+          amount: reward?.amount || definition.amount,
           claimed: false,
           claimable: matches,
           status: matches ? "IN_PROGRESS" : "MISSED",
@@ -422,16 +480,16 @@ export async function getRewardProgressForUser(userId: string) {
           progressPercent: matches ? 100 : clampPercent(firstAmount, definition.targetValue),
           unit: definition.unit,
           claimedAt: null,
-          isActive: reward.isActive,
+          isActive: reward?.isActive ?? true,
         };
       }
 
       return {
-        id: reward.id,
+        id: reward?.id || type,
         type,
-        title: reward.title,
-        description: reward.description,
-        amount: reward.amount,
+        title: reward?.title || definition.title,
+        description: reward?.description || definition.description,
+        amount: reward?.amount || definition.amount,
         claimed: false,
         claimable: weeklyVolumeGb >= definition.targetValue,
         status: weeklyVolumeGb >= definition.targetValue ? "IN_PROGRESS" : "IN_PROGRESS",
@@ -440,7 +498,7 @@ export async function getRewardProgressForUser(userId: string) {
         progressPercent: clampPercent(weeklyVolumeGb, definition.targetValue),
         unit: definition.unit,
         claimedAt: null,
-        isActive: reward.isActive,
+        isActive: reward?.isActive ?? true,
       };
     })
     .filter(Boolean) as RewardProgressItem[];

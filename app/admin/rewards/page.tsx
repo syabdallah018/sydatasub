@@ -37,19 +37,22 @@ const emptyForm = {
 
 export default function AdminRewardsPage() {
   const [rewards, setRewards] = useState<RewardItem[]>([]);
+  const [supportedTypes, setSupportedTypes] = useState<RewardType[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<RewardItem | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const usedTypes = useMemo(() => new Set(rewards.map((reward) => reward.type)), [rewards]);
+  const availableOptions = REWARD_OPTIONS.filter((option) => supportedTypes.length === 0 || supportedTypes.includes(option.value));
 
   const fetchRewards = async () => {
     const res = await fetch("/api/admin/rewards", { cache: "no-store" });
     const payload = await res.json();
     if (!res.ok || !payload.success) {
-      toast.error(payload.error || "Could not load rewards");
+      toast.error(payload.error || "Ahh, sorry, rewards could not load right now.");
       return;
     }
+    setSupportedTypes(Array.isArray(payload.supportedTypes) ? payload.supportedTypes : []);
     setRewards(payload.data || []);
   };
 
@@ -58,7 +61,7 @@ export default function AdminRewardsPage() {
   }, []);
 
   const openCreate = () => {
-    const nextType = REWARD_OPTIONS.find((option) => !usedTypes.has(option.value))?.value || "FIRST_DEPOSIT_2K";
+    const nextType = availableOptions.find((option) => !usedTypes.has(option.value))?.value || "FIRST_DEPOSIT_2K";
     setEditing(null);
     setForm({ ...emptyForm, type: nextType });
     setOpen(true);
@@ -88,11 +91,11 @@ export default function AdminRewardsPage() {
     const payload = await res.json();
 
     if (!res.ok || !payload.success) {
-      toast.error(payload.error || "Could not save reward");
+      toast.error(payload.error || "Ahh, sorry, that reward could not be saved right now.");
       return;
     }
 
-    toast.success(editing ? "Reward updated" : "Reward created");
+    toast.success(editing ? "Reward updated." : "Reward created.");
     setOpen(false);
     setEditing(null);
     setForm(emptyForm);
@@ -104,10 +107,10 @@ export default function AdminRewardsPage() {
     const res = await fetch(`/api/admin/rewards/${reward.id}`, { method: "DELETE" });
     const payload = await res.json();
     if (!res.ok || !payload.success) {
-      toast.error(payload.error || "Could not delete reward");
+      toast.error(payload.error || "Ahh, sorry, that reward could not be removed right now.");
       return;
     }
-    toast.success("Reward deleted");
+    toast.success("Reward deleted.");
     fetchRewards();
   };
 
@@ -119,13 +122,13 @@ export default function AdminRewardsPage() {
     });
     const payload = await res.json();
     if (!res.ok || !payload.success) {
-      toast.error(payload.error || "Could not update reward");
+      toast.error(payload.error || "Ahh, sorry, that reward could not be updated right now.");
       return;
     }
     fetchRewards();
   };
 
-  const createDisabled = !editing && REWARD_OPTIONS.every((option) => usedTypes.has(option.value));
+  const createDisabled = !editing && availableOptions.every((option) => usedTypes.has(option.value));
 
   return (
     <div className="space-y-6">
@@ -153,7 +156,7 @@ export default function AdminRewardsPage() {
                     onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as RewardType }))}
                     className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                   >
-                    {REWARD_OPTIONS.filter((option) => !usedTypes.has(option.value) || option.value === form.type).map((option) => (
+                    {availableOptions.filter((option) => !usedTypes.has(option.value) || option.value === form.type).map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
