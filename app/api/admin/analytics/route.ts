@@ -14,10 +14,8 @@ export async function GET(req: NextRequest) {
     // Get total users
     const totalUsers = await prisma.user.count();
 
-    // Get total transactions
-    const totalTransactions = await prisma.transaction.count({
-      where: { status: "SUCCESS" },
-    });
+    // Total transactions should include all statuses for accurate dashboard volume.
+    const totalTransactions = await prisma.transaction.count();
 
     // Get total revenue (successful data/airtime purchases in naira)
     const totalRevenueData = await prisma.transaction.aggregate({

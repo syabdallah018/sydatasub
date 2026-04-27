@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { ensureDefaultRewardCatalog, getSupportedManagedRewardTypes, ManagedRewardType } from "@/lib/rewards";
 
 const rewardTypeValues = [
+  "SIGNUP_BONUS",
   "FIRST_DEPOSIT_2K",
   "DEPOSIT_10K_UPGRADE",
   "SALES_50GB_WEEKLY",

@@ -117,6 +117,13 @@ interface BroadcastNotice {
   severity: string;
 }
 
+interface SuccessState {
+  open: boolean;
+  title: string;
+  description: string;
+  reference?: string;
+}
+
 const NETWORKS = [
   { id: "mtn", name: "MTN", color: "#FFCC00", bg: "#fff7cc", logo: "/mtn.jpg" },
   { id: "airtel", name: "Airtel", color: "#FF3333", bg: "#ffe2e2", logo: "/airtel.jpg" },
@@ -381,6 +388,140 @@ function BroadcastBanner({
           Dismiss
         </button>
       </div>
+    </motion.div>
+  );
+}
+
+function RewardCreditBanner({
+  amount,
+  onDismiss,
+}: {
+  amount: number;
+  onDismiss: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        marginBottom: 14,
+        borderRadius: 20,
+        border: "1px solid #86efac",
+        background: "#ecfdf3",
+        padding: 16,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 14, color: T.text, margin: "0 0 6px" }}>
+            Reward achieved
+          </p>
+          <p style={{ fontFamily: T.font, fontSize: 13, color: T.textMid, margin: 0, lineHeight: 1.5 }}>
+            You have fulfilled a reward and your reward wallet was credited with N{amount.toLocaleString()}.
+          </p>
+        </div>
+        <button
+          onClick={onDismiss}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: T.green,
+            fontFamily: T.font,
+            fontWeight: 800,
+            fontSize: 12,
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+function PurchaseSuccessScreen({
+  state,
+  onClose,
+}: {
+  state: SuccessState;
+  onClose: () => void;
+}) {
+  if (!state.open) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 120,
+        background: "rgba(15,23,42,0.55)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 18,
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.2 }}
+        style={{
+          width: "100%",
+          maxWidth: 460,
+          borderRadius: 24,
+          border: `1px solid ${T.borderStrong}`,
+          background: T.card,
+          boxShadow: T.blueShadow,
+          padding: 24,
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 66,
+            height: 66,
+            margin: "0 auto 16px",
+            borderRadius: 20,
+            background: "rgba(22,163,74,0.14)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Check size={34} color={T.green} />
+        </div>
+        <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.text, margin: "0 0 8px" }}>
+          {state.title}
+        </p>
+        <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: "0 0 16px", lineHeight: 1.5 }}>
+          {state.description}
+        </p>
+        {state.reference ? (
+          <p style={{ fontFamily: T.mono, fontSize: 12, color: T.textDim, margin: "0 0 20px" }}>
+            Ref: {state.reference}
+          </p>
+        ) : null}
+        <button
+          onClick={onClose}
+          style={{
+            width: "100%",
+            border: "none",
+            borderRadius: 14,
+            padding: "12px 14px",
+            background: T.blue,
+            color: "#fff",
+            fontFamily: T.font,
+            fontWeight: 800,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          Continue
+        </button>
+      </motion.div>
     </motion.div>
   );
 }
@@ -809,8 +950,7 @@ function InfiniteTransactionFeed({
   return (
     <>
       {title ? (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div />
+        <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: 14 }}>
           <p style={{ fontFamily: T.font, fontSize: compact ? 12 : 13, fontWeight: 700, color: T.textMid, margin: 0 }}>
             {title}
           </p>
@@ -1352,7 +1492,15 @@ export default function DashboardPage() {
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
   const [rewardSnapshot, setRewardSnapshot] = useState<RewardSnapshot | null>(null);
+  const [rewardCreditNoticeAmount, setRewardCreditNoticeAmount] = useState<number | null>(null);
+  const [successState, setSuccessState] = useState<SuccessState>({
+    open: false,
+    title: "",
+    description: "",
+    reference: undefined,
+  });
   const [broadcasts, setBroadcasts] = useState<BroadcastNotice[]>([]);
+  const rewardBalanceSeenRef = useRef<number | null>(null);
 
   const [buyDataOpen, setBuyDataOpen] = useState(false);
   const [buyDataStep, setBuyDataStep] = useState(1);
@@ -1410,7 +1558,17 @@ export default function DashboardPage() {
     const response = await fetch("/api/rewards", { credentials: "include", cache: "no-store" });
     const payload = await response.json();
     if (response.ok && payload?.success) {
-      setRewardSnapshot(payload.data);
+      const nextData = payload.data as RewardSnapshot;
+      const nextBalance = Number(nextData?.rewardBalance || 0);
+      const previousBalance = rewardBalanceSeenRef.current;
+      if (previousBalance !== null && nextBalance > previousBalance) {
+        const deltaNaira = Math.round((nextBalance - previousBalance) / 100);
+        if (deltaNaira > 0) {
+          setRewardCreditNoticeAmount(deltaNaira);
+        }
+      }
+      rewardBalanceSeenRef.current = nextBalance;
+      setRewardSnapshot(nextData);
       return;
     }
     throw new Error(payload?.error || "Could not load rewards");
@@ -1419,6 +1577,14 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     refreshRewards().catch(() => undefined);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    const intervalId = setInterval(() => {
+      refreshRewards().catch(() => undefined);
+    }, 25000);
+    return () => clearInterval(intervalId);
   }, [user?.id]);
 
   const dismissBroadcast = (id: string) => {
@@ -1520,13 +1686,18 @@ export default function DashboardPage() {
         return;
       }
 
-      toast.success(result.message || "Your data purchase was successful.");
       setBuyDataOpen(false);
       setBuyDataStep(1);
       setSelectedNetwork(null);
       setSelectedPlan(null);
       setPhoneNumber("");
       setPin("");
+      setSuccessState({
+        open: true,
+        title: "Data purchase successful",
+        description: result.message || `Your ${selectedPlan.sizeLabel} data purchase was completed successfully.`,
+        reference: result.reference,
+      });
       await refreshUser();
       await refreshRewards().catch(() => undefined);
     } catch {
@@ -1576,12 +1747,17 @@ export default function DashboardPage() {
         return;
       }
 
-      toast.success(result.message || "Your airtime purchase was successful.");
       setAirtimeOpen(false);
       setAirtimeNetwork(null);
       setAirtimeAmount(null);
       setAirtimePhone("");
       setAirtimePin("");
+      setSuccessState({
+        open: true,
+        title: "Airtime purchase successful",
+        description: result.message || `Your airtime purchase of N${airtimeAmount.toLocaleString()} was completed successfully.`,
+        reference: result.reference,
+      });
       await refreshUser();
       await refreshRewards().catch(() => undefined);
     } catch {
@@ -1684,6 +1860,9 @@ export default function DashboardPage() {
 
         <main style={{ maxWidth: 520, margin: "0 auto", padding: "20px 20px 0" }}>
           <BroadcastBanner notice={broadcasts[0] || null} onDismiss={() => broadcasts[0] && dismissBroadcast(broadcasts[0].id)} />
+          {rewardCreditNoticeAmount ? (
+            <RewardCreditBanner amount={rewardCreditNoticeAmount} onDismiss={() => setRewardCreditNoticeAmount(null)} />
+          ) : null}
 
           {showRewards ? (
             <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setShowRewards(false)} />
@@ -1716,6 +1895,11 @@ export default function DashboardPage() {
           }}
         />
       </div>
+
+      <PurchaseSuccessScreen
+        state={successState}
+        onClose={() => setSuccessState({ open: false, title: "", description: "", reference: undefined })}
+      />
 
       <BottomSheet
         open={buyDataOpen}

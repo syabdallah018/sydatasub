@@ -2,12 +2,14 @@ import { Prisma, PrismaClient, Reward, RewardStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export type ManagedRewardType =
+  | "SIGNUP_BONUS"
   | "FIRST_DEPOSIT_2K"
   | "DEPOSIT_10K_UPGRADE"
   | "SALES_50GB_WEEKLY"
   | "SALES_100GB_WEEKLY";
 
 const RT = {
+  SIGNUP_BONUS: "SIGNUP_BONUS" as ManagedRewardType,
   FIRST_DEPOSIT_2K: "FIRST_DEPOSIT_2K" as ManagedRewardType,
   DEPOSIT_10K_UPGRADE: "DEPOSIT_10K_UPGRADE" as ManagedRewardType,
   SALES_50GB_WEEKLY: "SALES_50GB_WEEKLY" as ManagedRewardType,
@@ -42,6 +44,15 @@ export type RewardProgressItem = {
 };
 
 export const REWARD_DEFINITIONS: Record<ManagedRewardType, RewardDefinition> = {
+  SIGNUP_BONUS: {
+    type: RT.SIGNUP_BONUS,
+    title: "Welcome Bonus",
+    description: "Earn N100 once when your account is created.",
+    amount: 100,
+    metric: "deposit",
+    targetValue: 1,
+    unit: "NGN",
+  },
   FIRST_DEPOSIT_2K: {
     type: RT.FIRST_DEPOSIT_2K,
     title: "First Deposit Reward",
@@ -81,6 +92,7 @@ export const REWARD_DEFINITIONS: Record<ManagedRewardType, RewardDefinition> = {
 };
 
 const MANAGED_REWARD_TYPES: ManagedRewardType[] = [
+  RT.SIGNUP_BONUS,
   RT.FIRST_DEPOSIT_2K,
   RT.DEPOSIT_10K_UPGRADE,
   RT.SALES_50GB_WEEKLY,
@@ -292,6 +304,31 @@ export async function evaluateDepositRewardInTx(
   });
 }
 
+export async function evaluateSignupRewardInTx(
+  tx: RewardDbClient,
+  params: { userId: string; phone: string }
+) {
+  await ensureDefaultRewardCatalog(tx);
+  const support = await getSupportedManagedRewardTypes(tx);
+  if (!support.hasRewardsTable || !support.hasUserRewardsTable) return;
+  if (!support.supportedTypes.includes(RT.SIGNUP_BONUS)) return;
+
+  const reward = await tx.reward.findFirst({
+    where: {
+      type: RT.SIGNUP_BONUS as any,
+      isActive: true,
+    },
+  });
+
+  if (!reward) return;
+
+  await awardRewardInTx(tx, {
+    userId: params.userId,
+    phone: params.phone,
+    reward,
+  });
+}
+
 export async function checkAndAwardRewards(userId: string) {
   await ensureDefaultRewardCatalog(prisma);
 
@@ -478,6 +515,25 @@ export async function getRewardProgressForUser(userId: string) {
           progressValue: matches ? definition.targetValue : Math.min(firstAmount, definition.targetValue),
           targetValue: definition.targetValue,
           progressPercent: matches ? 100 : clampPercent(firstAmount, definition.targetValue),
+          unit: definition.unit,
+          claimedAt: null,
+          isActive: reward?.isActive ?? true,
+        };
+      }
+
+      if (type === RT.SIGNUP_BONUS) {
+        return {
+          id: reward?.id || type,
+          type,
+          title: reward?.title || definition.title,
+          description: reward?.description || definition.description,
+          amount: reward?.amount || definition.amount,
+          claimed: false,
+          claimable: true,
+          status: "IN_PROGRESS",
+          progressValue: 1,
+          targetValue: 1,
+          progressPercent: 100,
           unit: definition.unit,
           claimedAt: null,
           isActive: reward?.isActive ?? true,

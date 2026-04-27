@@ -1,9 +1,18 @@
 import { jwtVerify, SignJWT } from "jose";
 import { NextRequest } from "next/server";
 
-const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET || "your-super-secret-jwt-key-min-32-chars"
-);
+function getJwtSecret() {
+  const configured = process.env.JWT_SECRET;
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET is not configured");
+  }
+  return "dev-jwt-secret-only";
+}
+
+function getSecretBytes() {
+  return new TextEncoder().encode(getJwtSecret());
+}
 
 export const SESSION_COOKIE_NAME = "sy_session";
 export const ADMIN_SESSION_COOKIE_NAME = "sy_admin_session";
@@ -36,6 +45,7 @@ export interface JWTPayload {
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {
+  const secret = getSecretBytes();
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
@@ -48,6 +58,7 @@ export async function verifyToken(
   token: string
 ): Promise<JWTPayload | null> {
   try {
+    const secret = getSecretBytes();
     const verified = await jwtVerify(token, secret);
     return verified.payload as JWTPayload;
   } catch (error) {

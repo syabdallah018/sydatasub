@@ -11,7 +11,7 @@ const verifySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const originError = rejectCrossSiteMutation(req);
+    const originError = rejectCrossSiteMutation(req, { requireOrigin: true });
     if (originError) return originError;
 
     const user = await getSessionUser(req);

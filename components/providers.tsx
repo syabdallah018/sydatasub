@@ -15,8 +15,14 @@ export function Providers({ children }: { children: ReactNode }) {
     let onControllerChange: (() => void) | null = null;
 
     if ("serviceWorker" in navigator) {
+      const buildId =
+        typeof window !== "undefined" && (window as any).__NEXT_DATA__?.buildId
+          ? String((window as any).__NEXT_DATA__.buildId)
+          : "dev";
+      const swUrl = `/sw.js?build=${encodeURIComponent(buildId)}`;
+
       navigator.serviceWorker
-        .register("/sw.js", { updateViaCache: "none" })
+        .register(swUrl, { updateViaCache: "none" })
         .then((reg) => {
           const promoteWaitingWorker = () => {
             if (reg.waiting) {

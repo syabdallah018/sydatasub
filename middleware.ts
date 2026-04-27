@@ -14,6 +14,14 @@ export async function middleware(req: NextRequest) {
   // Prevents Android WebView and browsers from aggressively caching responses
   // This forces revalidation on every request, especially for real-time data like balance
   
+  // SW and Next runtime assets: force fresh fetch after deployment for WebView stability.
+  if (req.nextUrl.pathname === "/sw.js" || req.nextUrl.pathname.startsWith("/_next/")) {
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    response.headers.set("Surrogate-Control", "no-store");
+  }
+
   // API Routes: No cache (must always fetch fresh data)
   if (req.nextUrl.pathname.startsWith("/api/")) {
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
@@ -29,7 +37,12 @@ export async function middleware(req: NextRequest) {
   }
   
   // Landing/Public Pages: Cache but allow stale
-  if (!req.nextUrl.pathname.startsWith("/api/") && !req.nextUrl.pathname.startsWith("/app/")) {
+  if (
+    !req.nextUrl.pathname.startsWith("/api/") &&
+    !req.nextUrl.pathname.startsWith("/app/") &&
+    req.nextUrl.pathname !== "/sw.js" &&
+    !req.nextUrl.pathname.startsWith("/_next/")
+  ) {
     response.headers.set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
   }
 

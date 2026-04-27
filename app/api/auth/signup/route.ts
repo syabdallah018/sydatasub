@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createFlutterwaveVirtualAccount } from "@/lib/flutterwave";
 import { buildUserCreateCompatData, getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
+import { evaluateSignupRewardInTx } from "@/lib/rewards";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -22,7 +23,7 @@ const signupSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const originError = rejectCrossSiteMutation(req);
+    const originError = rejectCrossSiteMutation(req, { requireOrigin: true });
     if (originError) return originError;
 
     const rateLimitError = enforceRateLimit(req, "login", "signup");
@@ -58,6 +59,13 @@ export async function POST(req: NextRequest) {
         balance: 0,
         isBanned: false,
       }),
+    });
+
+    await prisma.$transaction(async (tx) => {
+      await evaluateSignupRewardInTx(tx, {
+        userId: user.id,
+        phone: user.phone,
+      });
     });
 
     let virtualAccount = null;
