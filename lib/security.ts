@@ -3,7 +3,10 @@ import { RATE_LIMITS, checkRateLimit, getClientIp, getRateLimitKey } from "@/lib
 
 type RateLimitName = keyof typeof RATE_LIMITS;
 
-export function rejectCrossSiteMutation(req: NextRequest): NextResponse | null {
+export function rejectCrossSiteMutation(
+  req: NextRequest,
+  options?: { requireOrigin?: boolean }
+): NextResponse | null {
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(req.method.toUpperCase())) {
     return null;
   }
@@ -14,6 +17,9 @@ export function rejectCrossSiteMutation(req: NextRequest): NextResponse | null {
 
   const candidate = originHeader || refererHeader;
   if (!candidate) {
+    if (options?.requireOrigin) {
+      return NextResponse.json({ error: "Missing request origin" }, { status: 403 });
+    }
     return null;
   }
 

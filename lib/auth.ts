@@ -18,6 +18,16 @@ function getCookieOptions() {
   };
 }
 
+function getAdminCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict" as const,
+    maxAge: 60 * 60 * 12,
+    path: "/",
+  };
+}
+
 export interface JWTPayload {
   userId: string;
   email: string;
@@ -94,12 +104,12 @@ export function clearUserSessionCookie(response: { cookies: { set: Function } })
 }
 
 export function setAdminSessionCookie(response: { cookies: { set: Function } }, token: string) {
-  response.cookies.set(ADMIN_SESSION_COOKIE_NAME, token, getCookieOptions());
+  response.cookies.set(ADMIN_SESSION_COOKIE_NAME, token, getAdminCookieOptions());
 }
 
 export function clearAdminSessionCookie(response: { cookies: { set: Function } }) {
   response.cookies.set(ADMIN_SESSION_COOKIE_NAME, "", {
-    ...getCookieOptions(),
+    ...getAdminCookieOptions(),
     expires: new Date(0),
     maxAge: 0,
   });

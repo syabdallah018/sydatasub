@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { deliverGuestData } from "@/lib/data-delivery";
 import { evaluateDepositRewardInTx } from "@/lib/rewards";
-import { secureCompare } from "@/lib/security";
+import { enforceRateLimit, secureCompare } from "@/lib/security";
 
 type WebhookLogContext = Record<string, unknown>;
 
@@ -21,6 +21,15 @@ async function acquireFundingLock(tx: any, reference: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`wallet:${reference}`}))`;
 }
 
+function extractUserIdFromTxRef(txRef: string): string | null {
+  const value = String(txRef || "");
+  const marker = "SYDATA-VA-";
+  if (!value.startsWith(marker)) return null;
+  const parts = value.split("-");
+  if (parts.length < 4) return null;
+  return parts.slice(2, parts.length - 1).join("-") || null;
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 405 });
 }
@@ -31,6 +40,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const webhookRateError = enforceRateLimit(req, "webhook", "flutterwave-webhook");
+    if (webhookRateError) return webhookRateError;
+
     const signature = req.headers.get("verif-hash");
     const secret = process.env.FLUTTERWAVE_WEBHOOK_SECRET;
 
@@ -164,6 +176,59 @@ export async function POST(req: NextRequest) {
           virtualAccountId: virtualAccount.id,
           storedOrderRef: virtualAccount.orderRef,
         });
+      }
+    }
+
+    if (!virtualAccount) {
+      const parsedUserId = extractUserIdFromTxRef(String(eventData.tx_ref));
+      if (parsedUserId) {
+        virtualAccount = await prisma.virtualAccount.findFirst({
+          where: { userId: parsedUserId },
+          select: {
+            id: true,
+            userId: true,
+            accountNumber: true,
+            orderRef: true,
+          },
+        });
+        if (virtualAccount) {
+          logWebhook("matched_by_tx_ref_user", {
+            ...baseContext,
+            virtualAccountId: virtualAccount.id,
+            userId: virtualAccount.userId,
+          });
+        }
+      }
+    }
+
+    if (!virtualAccount) {
+      const existingFunding = await prisma.transaction.findFirst({
+        where: {
+          type: "WALLET_FUNDING",
+          OR: [{ externalReference: String(eventData.tx_ref) }, { reference: String(eventData.tx_ref) }],
+        },
+        select: { userId: true, id: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (existingFunding?.userId) {
+        virtualAccount = await prisma.virtualAccount.findFirst({
+          where: { userId: existingFunding.userId },
+          select: {
+            id: true,
+            userId: true,
+            accountNumber: true,
+            orderRef: true,
+          },
+        });
+        if (virtualAccount) {
+          logWebhook("matched_by_existing_funding_ref", {
+            ...baseContext,
+            virtualAccountId: virtualAccount.id,
+            transactionId: existingFunding.id,
+            userId: virtualAccount.userId,
+          });
+        }
       }
     }
 

@@ -1,137 +1,69 @@
 // Service Worker for SY DATA SUB
-// Handles cache invalidation and real-time balance updates for WebView compatibility
+// Conservative strategy: do not cache app shell/chunks to avoid stale-deploy WebView freezes.
 
-const CACHE_NAME = "sydatasub-v3";
-const API_CACHE = "sydatasub-api-v3";
+const SW_VERSION = "sydatasub-v4";
+const STATIC_CACHE = `${SW_VERSION}-static`;
 
-// Critical routes that should NEVER be cached
-const NO_CACHE_ROUTES = [
-  "/api/auth/me",
-  "/api/transactions",
-  "/api/data/purchase",
-  "/api/airtime/purchase",
-  "/api/flutterwave/webhook"
-];
+const STATIC_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg", ".webp", ".ico", ".woff", ".woff2"];
 
-// Install event: Set up caches
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installing service worker...");
   self.skipWaiting();
 });
 
-// Activate event: Clean up old caches
 self.addEventListener("activate", (event) => {
-  console.log("[SW] Activating service worker...");
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && cacheName !== API_CACHE) {
-            console.log("[SW] Deleting old cache:", cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => !key.startsWith(SW_VERSION)).map((key) => caches.delete(key)));
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
-// Fetch event: Handle requests with smart caching strategy
+self.addEventListener("message", (event) => {
+  if (event?.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+function isStaticAsset(pathname) {
+  return STATIC_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
+  if (request.method !== "GET") return;
+
   const url = new URL(request.url);
+  const pathname = url.pathname;
 
-  // ===== CRITICAL FOR WEBVIEW: Never cache API responses =====
-  if (NO_CACHE_ROUTES.some((route) => url.pathname.startsWith(route))) {
-    console.log(`[SW] Network-first for: ${url.pathname}`);
-    event.respondWith(
-      fetch(request, { cache: "no-store" })
-        .then((response) => {
-          // Always fetch fresh, never cache
-          return response;
-        })
-        .catch(() => {
-          // Offline fallback: serve stale if available
-          return caches.match(request);
-        })
-    );
+  // Never cache app pages, Next chunks, or API responses.
+  if (pathname.startsWith("/api/") || pathname.startsWith("/app") || pathname.startsWith("/_next/")) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
     return;
   }
 
-  // ===== HTML Pages (app routes): Network first with fallback =====
-  if (request.method === "GET" && url.pathname.startsWith("/app/")) {
-    console.log(`[SW] Network-first for page: ${url.pathname}`);
+  // Only cache passive static assets (icons/images/fonts).
+  if (isStaticAsset(pathname)) {
     event.respondWith(
-      fetch(request, { cache: "no-store" })
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type === "error") {
-            return response;
+      (async () => {
+        const cache = await caches.open(STATIC_CACHE);
+        const cached = await cache.match(request);
+        if (cached) return cached;
+
+        try {
+          const response = await fetch(request, { cache: "no-store" });
+          if (response && response.ok) {
+            cache.put(request, response.clone());
           }
-          // Clone and cache
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
           return response;
-        })
-        .catch(() => {
-          return caches.match(request);
-        })
+        } catch {
+          return cached || Response.error();
+        }
+      })()
     );
     return;
   }
 
-// ===== Static assets (CSS, JS, fonts): Network first to avoid stale UI after deploy =====
-  if (
-    request.method === "GET" &&
-    (url.pathname.endsWith(".css") ||
-      url.pathname.endsWith(".js") ||
-      url.pathname.endsWith(".woff2") ||
-      url.pathname.endsWith(".woff") ||
-      url.pathname.startsWith("/fonts/"))
-  ) {
-    event.respondWith(
-      fetch(request, { cache: "no-store" })
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type === "error") {
-            return response;
-          }
-
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
-
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
-  // ===== Default: Network first =====
-  event.respondWith(
-    fetch(request, { cache: "no-store" })
-      .then((response) => {
-        return response;
-      })
-      .catch(() => {
-        return caches.match(request);
-      })
-  );
+  event.respondWith(fetch(request, { cache: "no-store" }));
 });
-
-// ===== Background Sync for offline transactions =====
-self.addEventListener("sync", (event) => {
-  console.log("[SW] Background sync event:", event.tag);
-  if (event.tag === "sync-balance") {
-    event.waitUntil(
-      fetch("/api/auth/me?_cb=" + Date.now(), { cache: "no-store" })
-        .then(() => console.log("[SW] Balance synced"))
-        .catch(() => console.error("[SW] Sync failed"))
-    );
-  }
-});
-
-console.log("[SW] Service Worker registered - WebView cache bypass enabled");

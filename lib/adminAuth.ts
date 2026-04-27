@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE_NAME, clearAdminSessionCookie, setAdminSessionCookie, signToken, verifyAdminToken } from "@/lib/auth";
-import { rejectCrossSiteMutation, secureCompare } from "@/lib/security";
+import { enforceRateLimit, rejectCrossSiteMutation, secureCompare } from "@/lib/security";
 
 export interface AdminUser {
   userId: string;
@@ -73,5 +73,7 @@ export function validateAdminPassword(password: string | undefined | null): bool
 }
 
 export function enforceAdminMutationGuard(req: NextRequest) {
-  return rejectCrossSiteMutation(req);
+  const originError = rejectCrossSiteMutation(req, { requireOrigin: true });
+  if (originError) return originError;
+  return enforceRateLimit(req, "adminMutation", "admin-mutation");
 }

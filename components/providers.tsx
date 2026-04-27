@@ -8,34 +8,55 @@ import { Toaster } from "@/components/ui/sonner";
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
-  // Register Service Worker for cache bypass (WebView compatibility)
+  // Register Service Worker for WebView-safe updates.
   useEffect(() => {
     let hasReloadedForNewWorker = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let onControllerChange: (() => void) | null = null;
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/sw.js")
+        .register("/sw.js", { updateViaCache: "none" })
         .then((reg) => {
-          console.log("[APP] Service Worker registered:", reg.scope);
-          // Force update check immediately
+          const promoteWaitingWorker = () => {
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: "SKIP_WAITING" });
+            }
+          };
+
+          promoteWaitingWorker();
           reg.update();
-          // Check for updates every 30 seconds
-          setInterval(() => {
-            console.log("[APP] Checking for Service Worker updates...");
+          intervalId = setInterval(() => {
             reg.update();
           }, 30000);
+
+          reg.addEventListener("updatefound", () => {
+            const installing = reg.installing;
+            if (!installing) return;
+            installing.addEventListener("statechange", () => {
+              if (installing.state === "installed") {
+                promoteWaitingWorker();
+              }
+            });
+          });
         })
         .catch((err) => {
           console.error("[APP] Service Worker registration failed:", err);
         });
 
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
+      onControllerChange = () => {
         if (!hasReloadedForNewWorker) {
           hasReloadedForNewWorker = true;
           window.location.reload();
         }
-      });
+      };
+      navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
     }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (onControllerChange) navigator.serviceWorker?.removeEventListener("controllerchange", onControllerChange);
+    };
   }, []);
 
   return (
