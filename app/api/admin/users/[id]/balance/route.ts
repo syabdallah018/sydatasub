@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
+import { enforceAdminMutationGuard, logAdminAction, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -79,6 +79,13 @@ export async function POST(
       });
 
       return updated;
+    });
+
+    logAdminAction(req, "user_balance_adjustment", {
+      targetUserId: id,
+      action,
+      amountNaira: amount,
+      resultingBalanceKobo: updatedUser.balance,
     });
 
     return NextResponse.json(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE_NAME, clearAdminSessionCookie, setAdminSessionCookie, signToken, verifyAdminToken } from "@/lib/auth";
-import { enforceRateLimit, rejectCrossSiteMutation, secureCompare } from "@/lib/security";
+import { enforceRateLimit, getServerBaseUrl, rejectCrossSiteMutation, secureCompare } from "@/lib/security";
 
 export interface AdminUser {
   userId: string;
@@ -74,6 +74,55 @@ export function validateAdminPassword(password: string | undefined | null): bool
 
 export function enforceAdminMutationGuard(req: NextRequest) {
   const originError = rejectCrossSiteMutation(req, { requireOrigin: true });
-  if (originError) return originError;
-  return enforceRateLimit(req, "adminMutation", "admin-mutation");
+  if (originError) {
+    console.warn(
+      "[ADMIN AUDIT]",
+      JSON.stringify({
+        event: "admin_mutation_blocked_origin",
+        path: req.nextUrl.pathname,
+        method: req.method,
+        origin: req.headers.get("origin"),
+        referer: req.headers.get("referer"),
+        userAgent: req.headers.get("user-agent"),
+        at: new Date().toISOString(),
+      })
+    );
+    return originError;
+  }
+
+  const rateError = enforceRateLimit(req, "adminMutation", "admin-mutation");
+  if (rateError) {
+    console.warn(
+      "[ADMIN AUDIT]",
+      JSON.stringify({
+        event: "admin_mutation_rate_limited",
+        path: req.nextUrl.pathname,
+        method: req.method,
+        userAgent: req.headers.get("user-agent"),
+        at: new Date().toISOString(),
+      })
+    );
+    return rateError;
+  }
+  return null;
+}
+
+export function logAdminAction(
+  req: NextRequest,
+  action: string,
+  details?: Record<string, unknown>
+) {
+  console.info(
+    "[ADMIN AUDIT]",
+    JSON.stringify({
+      event: "admin_action",
+      action,
+      path: req.nextUrl.pathname,
+      method: req.method,
+      origin: req.headers.get("origin") || req.headers.get("referer") || getServerBaseUrl(req),
+      userAgent: req.headers.get("user-agent"),
+      at: new Date().toISOString(),
+      ...details,
+    })
+  );
 }

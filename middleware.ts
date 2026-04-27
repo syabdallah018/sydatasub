@@ -32,8 +32,10 @@ export async function middleware(req: NextRequest) {
   
   // App Routes: Minimal cache with forced revalidation
   if (req.nextUrl.pathname.startsWith("/app/")) {
-    response.headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
     response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    response.headers.set("Surrogate-Control", "no-store");
   }
   
   // Landing/Public Pages: Cache but allow stale

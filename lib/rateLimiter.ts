@@ -53,6 +53,7 @@ export const RATE_LIMITS = {
   login: { maxAttempts: 5, windowMs: 5 * 60 * 1000 }, // 5 attempts per 5 minutes
   dataPurchase: { maxAttempts: 10, windowMs: 60 * 1000 }, // 10 attempts per minute
   airtimePurchase: { maxAttempts: 10, windowMs: 60 * 1000 }, // 10 attempts per minute
+  agentApply: { maxAttempts: 6, windowMs: 10 * 60 * 1000 }, // 6 attempts in 10 minutes
   adminMutation: { maxAttempts: 80, windowMs: 60 * 1000 }, // 80 admin writes per minute per IP
   webhook: { maxAttempts: 300, windowMs: 60 * 1000 }, // generous webhook allowance
 };

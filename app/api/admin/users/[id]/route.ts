@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
+import { enforceAdminMutationGuard, logAdminAction, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { getDbCapabilities } from "@/lib/db-capabilities";
 import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat";
@@ -145,6 +145,14 @@ export async function PATCH(
 
     const normalizedUser = normalizeUserCompat(updated);
     const { rewardBalance: _rewardBalance, ...safeUser } = normalizedUser;
+
+    logAdminAction(req, "user_profile_update", {
+      targetUserId: id,
+      changes: data,
+      resultingRole: safeUser.role,
+      resultingTier: safeUser.tier,
+      resultingAgentRequestStatus: "agentRequestStatus" in safeUser ? safeUser.agentRequestStatus : "NONE",
+    });
 
     return NextResponse.json(safeUser, { status: 200 });
   } catch (error: any) {

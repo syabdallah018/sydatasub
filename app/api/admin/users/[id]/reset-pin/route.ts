@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
+import { enforceAdminMutationGuard, logAdminAction, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import bcryptjs from "bcryptjs";
 
@@ -45,6 +45,11 @@ export async function POST(
         fullName: true,
         phone: true,
       },
+    });
+
+    logAdminAction(req, "user_pin_reset", {
+      targetUserId: id,
+      targetPhone: updated.phone,
     });
 
     return NextResponse.json(

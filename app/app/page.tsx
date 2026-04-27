@@ -17,6 +17,7 @@ import {
   Moon,
   Phone,
   Receipt,
+  ShieldCheck,
   Sparkles,
   User,
   Wallet,
@@ -49,7 +50,7 @@ const T = {
   mono: "'DM Mono', monospace",
 };
 
-type AppTab = "home" | "transactions" | "profile";
+type AppTab = "home" | "transactions" | "agent" | "profile";
 
 interface UserData {
   id: string;
@@ -115,6 +116,16 @@ interface BroadcastNotice {
   title?: string;
   message: string;
   severity: string;
+}
+
+interface AgentStatusData {
+  tier: "user" | "agent";
+  role: "USER" | "AGENT" | "ADMIN";
+  agentRequestStatus: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  weeklySalesGb: number;
+  thresholdGb: number;
+  remainingGb: number;
+  isAtRisk: boolean;
 }
 
 interface SuccessState {
@@ -1417,6 +1428,148 @@ function ProfileTab({
   );
 }
 
+function AgentTab() {
+  const [data, setData] = useState<AgentStatusData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const refresh = async () => {
+    const response = await fetch("/api/agent/status", { credentials: "include", cache: "no-store" });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || "Failed to load agent status");
+    }
+    setData(payload.data);
+  };
+
+  useEffect(() => {
+    refresh()
+      .catch((error) => toast.error(getFriendlyMessage(error?.message, "Agent status could not load right now.")))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const apply = async () => {
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/agent/apply", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        toast.error(getFriendlyMessage(payload.error, "Agent application could not be submitted right now."));
+        return;
+      }
+      toast.success(payload.message || "Application sent.");
+      await refresh();
+    } catch {
+      toast.error("Ahh, sorry, agent application could not be submitted right now.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", padding: "42px 0" }}>
+        <Loader2 size={24} className="animate-spin" color={T.blue} />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div style={{ textAlign: "center", color: T.textMid, fontFamily: T.font, padding: "36px 0" }}>
+        Agent module is unavailable right now.
+      </div>
+    );
+  }
+
+  const progress = Math.max(0, Math.min(100, Math.round((data.weeklySalesGb / data.thresholdGb) * 100)));
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+          Agent Hub
+        </p>
+        <h2 style={{ fontFamily: T.font, fontSize: 26, fontWeight: 800, color: T.text, margin: 0 }}>
+          Agent Program
+        </h2>
+      </div>
+
+      <div
+        style={{
+          background: T.card,
+          border: `1px solid ${T.borderStrong}`,
+          borderRadius: 20,
+          padding: 18,
+          marginBottom: 14,
+        }}
+      >
+        <p style={{ margin: "0 0 8px", fontFamily: T.font, fontWeight: 800, color: T.text }}>
+          Apply to become SY Data Sub Agent
+        </p>
+        <p style={{ margin: 0, fontFamily: T.font, fontSize: 13, color: T.textMid, lineHeight: 1.5 }}>
+          Resell data at cheaper prices. Terms and conditions apply. Failure to accumulate up to 50GB weekly sales can lead to agent revocation.
+        </p>
+      </div>
+
+      {data.agentRequestStatus === "PENDING" ? (
+        <div style={{ border: `1px solid ${T.border}`, background: T.surface, borderRadius: 18, padding: 16, marginBottom: 14 }}>
+          <p style={{ margin: 0, fontFamily: T.font, fontWeight: 700, color: T.text }}>Application sent</p>
+          <p style={{ margin: "6px 0 0", fontFamily: T.font, fontSize: 13, color: T.textMid }}>
+            Waiting for admin approval.
+          </p>
+        </div>
+      ) : null}
+
+      {(data.agentRequestStatus === "NONE" || data.agentRequestStatus === "REJECTED") && data.tier !== "agent" ? (
+        <button
+          onClick={apply}
+          disabled={submitting}
+          style={{
+            width: "100%",
+            border: "none",
+            borderRadius: 14,
+            padding: "12px 14px",
+            background: T.blue,
+            color: "#fff",
+            fontFamily: T.font,
+            fontWeight: 800,
+            fontSize: 14,
+            cursor: submitting ? "not-allowed" : "pointer",
+            opacity: submitting ? 0.75 : 1,
+            marginBottom: 14,
+          }}
+        >
+          {submitting ? "Sending application..." : "Apply Now"}
+        </button>
+      ) : null}
+
+      {data.tier === "agent" || data.agentRequestStatus === "APPROVED" ? (
+        <div style={{ border: `1px solid ${T.border}`, background: T.card, borderRadius: 18, padding: 16 }}>
+          <p style={{ margin: "0 0 6px", fontFamily: T.font, fontWeight: 800, color: T.green }}>
+            Your application has been successfully approved.
+          </p>
+          <p style={{ margin: "0 0 10px", fontFamily: T.font, fontSize: 13, color: T.textMid }}>
+            Weekly sales metric: {data.weeklySalesGb.toLocaleString()}GB / {data.thresholdGb}GB
+          </p>
+          <div style={{ width: "100%", height: 10, borderRadius: 999, background: T.surface, overflow: "hidden", marginBottom: 8 }}>
+            <div style={{ width: `${progress}%`, height: "100%", background: data.isAtRisk ? T.amber : T.green, borderRadius: 999 }} />
+          </div>
+          <p style={{ margin: 0, fontFamily: T.font, fontSize: 12, color: data.isAtRisk ? T.amber : T.green, fontWeight: 700 }}>
+            {data.isAtRisk
+              ? `At risk of revocation. You need ${data.remainingGb.toLocaleString()}GB more this week.`
+              : "Healthy performance. Keep selling to stay safe."}
+          </p>
+        </div>
+      ) : null}
+    </motion.div>
+  );
+}
+
 function TabBar({
   activeTab,
   onChange,
@@ -1427,6 +1580,7 @@ function TabBar({
   const items = [
     { id: "home" as const, label: "Home", icon: Home },
     { id: "transactions" as const, label: "Transactions", icon: Receipt },
+    { id: "agent" as const, label: "Agent", icon: ShieldCheck },
     { id: "profile" as const, label: "Profile", icon: User },
   ];
 
@@ -1443,7 +1597,7 @@ function TabBar({
           boxShadow: T.blueShadow,
           padding: 10,
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(4, 1fr)",
           gap: 8,
         }}
       >
@@ -1492,7 +1646,6 @@ export default function DashboardPage() {
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
   const [rewardSnapshot, setRewardSnapshot] = useState<RewardSnapshot | null>(null);
-  const [rewardCreditNoticeAmount, setRewardCreditNoticeAmount] = useState<number | null>(null);
   const [successState, setSuccessState] = useState<SuccessState>({
     open: false,
     title: "",
@@ -1564,7 +1717,16 @@ export default function DashboardPage() {
       if (previousBalance !== null && nextBalance > previousBalance) {
         const deltaNaira = Math.round((nextBalance - previousBalance) / 100);
         if (deltaNaira > 0) {
-          setRewardCreditNoticeAmount(deltaNaira);
+          setSuccessState((current) =>
+            current.open
+              ? current
+              : {
+                  open: true,
+                  title: "Reward unlocked",
+                  description: `You have fulfilled a reward and your reward wallet was credited with N${deltaNaira.toLocaleString()}.`,
+                  reference: undefined,
+                }
+          );
         }
       }
       rewardBalanceSeenRef.current = nextBalance;
@@ -1834,6 +1996,9 @@ export default function DashboardPage() {
                 <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text, margin: 0 }}>
                   {user.fullName}
                 </p>
+                <p style={{ fontFamily: T.font, fontSize: 11, color: T.textMid, margin: "2px 0 0" }}>
+                  {user.tier === "agent" ? "Agent" : "User"}
+                </p>
               </div>
             </div>
             <button
@@ -1860,9 +2025,6 @@ export default function DashboardPage() {
 
         <main style={{ maxWidth: 520, margin: "0 auto", padding: "20px 20px 0" }}>
           <BroadcastBanner notice={broadcasts[0] || null} onDismiss={() => broadcasts[0] && dismissBroadcast(broadcasts[0].id)} />
-          {rewardCreditNoticeAmount ? (
-            <RewardCreditBanner amount={rewardCreditNoticeAmount} onDismiss={() => setRewardCreditNoticeAmount(null)} />
-          ) : null}
 
           {showRewards ? (
             <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setShowRewards(false)} />
@@ -1882,6 +2044,8 @@ export default function DashboardPage() {
             />
           ) : activeTab === "transactions" ? (
             <TransactionsTab />
+          ) : activeTab === "agent" ? (
+            <AgentTab />
           ) : (
             <ProfileTab user={user} onLogout={handleLogout} />
           )}

@@ -129,6 +129,24 @@ export default function AdminRewardsPage() {
     fetchRewards();
   };
 
+  const resetAllRewards = async () => {
+    const confirmed = confirm(
+      "Reset all reward progress and reward balances for every user? They will be able to qualify again."
+    );
+    if (!confirmed) return;
+
+    const res = await fetch("/api/admin/rewards/reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const payload = await res.json();
+    if (!res.ok || !payload.success) {
+      toast.error(payload.error || "Ahh, sorry, reward reset could not run right now.");
+      return;
+    }
+    toast.success("Rewards were reset for all users.");
+  };
+
   const createDisabled = !editing && availableOptions.every((option) => usedTypes.has(option.value));
 
   return (
@@ -141,6 +159,9 @@ export default function AdminRewardsPage() {
         <Button onClick={openCreate} disabled={createDisabled}>
           <Plus className="mr-2 h-4 w-4" />
           New Reward
+        </Button>
+        <Button variant="outline" onClick={resetAllRewards}>
+          Reset User Rewards
         </Button>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>

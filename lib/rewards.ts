@@ -268,16 +268,6 @@ export async function evaluateDepositRewardInTx(
   const support = await getSupportedManagedRewardTypes(tx);
   if (!support.hasRewardsTable || !support.hasUserRewardsTable) return;
 
-  const priorSuccessfulDeposits = await tx.transaction.count({
-    where: {
-      userId: params.userId,
-      type: "WALLET_FUNDING",
-      status: "SUCCESS",
-    },
-  });
-
-  if (priorSuccessfulDeposits > 0) return;
-
   let rewardType: ManagedRewardType | null = null;
   if (params.depositAmount >= 10000) {
     rewardType = RT.DEPOSIT_10K_UPGRADE;
