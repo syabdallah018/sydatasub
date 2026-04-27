@@ -1,9 +1,27 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Copy, Check, Eye, EyeOff, Loader2, LogOut, Zap, Phone, CreditCard, X, ChevronLeft, Settings } from "lucide-react";
+import {
+  Bolt,
+  Check,
+  ChevronLeft,
+  Copy,
+  CreditCard,
+  Eye,
+  EyeOff,
+  Home,
+  Loader2,
+  LogOut,
+  Moon,
+  Phone,
+  Receipt,
+  Sparkles,
+  User,
+  Wallet,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 const fontStyle = `
@@ -11,31 +29,36 @@ const fontStyle = `
 `;
 
 const T = {
-  bg: "#ffffff",
-  surface: "#f8f9fc",
+  bg: "#fbfbfd",
+  surface: "#f4f7fb",
   card: "#ffffff",
-  border: "#e5e7eb",
-  blueLight: "#dbeafe",
-  blue: "#2563eb",
-  blueShadow: "0 12px 30px rgba(37, 99, 235, 0.15)",
-  blueBorder: "rgba(37, 99, 235, 0.2)",
-  gold: "#fbbf24",
-  green: "#10b981",
-  amber: "#f59e0b",
-  purple: "#8b5cf6",
-  text: "#1f2937",
-  textMid: "#6b7280",
-  textDim: "#9ca3af",
+  border: "#e6ebf2",
+  borderStrong: "#d5ddea",
+  blueLight: "#e8f0ff",
+  blue: "#2463eb",
+  blueDark: "#17357d",
+  blueShadow: "0 18px 40px rgba(36, 99, 235, 0.14)",
+  green: "#16a34a",
+  amber: "#d97706",
+  rose: "#e11d48",
+  text: "#111827",
+  textMid: "#667085",
+  textDim: "#98a2b3",
   font: "'DM Sans', sans-serif",
   mono: "'DM Mono', monospace",
 };
 
-interface User {
+type AppTab = "home" | "accounts" | "transactions" | "profile";
+
+interface UserData {
   id: string;
   fullName: string;
   phone: string;
+  email?: string | null;
   balance: number;
   tier: "user" | "agent";
+  isActive?: boolean;
+  joinedAt?: string;
   agentRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
   virtualAccount?: { accountNumber: string; bankName: string } | null;
 }
@@ -51,10 +74,21 @@ interface DataPlan {
   network: string;
 }
 
+interface TransactionItem {
+  id: string;
+  type: string;
+  status: string;
+  amount: number;
+  description?: string | null;
+  phone?: string | null;
+  createdAt: string;
+  reference: string;
+}
+
 const NETWORKS = [
-  { id: "mtn", name: "MTN", color: "#FFCC00", bg: "#fef9c3", logo: "/mtn.jpg" },
-  { id: "airtel", name: "Airtel", color: "#FF3333", bg: "#fee2e2", logo: "/airtel.jpg" },
-  { id: "glo", name: "Glo", color: "#22C55E", bg: "#dcfce7", logo: "/glo.jpg" },
+  { id: "mtn", name: "MTN", color: "#FFCC00", bg: "#fff7cc", logo: "/mtn.jpg" },
+  { id: "airtel", name: "Airtel", color: "#FF3333", bg: "#ffe2e2", logo: "/airtel.jpg" },
+  { id: "glo", name: "Glo", color: "#16a34a", bg: "#dcfce7", logo: "/glo.jpg" },
   { id: "9mobile", name: "9mobile", color: "#00A859", bg: "#d1fae5", logo: "/9mobile.jpg" },
 ];
 
@@ -65,754 +99,1077 @@ const getPriceForTier = (plan: DataPlan, tier: string = "user"): number => {
   return plan.user_price > 0 ? plan.user_price : plan.price;
 };
 
-function BottomSheet({ open, onClose, title, accentColor = T.blue, children }: any) {
+function BottomSheet({
+  open,
+  onClose,
+  title,
+  accentColor = T.blue,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  accentColor?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 50, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
-      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", border: `2px solid ${T.blueBorder}`, boxShadow: T.blueShadow }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 6px" }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: T.border }} />
+    <motion.div
+      key={open ? "open" : "closed"}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: open ? 1 : 0 }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 70,
+        background: open ? "rgba(15,23,42,0.45)" : "transparent",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        pointerEvents: open ? "auto" : "none",
+      }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: open ? 0 : "100%" }}
+        transition={{ type: "spring", damping: 24, stiffness: 260 }}
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          maxHeight: "90vh",
+          background: T.card,
+          borderRadius: "30px 30px 0 0",
+          overflow: "hidden",
+          border: `1px solid ${T.borderStrong}`,
+          boxShadow: T.blueShadow,
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 4px" }}>
+          <div style={{ width: 44, height: 5, borderRadius: 999, background: T.borderStrong }} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px 16px", borderBottom: `2px solid ${T.blueBorder}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 5, height: 24, borderRadius: 3, background: accentColor }} />
-            <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>{title}</h2>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 22px 18px",
+            borderBottom: `1px solid ${T.border}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 5, height: 24, borderRadius: 999, background: accentColor }} />
+            <h2 style={{ fontFamily: T.font, fontSize: 20, fontWeight: 800, color: T.text, margin: 0 }}>
+              {title}
+            </h2>
           </div>
-          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <button
+            onClick={onClose}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 14,
+              border: "none",
+              background: T.surface,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
             <X size={18} color={T.textMid} />
           </button>
         </div>
-        <div style={{ overflowY: "auto", padding: "24px", flex: 1 }}>
-          {children}
-        </div>
+        <div style={{ padding: 22, overflowY: "auto", maxHeight: "calc(90vh - 86px)" }}>{children}</div>
       </motion.div>
     </motion.div>
   );
 }
 
-function NetworkPill({ net, selected, onSelect }: any) {
+function NetworkPill({
+  net,
+  selected,
+  onSelect,
+}: {
+  net: (typeof NETWORKS)[number];
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const [imageError, setImageError] = useState(false);
+
   return (
-    <motion.button 
-      whileTap={{ scale: 0.95 }} 
-      onClick={onSelect} 
-      style={{ 
-        padding: "14px 12px", 
-        borderRadius: 16, 
-        border: `2.5px solid ${selected ? net.color : T.border}`, 
-        background: selected ? net.bg : T.surface, 
-        fontFamily: T.font, 
-        fontWeight: 700, 
-        fontSize: 15, 
-        color: selected ? net.color : T.textMid, 
-        cursor: "pointer", 
-        transition: "all 0.2s",
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      onClick={onSelect}
+      style={{
         width: "100%",
-        boxShadow: selected ? `0 8px 20px ${net.color}40` : "none",
+        padding: "14px 10px",
+        borderRadius: 18,
+        border: `2px solid ${selected ? net.color : T.border}`,
+        background: selected ? net.bg : T.card,
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 10,
-        flexDirection: "column"
-      }} 
+        gap: 8,
+        cursor: "pointer",
+      }}
     >
       {net.logo && !imageError ? (
-        <img src={net.logo} alt={net.name} style={{ height: 36, maxWidth: 64, objectFit: "contain" }} onError={() => setImageError(true)} />
+        <img
+          src={net.logo}
+          alt={net.name}
+          style={{ height: 34, maxWidth: 62, objectFit: "contain" }}
+          onError={() => setImageError(true)}
+        />
       ) : (
-        <div style={{ width: 16, height: 16, borderRadius: "50%", background: net.color }} />
+        <div style={{ width: 14, height: 14, borderRadius: "50%", background: net.color }} />
       )}
-      <span>{net.name}</span>
+      <span
+        style={{
+          fontFamily: T.font,
+          fontWeight: 700,
+          fontSize: 13,
+          color: selected ? T.text : T.textMid,
+        }}
+      >
+        {net.name}
+      </span>
     </motion.button>
   );
 }
 
-function ActionTile({ icon, label, sub, color, dimColor, onClick }: any) {
+function HomeActionCard({
+  icon,
+  title,
+  subtitle,
+  color,
+  background,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  color: string;
+  background: string;
+  onClick: () => void;
+}) {
   return (
-    <motion.button whileHover={{ y: -4, boxShadow: `0 16px 24px ${color}20` }} whileTap={{ scale: 0.97 }} onClick={onClick} style={{ background: T.card, border: `1.5px solid ${T.blueBorder}`, borderRadius: 20, padding: "20px 16px", cursor: "pointer", textAlign: "left", width: "100%", display: "flex", flexDirection: "column", gap: 12, position: "relative", overflow: "hidden", transition: "all 0.3s", boxShadow: `0 4px 12px ${color}15` }}>
-      <div style={{ width: 44, height: 44, borderRadius: 14, background: dimColor, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <motion.button
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      style={{
+        border: "none",
+        background: T.card,
+        borderRadius: 16,
+        padding: "12px 10px",
+        minHeight: 84,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        cursor: "pointer",
+        boxShadow: "0 8px 18px rgba(15,23,42,0.06)",
+      }}
+    >
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 12,
+          background,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         {icon}
       </div>
-      <div>
-        <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 15, color: T.text, margin: "0 0 3px" }}>{label}</p>
-        <p style={{ fontFamily: T.font, fontWeight: 400, fontSize: 12, color: T.textDim, margin: 0 }}>{sub}</p>
+      <div style={{ textAlign: "left" }}>
+        <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 12, color: T.text, margin: "0 0 2px" }}>
+          {title}
+        </p>
+        <p style={{ fontFamily: T.font, fontSize: 10, color: color, margin: 0 }}>{subtitle}</p>
       </div>
     </motion.button>
   );
 }
 
-function TransactionHistory() {
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTx, setSelectedTx] = useState<any>(null);
-  const [receiptOpen, setReceiptOpen] = useState(false);
-
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const res = await fetch("/api/transactions", { credentials: "include" });
-        const data = await res.json();
-        
-        console.log("[TXN] API Response:", data);
-        
-        if (res.ok && data?.success) {
-          const txList = data.transactions || data.data || [];
-          setTransactions(Array.isArray(txList) ? txList : []);
-        } else {
-          console.error("[TXN] API Error:", data?.error);
-          setTransactions([]);
-        }
-      } catch (error: any) {
-        console.error("[TXN] Fetch Error:", error);
-        setTransactions([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchTransactions();
-  }, []);
-
-  const getTransactionIcon = (type: string) => {
-    if (type === "DATA_PURCHASE") return "📱";
-    if (type === "AIRTIME_PURCHASE") return "☎️";
-    if (type === "WALLET_FUNDING") return "💰";
-    return "💳";
-  };
-
-  const getTransactionTitle = (type: string) => {
-    if (type === "DATA_PURCHASE") return "Data Purchase";
-    if (type === "AIRTIME_PURCHASE") return "Airtime Purchase";
-    if (type === "WALLET_FUNDING") return "Wallet Funding";
-    return type;
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === "SUCCESS") return { bg: "rgba(16,185,129,0.15)", text: T.green };
-    if (status === "PENDING") return { bg: "rgba(245,158,11,0.15)", text: T.amber };
-    if (status === "FAILED") return { bg: "rgba(239,68,68,0.15)", text: "#ef4444" };
-    return { bg: "rgba(107,114,128,0.15)", text: T.textMid };
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 20 }}>📊 Transaction History</h3>
-      
-      {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: "60px 20px" }}>
-          <Loader2 size={32} className="animate-spin" color={T.blue} />
-        </div>
-      ) : transactions.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 20px", background: T.surface, borderRadius: 16, border: `2px dashed ${T.border}` }}>
-          <p style={{ fontFamily: T.font, fontSize: 32, margin: "0 0 12px" }}>📭</p>
-          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 14, margin: 0, fontWeight: 600 }}>No transactions yet</p>
-          <p style={{ fontFamily: T.font, color: T.textDim, fontSize: 12, margin: "6px 0 0", fontWeight: 400 }}>Start by purchasing data or airtime</p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {transactions.map((tx, idx) => {
-            const statusColors = getStatusColor(tx.status);
-            const icon = getTransactionIcon(tx.type);
-            const title = getTransactionTitle(tx.type);
-            
-            return (
-              <motion.div 
-                key={tx.id} 
-                initial={{ opacity: 0, x: -10 }} 
-                animate={{ opacity: 1, x: 0 }} 
-                transition={{ delay: idx * 0.05 }}
-                whileHover={{ scale: 1.02, boxShadow: `0 8px 20px ${T.blue}15` }}
-                onClick={() => { setSelectedTx(tx); setReceiptOpen(true); }}
-                style={{ 
-                  background: T.surface, 
-                  borderRadius: 14, 
-                  padding: "16px", 
-                  border: `2px solid ${T.border}`, 
-                  display: "flex", 
-                  justifyContent: "space-between", 
-                  alignItems: "center",
-                  transition: "all 0.2s",
-                  cursor: "pointer"
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
-                  <div style={{ fontSize: 20, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: T.blueLight, borderRadius: 10 }}>
-                    {icon}
-                  </div>
-                  <div>
-                    <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: "0 0 4px" }}>
-                      {title}
-                    </p>
-                    <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>
-                      {tx.description ? tx.description : tx.phone} • {new Date(tx.createdAt).toLocaleDateString()} {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <p style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 15, color: T.blue, margin: "0 0 6px" }}>
-                    ₦{tx.amount?.toLocaleString() || "0"}
-                  </p>
-                  <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 700, padding: "5px 10px", borderRadius: 6, background: statusColors.bg, color: statusColors.text, textTransform: "uppercase", display: "inline-block", letterSpacing: "0.05em" }}>
-                    {tx.status}
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-
-      <TransactionReceipt open={receiptOpen} onClose={() => setReceiptOpen(false)} transaction={selectedTx} />
-    </motion.div>
-  );
-}
-
-function TransactionReceipt({ open, onClose, transaction }: any) {
+function TransactionReceipt({
+  open,
+  onClose,
+  transaction,
+}: {
+  open: boolean;
+  onClose: () => void;
+  transaction: TransactionItem | null;
+}) {
   if (!transaction) return null;
 
-  const getTransactionTitle = (type: string) => {
-    if (type === "DATA_PURCHASE") return "Data Purchase";
-    if (type === "AIRTIME_PURCHASE") return "Airtime Purchase";
-    if (type === "WALLET_FUNDING") return "Wallet Funding";
-    return type;
-  };
-
-  const getStatusIcon = (status: string) => {
-    if (status === "SUCCESS") return "✅";
-    if (status === "PENDING") return "⏳";
-    if (status === "FAILED") return "❌";
-    return "ℹ️";
-  };
-
-  const getStatusColor = (status: string) => {
-    if (status === "SUCCESS") return { bg: "rgba(16,185,129,0.2)", border: T.green, text: T.green };
-    if (status === "PENDING") return { bg: "rgba(245,158,11,0.2)", border: T.amber, text: T.amber };
-    if (status === "FAILED") return { bg: "rgba(239,68,68,0.2)", border: "#ef4444", text: "#ef4444" };
-    return { bg: "rgba(100,116,139,0.2)", border: T.textMid, text: T.textMid };
-  };
-
-  const statusColor = getStatusColor(transaction.status);
+  const statusTone =
+    transaction.status === "SUCCESS"
+      ? { bg: "rgba(22,163,74,0.12)", border: T.green, text: T.green, icon: "✓" }
+      : transaction.status === "FAILED"
+        ? { bg: "rgba(225,29,72,0.12)", border: T.rose, text: T.rose, icon: "!" }
+        : { bg: "rgba(217,119,6,0.12)", border: T.amber, text: T.amber, icon: "…" };
 
   return (
-    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
-      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}`, maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, paddingBottom: 16, borderBottom: `2px solid ${T.blueBorder}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 5, height: 24, borderRadius: 3, background: T.blue }} />
-            <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>📄 Receipt</h2>
-          </div>
-          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-            <X size={18} color={T.textMid} />
-          </button>
+    <BottomSheet open={open} onClose={onClose} title="Receipt" accentColor={T.blue}>
+      <div
+        style={{
+          background: statusTone.bg,
+          border: `1px solid ${statusTone.border}`,
+          borderRadius: 18,
+          padding: 18,
+          textAlign: "center",
+          marginBottom: 18,
+        }}
+      >
+        <div
+          style={{
+            width: 68,
+            height: 68,
+            borderRadius: "50%",
+            margin: "0 auto 12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: T.card,
+            color: statusTone.text,
+            fontFamily: T.font,
+            fontWeight: 800,
+            fontSize: 28,
+          }}
+        >
+          {statusTone.icon}
         </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {/* Status */}
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 }} style={{ background: statusColor.bg, border: `2px solid ${statusColor.border}`, borderRadius: 14, padding: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 40, margin: "0 0 12px" }}>{getStatusIcon(transaction.status)}</div>
-            <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: statusColor.text, margin: "0 0 4px", textTransform: "uppercase" }}>{transaction.status}</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>Transaction {transaction.status.toLowerCase()} on {new Date(transaction.createdAt).toLocaleDateString()}</p>
-          </motion.div>
-
-          {/* Transaction Details */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ background: T.surface, borderRadius: 12, padding: 14 }}>
-              <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Transaction Type</p>
-              <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>{getTransactionTitle(transaction.type)}</p>
-            </div>
-
-            <div style={{ background: T.surface, borderRadius: 12, padding: 14 }}>
-              <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Amount</p>
-              <p style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 800, color: T.blue, margin: 0 }}>₦{transaction.amount?.toLocaleString() || "0"}</p>
-            </div>
-
-            {transaction.phone && (
-              <div style={{ background: T.surface, borderRadius: 12, padding: 14 }}>
-                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Phone Number</p>
-                <p style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>{transaction.phone}</p>
-              </div>
-            )}
-
-            {transaction.description && (
-              <div style={{ background: T.surface, borderRadius: 12, padding: 14 }}>
-                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Description</p>
-                <p style={{ fontFamily: T.font, fontSize: 14, color: T.text, margin: 0 }}>{transaction.description}</p>
-              </div>
-            )}
-
-            <div style={{ background: T.surface, borderRadius: 12, padding: 14 }}>
-              <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Reference</p>
-              <p style={{ fontFamily: T.mono, fontSize: 12, fontWeight: 600, color: T.textMid, margin: 0, wordBreak: "break-all" }}>{transaction.reference}</p>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div style={{ background: T.surface, borderRadius: 12, padding: 14 }}>
-                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Date</p>
-                <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.text, margin: 0 }}>{new Date(transaction.createdAt).toLocaleDateString()}</p>
-              </div>
-
-              <div style={{ background: T.surface, borderRadius: 12, padding: 14 }}>
-                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Time</p>
-                <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.text, margin: 0 }}>{new Date(transaction.createdAt).toLocaleTimeString()}</p>
-              </div>
-            </div>
-          </div>
-
-          <motion.button whileTap={{ scale: 0.95 }} onClick={onClose} style={{ width: "100%", padding: 14, borderRadius: 12, background: T.blue, border: "none", color: "#fff", fontFamily: T.font, fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: T.blueShadow, transition: "all 0.2s" }}>
-            Close Receipt
-          </motion.button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function BenefitCard({ icon, title, subtitle }: any) {
-  return (
-    <motion.div whileHover={{ scale: 1.05 }} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s" }}>
-      <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
-      <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 13, color: T.text, margin: "0 0 4px" }}>{title}</p>
-      <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>{subtitle}</p>
-    </motion.div>
-  );
-}
-
-function SettingsTab() {
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [securityOpen, setSecurityOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-      <h3 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, marginBottom: 20 }}>Account Settings</h3>
-      
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setProfileOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
-          <div>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>👤 Profile</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>View account information</p>
-          </div>
-          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.button>
-
-        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setSecurityOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
-          <div>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>🔒 Security</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Change your PIN</p>
-          </div>
-          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.button>
-
-        <motion.button whileTap={{ scale: 0.98 }} onClick={() => setHelpOpen(true)} style={{ background: T.surface, borderRadius: 14, padding: "16px", border: `1px solid ${T.border}`, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", textAlign: "left", fontFamily: T.font, fontSize: 14, transition: "all 0.2s" }}>
-          <div>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.text, margin: 0 }}>📞 Help & Support</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "4px 0 0" }}>Contact support team</p>
-          </div>
-          <ChevronLeft size={20} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
-        </motion.button>
+        <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: statusTone.text, margin: "0 0 4px" }}>
+          {transaction.status}
+        </p>
+        <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>
+          {new Date(transaction.createdAt).toLocaleString()}
+        </p>
       </div>
 
-      <ProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
-      <SecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />
-      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-    </motion.div>
-  );
-}
-
-function ProfileModal({ open, onClose }: any) {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      setLoading(true);
-      fetch("/api/auth/me")
-        .then(r => r.json())
-        .then(d => d?.data && setUser(d.data))
-        .finally(() => setLoading(false));
-    }
-  }, [open]);
-
-  if (!user && loading) {
-    return (
-      <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
-        <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}` }} onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "center", padding: "60px 20px" }}>
-            <Loader2 size={32} className="animate-spin" color={T.blue} />
-          </div>
-        </motion.div>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
-      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}`, maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>👤 Your Profile</h2>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <X size={16} color={T.textMid} />
-          </button>
+      {[
+        ["Type", transaction.type.replace(/_/g, " ")],
+        ["Amount", `₦${transaction.amount.toLocaleString()}`],
+        ["Phone", transaction.phone || "—"],
+        ["Description", transaction.description || "—"],
+        ["Reference", transaction.reference],
+      ].map(([label, value]) => (
+        <div
+          key={label}
+          style={{
+            background: T.surface,
+            borderRadius: 14,
+            padding: 14,
+            marginBottom: 12,
+            border: `1px solid ${T.border}`,
+          }}
+        >
+          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+            {label}
+          </p>
+          <p
+            style={{
+              fontFamily: label === "Reference" ? T.mono : T.font,
+              fontSize: 14,
+              fontWeight: 700,
+              color: T.text,
+              margin: 0,
+              wordBreak: "break-word",
+            }}
+          >
+            {value}
+          </p>
         </div>
-
-        {user && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
-              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Full Name</p>
-              <p style={{ fontFamily: T.font, fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>{user.fullName}</p>
-            </div>
-
-            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
-              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Phone</p>
-              <p style={{ fontFamily: T.mono, fontSize: 16, fontWeight: 700, color: T.text, margin: 0 }}>{user.phone}</p>
-            </div>
-
-            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
-              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Account Number</p>
-              <p style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 700, color: T.text, margin: 0 }}>{user.virtualAccount?.accountNumber}</p>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div style={{ background: T.blueLight, borderRadius: 14, padding: 14 }}>
-                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Account Tier</p>
-                <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 700, color: T.blue, margin: 0 }}>{user.tier === "agent" ? "🚀 Agent" : "⭐ User"}</p>
-              </div>
-              <div style={{ background: T.blueLight, borderRadius: 14, padding: 14 }}>
-                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Balance</p>
-                <p style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 700, color: T.blue, margin: 0 }}>₦{(user.balance / 100).toLocaleString()}</p>
-              </div>
-            </div>
-
-            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
-              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Date Joined</p>
-              <p style={{ fontFamily: T.font, fontSize: 14, fontWeight: 700, color: T.text, margin: 0 }}>{user.joinedAt ? new Date(user.joinedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "—"}</p>
-            </div>
-
-            <div style={{ background: T.blueLight, borderRadius: 14, padding: 16 }}>
-              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>Account Status</p>
-              <p style={{ fontFamily: T.font, fontSize: 14, fontWeight: 700, color: user.isActive ? T.green : "#ef4444", margin: 0 }}>{user.isActive ? "✅ Active" : "❌ Inactive"}</p>
-            </div>
-          </div>
-        )}
-      </motion.div>
-    </motion.div>
+      ))}
+    </BottomSheet>
   );
 }
 
-function SecurityModal({ open, onClose }: any) {
+function SecurityModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-  const [message, setMessage] = useState("");
-  const currentPinRef = useRef<HTMLInputElement>(null);
-  const newPinRef = useRef<HTMLInputElement>(null);
-  const confirmPinRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (open && status === "idle") {
-      setTimeout(() => currentPinRef.current?.focus(), 100);
-    }
-  }, [open, status]);
-
-  const handlePinInput = (value: string, setter: any, nextRef?: any) => {
-    const digits = value.slice(0, 6);
-    setter(digits);
-    if (digits.length === 6 && nextRef) {
-      setTimeout(() => nextRef.current?.focus(), 50);
-    }
-  };
-
-  const handleKeyDown = (e: any, nextRef?: any) => {
-    if (e.key === "Enter" && e.target.value.length === 6 && nextRef) {
-      nextRef.current?.focus();
-    }
-  };
-
-  const handleChangePin = async () => {
-    if (currentPin.length !== 6) {
-      setStatus("error");
-      setMessage("Current PIN must be 6 digits");
-      currentPinRef.current?.focus();
-      return;
-    }
-
-    if (newPin.length !== 6) {
-      setStatus("error");
-      setMessage("New PIN must be 6 digits");
-      newPinRef.current?.focus();
-      return;
-    }
-
-    if (confirmPin.length !== 6) {
-      setStatus("error");
-      setMessage("Confirm PIN must be 6 digits");
-      confirmPinRef.current?.focus();
+  const submit = async () => {
+    if (currentPin.length !== 6 || newPin.length !== 6 || confirmPin.length !== 6) {
+      toast.error("PIN must be 6 digits");
       return;
     }
 
     if (newPin !== confirmPin) {
-      setStatus("error");
-      setMessage("New PINs don't match");
-      confirmPinRef.current?.focus();
-      return;
-    }
-
-    if (currentPin === newPin) {
-      setStatus("error");
-      setMessage("New PIN must be different from current PIN");
-      newPinRef.current?.focus();
+      toast.error("New PINs do not match");
       return;
     }
 
     setLoading(true);
-    setStatus("idle");
-
     try {
-      const res = await fetch("/api/auth/change-pin", {
+      const response = await fetch("/api/auth/change-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPin, newPin }),
+        body: JSON.stringify({ currentPin, newPin, confirmPin }),
       });
+      const payload = await response.json();
 
-      const data = await res.json();
-
-      if (res.ok) {
-        setStatus("success");
-        setMessage("PIN changed successfully! 🎉");
-        setTimeout(() => {
-          setCurrentPin("");
-          setNewPin("");
-          setConfirmPin("");
-          setStatus("idle");
-          onClose();
-        }, 2500);
-      } else {
-        setStatus("error");
-        setMessage(data.error || "Failed to change PIN. Please try again.");
-        currentPinRef.current?.focus();
+      if (!response.ok) {
+        toast.error(payload.error || "Failed to change PIN");
+        return;
       }
-    } catch (error) {
-      setStatus("error");
-      setMessage("Connection error. Please check your internet and try again.");
-      currentPinRef.current?.focus();
+
+      toast.success("PIN changed successfully");
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+      onClose();
+    } catch {
+      toast.error("Unable to change PIN right now");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
-      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}`, maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, paddingBottom: 12, borderBottom: `2px solid ${T.blueBorder}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 5, height: 24, borderRadius: 3, background: T.blue }} />
-            <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>🔒 Change PIN</h2>
-          </div>
-          <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 12, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-            <X size={18} color={T.textMid} />
-          </button>
+    <BottomSheet open={open} onClose={onClose} title="Change PIN" accentColor={T.blue}>
+      {[
+        ["Current PIN", currentPin, setCurrentPin],
+        ["New PIN", newPin, setNewPin],
+        ["Confirm PIN", confirmPin, setConfirmPin],
+      ].map(([label, value, setter]) => (
+        <div key={label as string} style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+            {label as string}
+          </label>
+          <input
+            type="password"
+            maxLength={6}
+            value={value as string}
+            onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            style={{
+              width: "100%",
+              padding: "15px 16px",
+              borderRadius: 14,
+              border: `1px solid ${T.borderStrong}`,
+              background: T.surface,
+              fontFamily: T.mono,
+              fontSize: 18,
+              letterSpacing: "0.25em",
+              boxSizing: "border-box",
+              outline: "none",
+              textAlign: "center",
+            }}
+          />
         </div>
+      ))}
 
-        {status === "success" ? (
-          <motion.div initial={{ scale: 0.8, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: "spring", stiffness: 400, damping: 20 }} style={{ textAlign: "center", padding: "50px 20px" }}>
-            <motion.div 
-              animate={{ scale: [1, 1.1, 1] }} 
-              transition={{ duration: 0.6, repeat: 1 }}
-              style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(16,185,129,0.2)", border: `3px solid ${T.green}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 40 }}
-            >
-              ✓
-            </motion.div>
-            <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.green, margin: "0 0 8px" }}>PIN Changed!</p>
-            <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: 0 }}>{message}</p>
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "16px 0 0" }}>Closing in a moment...</p>
-          </motion.div>
-        ) : status === "error" ? (
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring" }} style={{ background: "rgba(239,68,68,0.15)", border: `2px solid #ef4444`, borderRadius: 14, padding: 16, marginBottom: 20, display: "flex", gap: 12 }}>
-            <div style={{ fontSize: 20 }}>❌</div>
-            <div>
-              <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: "#dc2626", margin: 0 }}>{message}</p>
+      <motion.button
+        whileTap={{ scale: 0.98 }}
+        onClick={submit}
+        disabled={loading}
+        style={{
+          width: "100%",
+          border: "none",
+          borderRadius: 16,
+          padding: 16,
+          background: T.blue,
+          color: "#fff",
+          fontFamily: T.font,
+          fontWeight: 800,
+          fontSize: 15,
+          cursor: loading ? "not-allowed" : "pointer",
+          opacity: loading ? 0.7 : 1,
+        }}
+      >
+        {loading ? "Updating PIN..." : "Update PIN"}
+      </motion.button>
+    </BottomSheet>
+  );
+}
+
+function InfiniteTransactionFeed({
+  compact = false,
+  title,
+}: {
+  compact?: boolean;
+  title?: string;
+}) {
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionItem | null>(null);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
+
+  const fetchPage = async (cursor?: string | null) => {
+    const params = new URLSearchParams({
+      limit: compact ? "8" : "20",
+    });
+    if (cursor) params.set("cursor", cursor);
+
+    const response = await fetch(`/api/transactions?${params.toString()}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || "Failed to load transactions");
+    }
+
+    return payload as { transactions: TransactionItem[]; nextCursor: string | null };
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const payload = await fetchPage();
+        if (cancelled) return;
+        setTransactions(payload.transactions);
+        setNextCursor(payload.nextCursor);
+        setHasMore(Boolean(payload.nextCursor));
+      } catch {
+        if (!cancelled) toast.error("Could not load transactions");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [compact]);
+
+  useEffect(() => {
+    if (!hasMore || !loaderRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        if (!firstEntry.isIntersecting || loadingMore || !nextCursor) return;
+
+        setLoadingMore(true);
+        fetchPage(nextCursor)
+          .then((payload) => {
+            setTransactions((current) => [...current, ...payload.transactions]);
+            setNextCursor(payload.nextCursor);
+            setHasMore(Boolean(payload.nextCursor));
+          })
+          .catch(() => toast.error("Unable to load more transactions"))
+          .finally(() => setLoadingMore(false));
+      },
+      { threshold: 0.25 }
+    );
+
+    observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, nextCursor]);
+
+  const getStatusTone = (status: string) => {
+    if (status === "SUCCESS") return { bg: "rgba(22,163,74,0.12)", color: T.green };
+    if (status === "FAILED") return { bg: "rgba(225,29,72,0.12)", color: T.rose };
+    return { bg: "rgba(217,119,6,0.12)", color: T.amber };
+  };
+
+  return (
+    <>
+      {title ? (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div />
+          <p style={{ fontFamily: T.font, fontSize: compact ? 12 : 13, fontWeight: 700, color: T.textMid, margin: 0 }}>
+            {title}
+          </p>
+        </div>
+      ) : null}
+
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: compact ? "28px 0" : "60px 0" }}>
+          <Loader2 size={24} className="animate-spin" color={T.blue} />
+        </div>
+      ) : transactions.length === 0 ? (
+        <div
+          style={{
+            background: T.surface,
+            border: `1px dashed ${T.borderStrong}`,
+            borderRadius: 18,
+            padding: compact ? 18 : 24,
+            textAlign: "center",
+          }}
+        >
+          <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.textMid, margin: 0 }}>
+            No transactions yet
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: compact ? 10 : 12 }}>
+          {transactions.map((transaction) => {
+            const tone = getStatusTone(transaction.status);
+            return (
+              <motion.button
+                key={transaction.id}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => setSelectedTransaction(transaction)}
+                style={{
+                  width: "100%",
+                  border: `1px solid ${T.border}`,
+                  background: T.card,
+                  borderRadius: compact ? 16 : 18,
+                  padding: compact ? "14px 14px" : "16px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                  <div
+                    style={{
+                      width: compact ? 38 : 42,
+                      height: compact ? 38 : 42,
+                      borderRadius: 14,
+                      background: T.blueLight,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: T.blue,
+                    }}
+                  >
+                    {transaction.type === "DATA_PURCHASE" ? <Bolt size={18} /> : transaction.type === "AIRTIME_PURCHASE" ? <Phone size={18} /> : <Wallet size={18} />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: compact ? 13 : 14, color: T.text, margin: "0 0 4px" }}>
+                      {transaction.type.replace(/_/g, " ")}
+                    </p>
+                    <p style={{ fontFamily: T.font, fontSize: compact ? 11 : 12, color: T.textDim, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: compact ? 180 : 240 }}>
+                      {transaction.description || transaction.phone || "Transaction"} • {new Date(transaction.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <p style={{ fontFamily: T.mono, fontWeight: 700, fontSize: compact ? 13 : 14, color: T.text, margin: "0 0 6px" }}>
+                    ₦{transaction.amount.toLocaleString()}
+                  </p>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      borderRadius: 999,
+                      padding: "4px 8px",
+                      background: tone.bg,
+                      color: tone.color,
+                      fontFamily: T.font,
+                      fontSize: 10,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {transaction.status}
+                  </span>
+                </div>
+              </motion.button>
+            );
+          })}
+          {hasMore ? (
+            <div ref={loaderRef} style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
+              {loadingMore ? <Loader2 size={20} className="animate-spin" color={T.blue} /> : <span style={{ fontFamily: T.font, fontSize: 11, color: T.textDim }}>Loading more…</span>}
             </div>
-          </motion.div>
-        ) : null}
+          ) : null}
+        </div>
+      )}
 
-        {status !== "success" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div>
-              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Current PIN</label>
-              <input 
-                ref={currentPinRef}
-                type="password" 
-                maxLength={6} 
-                placeholder="••••••" 
-                disabled={loading}
-                value={currentPin} 
-                onChange={(e) => handlePinInput(e.target.value, setCurrentPin, newPinRef)}
-                onKeyDown={(e) => handleKeyDown(e, newPinRef)}
-                onFocus={(e) => e.target.select()}
-                style={{ 
-                  width: "100%", 
-                  padding: "16px 16px", 
-                  borderRadius: 12, 
-                  border: `2.5px solid ${status === "error" && currentPin.length < 6 ? "#ef4444" : T.blue}`, 
-                  fontFamily: T.mono, 
-                  fontSize: 20, 
-                  letterSpacing: "0.3em", 
-                  outline: "none", 
-                  textAlign: "center", 
-                  transition: "all 0.2s",
-                  background: T.surface,
-                  opacity: loading ? 0.6 : 1,
-                  cursor: loading ? "not-allowed" : "text"
-                }} 
-              />
-            </div>
+      <TransactionReceipt
+        open={Boolean(selectedTransaction)}
+        onClose={() => setSelectedTransaction(null)}
+        transaction={selectedTransaction}
+      />
+    </>
+  );
+}
 
-            <div>
-              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>New PIN</label>
-              <input 
-                ref={newPinRef}
-                type="password" 
-                maxLength={6} 
-                placeholder="••••••" 
-                disabled={loading}
-                value={newPin} 
-                onChange={(e) => handlePinInput(e.target.value, setNewPin, confirmPinRef)}
-                onKeyDown={(e) => handleKeyDown(e, confirmPinRef)}
-                onFocus={(e) => e.target.select()}
-                style={{ 
-                  width: "100%", 
-                  padding: "16px 16px", 
-                  borderRadius: 12, 
-                  border: `2.5px solid ${status === "error" && newPin !== confirmPin ? "#ef4444" : T.blue}`, 
-                  fontFamily: T.mono, 
-                  fontSize: 20, 
-                  letterSpacing: "0.3em", 
-                  outline: "none", 
-                  textAlign: "center", 
-                  transition: "all 0.2s",
-                  background: T.surface,
-                  opacity: loading ? 0.6 : 1,
-                  cursor: loading ? "not-allowed" : "text"
-                }} 
-              />
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Confirm New PIN</label>
-              <input 
-                ref={confirmPinRef}
-                type="password" 
-                maxLength={6} 
-                placeholder="••••••" 
-                disabled={loading}
-                value={confirmPin} 
-                onChange={(e) => handlePinInput(e.target.value, setConfirmPin)}
-                onKeyDown={(e) => e.key === "Enter" && handleChangePin()}
-                onFocus={(e) => e.target.select()}
-                style={{ 
-                  width: "100%", 
-                  padding: "16px 16px", 
-                  borderRadius: 12, 
-                  border: `2.5px solid ${status === "error" && newPin !== confirmPin ? "#ef4444" : T.blue}`, 
-                  fontFamily: T.mono, 
-                  fontSize: 20, 
-                  letterSpacing: "0.3em", 
-                  outline: "none", 
-                  textAlign: "center", 
-                  transition: "all 0.2s",
-                  background: T.surface,
-                  opacity: loading ? 0.6 : 1,
-                  cursor: loading ? "not-allowed" : "text"
-                }} 
-              />
-            </div>
-
-            <motion.button 
-              whileTap={{ scale: loading ? 1 : 0.96 }} 
-              onClick={handleChangePin} 
-              disabled={loading || currentPin.length < 6 || newPin.length < 6 || confirmPin.length < 6}
-              style={{ 
-                width: "100%", 
-                padding: 16, 
-                borderRadius: 14, 
-                background: loading ? T.blue : T.blue, 
-                border: "none", 
-                color: "#fff", 
-                fontFamily: T.font, 
-                fontWeight: 700, 
-                fontSize: 16, 
-                cursor: (loading || currentPin.length < 6) ? "not-allowed" : "pointer", 
-                boxShadow: T.blueShadow, 
-                transition: "all 0.3s",
-                opacity: (loading || currentPin.length < 6 || newPin.length < 6 || confirmPin.length < 6) ? 0.6 : 1, 
-                display: "flex", 
-                alignItems: "center", 
-                justifyContent: "center", 
-                gap: 10,
-                letterSpacing: "0.05em"
-              }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Processing PIN...
-                </>
-              ) : (
-                <>
-                  🔐 Change PIN
-                </>
-              )}
-            </motion.button>
-
-            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "8px 0 0", textAlign: "center" }}>
-              💡 Tip: PIN must be 6 digits and different from current PIN
+function HomeTab({
+  user,
+  showBalance,
+  syncingBalance,
+  copied,
+  onToggleBalance,
+  onSyncBalance,
+  onCopyAccount,
+  onOpenData,
+  onOpenAirtime,
+  onOpenRewards,
+}: {
+  user: UserData;
+  showBalance: boolean;
+  syncingBalance: boolean;
+  copied: boolean;
+  onToggleBalance: () => void;
+  onSyncBalance: () => void;
+  onCopyAccount: () => void;
+  onOpenData: () => void;
+  onOpenAirtime: () => void;
+  onOpenRewards: () => void;
+}) {
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{
+          background: "linear-gradient(135deg, #eef5ff 0%, #ffffff 100%)",
+          borderRadius: 26,
+          padding: "26px 22px",
+          border: `1px solid ${T.borderStrong}`,
+          boxShadow: T.blueShadow,
+          marginBottom: 22,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+          <div>
+            <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Wallet Balance
+            </p>
+            <p style={{ fontFamily: T.mono, fontSize: 32, fontWeight: 800, color: T.blueDark, margin: "0 0 8px" }}>
+              {showBalance ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(user.balance / 100) : "••••••"}
+            </p>
+            <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textMid, margin: 0 }}>
+              {user.virtualAccount?.bankName || "Virtual Account"}
             </p>
           </div>
-        )}
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function HelpModal({ open, onClose }: any) {
-  return (
-    <motion.div key={open ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 60, background: open ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center", pointerEvents: open ? "auto" : "none", transition: "opacity 0.2s" }} onClick={onClose}>
-      <motion.div initial={{ y: "100%" }} animate={{ y: open ? 0 : "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} style={{ background: T.card, borderRadius: "28px 28px 0 0", width: "100%", maxWidth: 520, padding: 24, boxShadow: T.blueShadow, border: `2px solid ${T.blueBorder}` }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: 0 }}>📞 Help & Support</h2>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, background: T.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <X size={16} color={T.textMid} />
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={onToggleBalance}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 14,
+                border: `1px solid ${T.borderStrong}`,
+                background: T.card,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              {showBalance ? <Eye size={17} color={T.blue} /> : <EyeOff size={17} color={T.blue} />}
+            </button>
+            <button
+              onClick={onSyncBalance}
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 14,
+                border: `1px solid ${T.borderStrong}`,
+                background: T.card,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              {syncingBalance ? <Loader2 size={17} className="animate-spin" color={T.blue} /> : <Sparkles size={17} color={T.blue} />}
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <motion.div whileHover={{ scale: 1.02 }} onClick={() => window.location.href = "mailto:syabdallah018@gmail.com"} style={{ background: `linear-gradient(135deg, ${T.blue}20, ${T.blue}10)`, borderRadius: 14, padding: 16, border: `2px solid ${T.blue}30`, cursor: "pointer", transition: "all 0.2s" }}>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, margin: "0 0 8px" }}>✉️ Email Support</p>
-            <p style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.textMid, margin: 0 }}>syabdallah018@gmail.com</p>
-          </motion.div>
-
-          <motion.div whileHover={{ scale: 1.02 }} onClick={() => window.location.href = "tel:+2349061338534"} style={{ background: `linear-gradient(135deg, ${T.green}20, ${T.green}10)`, borderRadius: 14, padding: 16, border: `2px solid ${T.green}30`, cursor: "pointer", transition: "all 0.2s" }}>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.green, margin: "0 0 8px" }}>📱 Call Us</p>
-            <p style={{ fontFamily: T.mono, fontSize: 13, fontWeight: 600, color: T.textMid, margin: 0 }}>+234 906 133 8534</p>
-          </motion.div>
-
-          <div style={{ background: T.blueLight, borderRadius: 12, padding: 14, textAlign: "center" }}>
-            <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 600, color: T.textDim, margin: "0 0 4px" }}>Average Response Time</p>
-            <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, margin: 0 }}>⚡ 2-4 hours</p>
+        <div
+          style={{
+            border: `1px solid ${T.border}`,
+            borderRadius: 18,
+            padding: "14px 14px 12px",
+            background: "rgba(255,255,255,0.82)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div>
+              <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+                Funding Account
+              </p>
+              <p style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>
+                {user.virtualAccount?.accountNumber || "Unavailable"}
+              </p>
+            </div>
+            <button
+              onClick={onCopyAccount}
+              style={{
+                border: "none",
+                borderRadius: 14,
+                padding: "10px 12px",
+                background: copied ? "rgba(22,163,74,0.12)" : T.blueLight,
+                color: copied ? T.green : T.blue,
+                fontFamily: T.font,
+                fontWeight: 800,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                cursor: "pointer",
+              }}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? "Copied" : "Copy"}
+            </button>
           </div>
         </div>
       </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        style={{
+          border: `1px solid ${T.borderStrong}`,
+          borderRadius: 22,
+          background: T.surface,
+          padding: 12,
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          <HomeActionCard
+            icon={<Bolt size={16} color={T.blue} />}
+            title="Data"
+            subtitle="Buy now"
+            color={T.blue}
+            background={T.blueLight}
+            onClick={onOpenData}
+          />
+          <HomeActionCard
+            icon={<Phone size={16} color={T.green} />}
+            title="Airtime"
+            subtitle="Recharge"
+            color={T.green}
+            background="rgba(22,163,74,0.12)"
+            onClick={onOpenAirtime}
+          />
+          <HomeActionCard
+            icon={<Sparkles size={16} color={T.amber} />}
+            title="Rewards"
+            subtitle="Coming soon"
+            color={T.amber}
+            background="rgba(217,119,6,0.12)"
+            onClick={onOpenRewards}
+          />
+        </div>
+      </motion.div>
+
+      <InfiniteTransactionFeed compact title="Recent transaction" />
+    </>
+  );
+}
+
+function AccountsTab() {
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <div
+        style={{
+          minHeight: 320,
+          borderRadius: 26,
+          border: `1px solid ${T.borderStrong}`,
+          background: "linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          padding: 28,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 24,
+              background: T.blueLight,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}
+          >
+            <Wallet size={30} color={T.blue} />
+          </div>
+          <p style={{ fontFamily: T.font, fontSize: 22, fontWeight: 800, color: T.text, margin: "0 0 8px" }}>
+            Accounts
+          </p>
+          <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: 0 }}>
+            Coming soon. You can wire this tab later.
+          </p>
+        </div>
+      </div>
     </motion.div>
   );
 }
 
+function TransactionsTab() {
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+          Transactions
+        </p>
+        <h2 style={{ fontFamily: T.font, fontSize: 26, fontWeight: 800, color: T.text, margin: 0 }}>
+          All Activity
+        </h2>
+      </div>
+      <InfiniteTransactionFeed />
+    </motion.div>
+  );
+}
+
+function ProfileTab({
+  user,
+  onLogout,
+}: {
+  user: UserData;
+  onLogout: () => void;
+}) {
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
+  const [darkThemeEnabled, setDarkThemeEnabled] = useState(false);
+  const [metrics, setMetrics] = useState({ volume: 0, count: 0 });
+
+  useEffect(() => {
+    fetch("/api/transactions?limit=100", { credentials: "include", cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => {
+        const transactions = Array.isArray(payload?.transactions) ? payload.transactions : [];
+        setMetrics({
+          volume: transactions.reduce((sum: number, tx: TransactionItem) => sum + Number(tx.amount || 0), 0),
+          count: transactions.length,
+        });
+      })
+      .catch(() => setMetrics({ volume: 0, count: 0 }));
+  }, []);
+
+  const toggleHaptics = () => {
+    setHapticsEnabled((value) => !value);
+    toast.success(`Haptics ${hapticsEnabled ? "disabled" : "enabled"}`);
+  };
+
+  const toggleTheme = () => {
+    setDarkThemeEnabled((value) => !value);
+    toast.info("Theme preference saved locally");
+  };
+
+  return (
+    <>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+            Profile
+          </p>
+          <h2 style={{ fontFamily: T.font, fontSize: 26, fontWeight: 800, color: T.text, margin: 0 }}>
+            User Details
+          </h2>
+        </div>
+
+        {[
+          ["Name", user.fullName],
+          ["Email", user.email || "No email on file"],
+          ["Phone", user.phone],
+          ["Date joined", user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : "—"],
+          ["Bank", user.virtualAccount?.bankName || "Unavailable"],
+          ["Account number", user.virtualAccount?.accountNumber || "Unavailable"],
+          ["Transaction volume", `₦${metrics.volume.toLocaleString()}`],
+          ["Transaction count", metrics.count.toString()],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            style={{
+              background: T.card,
+              borderRadius: 18,
+              border: `1px solid ${T.border}`,
+              padding: "14px 16px",
+              marginBottom: 12,
+            }}
+          >
+            <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+              {label}
+            </p>
+            <p style={{ fontFamily: label === "Account number" ? T.mono : T.font, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>
+              {value}
+            </p>
+          </div>
+        ))}
+
+        <div
+          style={{
+            background: T.surface,
+            border: `1px solid ${T.borderStrong}`,
+            borderRadius: 22,
+            padding: 16,
+            marginTop: 18,
+          }}
+        >
+          <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 14px", textTransform: "uppercase" }}>
+            Settings
+          </p>
+
+          {[
+            {
+              label: "Haptics",
+              sub: hapticsEnabled ? "Enabled" : "Disabled",
+              action: toggleHaptics,
+              icon: <Sparkles size={16} color={T.blue} />,
+            },
+            {
+              label: "Theme",
+              sub: darkThemeEnabled ? "Dark preference saved" : "Light preference saved",
+              action: toggleTheme,
+              icon: <Moon size={16} color={T.blue} />,
+            },
+            {
+              label: "Change PIN",
+              sub: "Update your transaction PIN",
+              action: () => setSecurityOpen(true),
+              icon: <CreditCard size={16} color={T.blue} />,
+            },
+            {
+              label: "Sign out",
+              sub: "Log out from this device",
+              action: onLogout,
+              icon: <LogOut size={16} color={T.rose} />,
+            },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={item.action}
+              style={{
+                width: "100%",
+                border: "none",
+                background: T.card,
+                borderRadius: 16,
+                padding: "14px 14px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 10,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 12,
+                    background: T.blueLight,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {item.icon}
+                </div>
+                <div>
+                  <p style={{ fontFamily: T.font, fontSize: 14, fontWeight: 700, color: T.text, margin: "0 0 4px" }}>
+                    {item.label}
+                  </p>
+                  <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>{item.sub}</p>
+                </div>
+              </div>
+              <ChevronLeft size={16} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
+            </button>
+          ))}
+        </div>
+      </motion.div>
+
+      <SecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />
+    </>
+  );
+}
+
+function TabBar({
+  activeTab,
+  onChange,
+}: {
+  activeTab: AppTab;
+  onChange: (tab: AppTab) => void;
+}) {
+  const items = [
+    { id: "home" as const, label: "Home", icon: Home },
+    { id: "accounts" as const, label: "Accounts", icon: Wallet },
+    { id: "transactions" as const, label: "Transactions", icon: Receipt },
+    { id: "profile" as const, label: "Profile", icon: User },
+  ];
+
+  return (
+    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 60, display: "flex", justifyContent: "center", padding: "0 14px 16px" }}>
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          borderRadius: 26,
+          background: "rgba(255,255,255,0.95)",
+          backdropFilter: "blur(18px)",
+          border: `1px solid ${T.borderStrong}`,
+          boxShadow: T.blueShadow,
+          padding: 10,
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 8,
+        }}
+      >
+        {items.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+
+          return (
+            <button
+              key={item.id}
+              onClick={() => onChange(item.id)}
+              style={{
+                border: "none",
+                borderRadius: 18,
+                padding: "10px 6px",
+                background: isActive ? T.blueLight : "transparent",
+                color: isActive ? T.blue : T.textMid,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                cursor: "pointer",
+                fontFamily: T.font,
+                fontSize: 11,
+                fontWeight: 800,
+              }}
+            >
+              <Icon size={18} />
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [copied, setCopied] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
+  const [syncingBalance, setSyncingBalance] = useState(false);
+
   const [buyDataOpen, setBuyDataOpen] = useState(false);
   const [buyDataStep, setBuyDataStep] = useState(1);
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
@@ -822,105 +1179,86 @@ export default function DashboardPage() {
   const [pin, setPin] = useState(["", "", "", "", "", ""]);
   const [purchasingData, setPurchasingData] = useState(false);
   const [plansLoading, setPlansLoading] = useState(false);
-  const [successModalOpen, setSuccessModalOpen] = useState(false);
-  const [successData, setSuccessData] = useState<any>(null);
+
   const [airtimeOpen, setAirtimeOpen] = useState(false);
   const [airtimeNetwork, setAirtimeNetwork] = useState<string | null>(null);
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
   const [airtimePin, setAirtimePin] = useState(["", "", "", "", "", ""]);
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
-  const [activeTab, setActiveTab] = useState<"home" | "history" | "settings">("home");
-  const [syncingBalance, setSyncingBalance] = useState(false);
 
   useEffect(() => {
-    const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" }).then((r) => r.json()).then((d) => { if (d?.success && d?.data) setUser(d.data); else router.push("/app/auth"); }).catch(() => router.push("/app/auth")).finally(() => setLoading(false));
+    const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (payload?.success && payload?.data) {
+          setUser(payload.data);
+          return;
+        }
+        router.push("/app/auth");
+      })
+      .catch(() => router.push("/app/auth"))
+      .finally(() => setLoading(false));
   }, [router]);
 
   useEffect(() => {
     fetch("/api/notices/active")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!Array.isArray(data?.data)) return;
-        data.data.slice(0, 2).forEach((notice: any) => {
+      .then((response) => response.json())
+      .then((payload) => {
+        if (!Array.isArray(payload?.data)) return;
+        payload.data.slice(0, 2).forEach((notice: { title?: string; message: string; severity: string }) => {
           const message = notice.title ? `${notice.title}: ${notice.message}` : notice.message;
           if (notice.severity === "ERROR" || notice.severity === "WARNING") {
             toast.error(message, { duration: 7000 });
-          } else {
-            toast.info(message, { duration: 7000 });
+            return;
           }
+          toast.info(message, { duration: 7000 });
         });
       })
-      .catch((error) => console.error("[NOTICES]", error));
+      .catch(() => undefined);
   }, []);
 
-  const formatBalance = (kobo: number) => {
-    const naira = kobo / 100;
-    return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(naira);
+  const refreshUser = async () => {
+    const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const response = await fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" });
+    const payload = await response.json();
+    if (payload?.success && payload?.data) setUser(payload.data);
   };
 
   const handleCopy = () => {
-    const acc = user?.virtualAccount?.accountNumber;
-    if (!acc) return;
-    navigator.clipboard.writeText(acc);
-    setCopied(true);
-    toast.success("Account number copied!");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleLogout = async () => {
-    try {
-      // Clear localStorage completely
-      if (typeof window !== "undefined") {
-        localStorage.clear();
-        sessionStorage.clear();
-      }
-      // Call logout endpoint
-      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-      // Hard redirect to login
-      window.location.href = "/app/auth";
-    } catch (error) {
-      console.error("Logout error:", error);
-      window.location.href = "/app/auth";
+    const accountNumber = user?.virtualAccount?.accountNumber;
+    if (!accountNumber) {
+      toast.error("No account number available");
+      return;
     }
+    navigator.clipboard.writeText(accountNumber);
+    setCopied(true);
+    toast.success("Account number copied");
+    setTimeout(() => setCopied(false), 1800);
   };
 
   const handleSyncBalance = async () => {
     setSyncingBalance(true);
     try {
-      console.log("[SYNC] Fetching latest balance with cache-busting...");
-      // Add timestamp to force fresh fetch (bypass any caching in WebView/browser)
-      const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const res = await fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" });
-      const data = await res.json();
-      
-      if (res.ok && data.success && data.data) {
-        setUser(data.data);
-        toast.success("✅ Balance synced successfully!");
-        console.log("[SYNC] Balance updated:", {
-          oldBalance: user?.balance,
-          newBalance: data.data.balance,
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        toast.error("Failed to sync balance");
-        console.error("[SYNC] Error:", data?.error);
-      }
-    } catch (error) {
-      toast.error("Error syncing balance");
-      console.error("[SYNC] Exception:", error);
+      await refreshUser();
+      toast.success("Balance refreshed");
+    } catch {
+      toast.error("Could not refresh balance");
     } finally {
       setSyncingBalance(false);
     }
   };
 
-  const refreshUser = async () => {
-    const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const response = await fetch(`/api/auth/me?${cacheBuster}`, { credentials: "include", cache: "no-store" });
-    const payload = await response.json();
-    if (payload?.success && payload?.data) {
-      setUser(payload.data);
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      window.location.href = "/app/auth";
     }
   };
 
@@ -959,12 +1297,11 @@ export default function DashboardPage() {
       const next = [...pinValues];
       if (next[index]) {
         next[index] = "";
-        setPinValues(next);
       } else if (index > 0) {
         next[index - 1] = "";
-        setPinValues(next);
         document.getElementById(`${prefix}-${index - 1}`)?.focus();
       }
+      setPinValues(next);
       return;
     }
 
@@ -983,10 +1320,9 @@ export default function DashboardPage() {
     setSelectedNetwork(networkId);
     setPlansLoading(true);
     try {
-      const cacheBuster = `_cb=${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const res = await fetch(`/api/data/plans?network=${networkId}&${cacheBuster}`, { cache: "no-store" });
-      const data = await res.json();
-      setDataPlans(data.data || []);
+      const response = await fetch(`/api/data/plans?network=${networkId}`, { cache: "no-store" });
+      const payload = await response.json();
+      setDataPlans(payload.data || []);
       setBuyDataStep(2);
     } catch {
       toast.error("Failed to load plans");
@@ -995,13 +1331,8 @@ export default function DashboardPage() {
     }
   };
 
-  const handlePlanSelect = (plan: DataPlan) => {
-    setSelectedPlan(plan);
-    setBuyDataStep(3);
-  };
-
   const handleDataPurchase = async () => {
-    if (!selectedPlan || !phoneNumber || pin.some((p) => !p) || !user) {
+    if (!selectedPlan || !phoneNumber || pin.some((item) => !item) || !user) {
       toast.error("Complete all fields");
       return;
     }
@@ -1014,53 +1345,50 @@ export default function DashboardPage() {
         recipientPhone: phoneNumber,
         pin: pin.join(""),
       };
-      let res = await fetch("/api/data/purchase", {
+
+      let response = await fetch("/api/data/purchase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      let data = await res.json();
+      let result = await response.json();
 
-      if (res.status === 409 && data?.requiresConfirmation) {
-        const shouldContinue = window.confirm("This looks like a duplicate data transaction. Do you want to continue?");
-        if (!shouldContinue) {
-          setPurchasingData(false);
-          return;
-        }
+      if (response.status === 409 && result?.requiresConfirmation) {
+        const shouldContinue = window.confirm("Duplicate transaction detected. Continue?");
+        if (!shouldContinue) return;
 
-        res = await fetch("/api/data/purchase", {
+        response = await fetch("/api/data/purchase", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, confirmDuplicate: true }),
         });
-        data = await res.json();
+        result = await response.json();
       }
 
-      if (res.ok && data.success) {
-        setSuccessData({
-          type: "data",
-          plan: selectedPlan.sizeLabel,
-          network: selectedPlan.network,
-          amount: getPriceForTier(selectedPlan, user?.tier || "user"),
-          phone: phoneNumber,
-          validity: selectedPlan.validity
-        });
-        setSuccessModalOpen(true);
-        setBuyDataOpen(false);
-        await refreshUser();
-      } else { toast.error(data.error || "Purchase failed"); }
-    } finally { setPurchasingData(false); }
+      if (!response.ok || !result.success) {
+        toast.error(result.error || "Purchase failed");
+        return;
+      }
+
+      toast.success(result.message || "Data purchased successfully");
+      setBuyDataOpen(false);
+      setBuyDataStep(1);
+      setSelectedNetwork(null);
+      setSelectedPlan(null);
+      setPhoneNumber("");
+      setPin(["", "", "", "", "", ""]);
+      await refreshUser();
+    } finally {
+      setPurchasingData(false);
+    }
   };
 
   const handleAirtimePurchase = async () => {
-    if (!airtimeNetwork || !airtimeAmount || !airtimePhone || airtimePin.some((p) => !p) || !user) { 
-      toast.error("Complete all fields"); 
-      return; 
+    if (!airtimeNetwork || !airtimeAmount || !airtimePhone || airtimePin.some((item) => !item) || !user) {
+      toast.error("Complete all fields");
+      return;
     }
-    if (airtimePhone.length !== 11) { 
-      toast.error("Enter valid 11-digit phone"); 
-      return; 
-    }
+
     setPurchasingAirtime(true);
     try {
       const payload = {
@@ -1070,438 +1398,463 @@ export default function DashboardPage() {
         network: airtimeNetwork,
         pin: airtimePin.join(""),
       };
-      let res = await fetch("/api/airtime/purchase", {
+
+      let response = await fetch("/api/airtime/purchase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      let data = await res.json();
+      let result = await response.json();
 
-      if (res.status === 409 && data?.requiresConfirmation) {
-        const shouldContinue = window.confirm("This looks like a duplicate airtime transaction. Do you want to continue?");
-        if (!shouldContinue) {
-          setPurchasingAirtime(false);
-          return;
-        }
+      if (response.status === 409 && result?.requiresConfirmation) {
+        const shouldContinue = window.confirm("Duplicate airtime transaction detected. Continue?");
+        if (!shouldContinue) return;
 
-        res = await fetch("/api/airtime/purchase", {
+        response = await fetch("/api/airtime/purchase", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...payload, confirmDuplicate: true }),
         });
-        data = await res.json();
+        result = await response.json();
       }
 
-      if (data.success) {
-        toast.success("Airtime purchased successfully!");
-        setAirtimeOpen(false);
-        setAirtimePin(["", "", "", "", "", ""]);
-        await refreshUser();
-      } else { 
-        toast.error(data.error || "Purchase failed");
-        console.error("[AIRTIME PURCHASE ERROR]", res.status, data);
+      if (!response.ok || !result.success) {
+        toast.error(result.error || "Airtime purchase failed");
+        return;
       }
-    } catch (error) {
-      toast.error("Network error. Please try again.");
-      console.error("[AIRTIME PURCHASE EXCEPTION]", error);
-    } finally { setPurchasingAirtime(false); }
+
+      toast.success(result.message || "Airtime purchased successfully");
+      setAirtimeOpen(false);
+      setAirtimeNetwork(null);
+      setAirtimeAmount(null);
+      setAirtimePhone("");
+      setAirtimePin(["", "", "", "", "", ""]);
+      await refreshUser();
+    } finally {
+      setPurchasingAirtime(false);
+    }
   };
 
-  if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: T.bg }}><Loader2 size={28} className="animate-spin" color={T.blue} /></div>;
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
+        <Loader2 size={28} className="animate-spin" color={T.blue} />
+      </div>
+    );
+  }
+
   if (!user) return null;
 
-  const initials = user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+  const initials = user.fullName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <>
       <style>{fontStyle}</style>
-      
-      
-      <div style={{ minHeight: "100vh", background: T.bg, fontFamily: T.font, paddingBottom: 40 }}>
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ position: "sticky", top: 0, zIndex: 40, background: `rgba(255,255,255,0.9)`, backdropFilter: "blur(12px)", borderBottom: `1px solid ${T.blueBorder}`, boxShadow: `0 4px 12px ${T.blue}15` }}>
-          <div style={{ maxWidth: 480, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 14, background: `linear-gradient(135deg, ${T.blue}, ${T.gold})`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: T.font, fontWeight: 800, fontSize: 15, color: "#fff", boxShadow: T.blueShadow, flexShrink: 0 }}>{initials}</div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0, fontWeight: 600, textTransform: "uppercase" }}>Welcome</p>
-                <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 700, color: T.text, margin: "2px 0" }}>{user.fullName}</p>
-                <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 700, color: T.blue, background: T.blueLight, padding: "3px 6px", borderRadius: 4, textTransform: "uppercase", display: "inline-block", marginTop: "3px" }}>{user.tier}</span>
-              </div>
-            </div>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 11, background: T.surface, border: `1.5px solid ${T.blueBorder}`, fontFamily: T.font, fontWeight: 600, fontSize: 12, color: T.blue, cursor: "pointer", transition: "all 0.2s" }}>
-              <LogOut size={14} /> Logout
-            </motion.button>
-          </div>
-        </motion.div>
 
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 20px" }}>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} style={{ background: `linear-gradient(135deg, #f0f9ff 0%, #eff6ff 100%)`, borderRadius: 24, padding: "28px 22px", marginBottom: 24, border: `2px solid ${T.blueBorder}`, boxShadow: T.blueShadow }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-              <div>
-                <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 8px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Available Balance</p>
-                <motion.h2 key={showBalance ? "shown" : "hidden"} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} style={{ fontFamily: T.mono, fontWeight: 800, fontSize: 32, color: T.blue, margin: 0, letterSpacing: "-0.02em" }}>
-                  {showBalance ? formatBalance(user.balance) : "••••••"}
-                </motion.h2>
-                {user.agentRequestStatus === "PENDING" && (
-                  <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: "8px 0 0" }}>
-                    Agent request pending admin approval.
-                  </p>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowBalance(!showBalance)} style={{ width: 40, height: 40, borderRadius: 12, background: T.blueLight, border: `2px solid ${T.blue}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}>
-                  {showBalance ? <Eye size={18} color={T.blue} /> : <EyeOff size={18} color={T.blue} />}
-                </motion.button>
-                <motion.button 
-                  whileTap={{ scale: 0.9 }}
-                  animate={syncingBalance ? { rotate: 360 } : { rotate: 0 }}
-                  transition={syncingBalance ? { duration: 1, repeat: Infinity, ease: "linear" } : {}}
-                  onClick={handleSyncBalance}
-                  disabled={syncingBalance}
-                  style={{ width: 40, height: 40, borderRadius: 12, background: T.blueLight, border: `2px solid ${T.blue}`, cursor: syncingBalance ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s", opacity: syncingBalance ? 0.7 : 1 }}
-                  title="Sync balance"
-                >
-                  <Zap size={18} color={T.blue} />
-                </motion.button>
-              </div>
-            </div>
-
-            <div style={{ height: 2, background: T.blueBorder, marginBottom: 20 }} />
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: "0 0 5px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{user.virtualAccount?.bankName || "Virtual Account"}</p>
-                <p style={{ fontFamily: T.mono, fontSize: 18, color: T.text, margin: 0, fontWeight: 600, letterSpacing: "0.08em" }}>
-                  {user.virtualAccount?.accountNumber ? user.virtualAccount.accountNumber.replace(/(\d{4})(\d{3})(\d{4})/, "$1 $2 $3") : "  "}
-                </p>
-              </div>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={handleCopy} style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", borderRadius: 11, background: copied ? "rgba(16,185,129,0.15)" : T.blueLight, border: `2px solid ${copied ? T.green : T.blue}`, fontFamily: T.font, fontWeight: 600, fontSize: 12, color: copied ? T.green : T.blue, cursor: "pointer", transition: "all 0.2s" }}>
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied ? "Copied" : "Copy"}
-              </motion.button>
-            </div>
-          </motion.div>
-
-          {activeTab === "home" ? (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 24 }}>
-              <ActionTile icon={<Zap size={22} color={T.blue} />} label="Buy Data" sub="All networks" color={T.blue} dimColor="rgba(37,99,235,0.12)" onClick={() => setBuyDataOpen(true)} />
-              <ActionTile icon={<Phone size={22} color={T.green} />} label="Buy Airtime" sub="All networks" color={T.green} dimColor="rgba(16,185,129,0.12)" onClick={() => setAirtimeOpen(true)} />
-              <ActionTile icon={<CreditCard size={22} color={T.purple} />} label="History" sub="Transactions" color={T.purple} dimColor="rgba(139,92,246,0.12)" onClick={() => setActiveTab("history")} />
-              <ActionTile icon={<Settings size={22} color={T.gold} />} label="Settings" sub="Account" color={T.gold} dimColor="rgba(251,191,36,0.12)" onClick={() => setActiveTab("settings")} />
-            </motion.div>
-          ) : (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <button onClick={() => setActiveTab("home")} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, background: "none", border: "none", cursor: "pointer", marginBottom: 20, padding: 0 }}>
-                <ChevronLeft size={18} /> Back to Home
-              </button>
-
-              {activeTab === "history" && <TransactionHistory />}
-              {activeTab === "settings" && <SettingsTab />}
-            </motion.div>
-          )}
-        </div>
-
-        <BottomSheet open={buyDataOpen} onClose={() => { setBuyDataOpen(false); setBuyDataStep(1); setSelectedNetwork(null); setSelectedPlan(null); }} title="Buy Data" accentColor={T.blue}>
-          {buyDataStep === 1 && (
-            <div>
-              <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, marginBottom: 20, fontWeight: 500 }}>Select your network provider</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {NETWORKS.slice(0, 4).map((net) => (
-                  <NetworkPill key={net.id} net={net} selected={selectedNetwork === net.id} onSelect={() => handleNetworkSelect(net.id)} />
-                ))}
-              </div>
-            </div>
-          )}
-          {buyDataStep === 2 && (
-            <div>
-              <button onClick={() => setBuyDataStep(1)} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, background: "none", border: "none", cursor: "pointer", marginBottom: 20, padding: 0 }}>
-                <ChevronLeft size={18} /> Back to Networks
-              </button>
-              {plansLoading ? (
-                <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
-                  <Loader2 size={28} className="animate-spin" color={T.blue} />
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {dataPlans.map((plan) => (
-                    <motion.button key={plan.id} whileTap={{ scale: 0.98 }} onClick={() => handlePlanSelect(plan)} style={{ width: "100%", padding: "18px 20px", textAlign: "left", background: T.surface, border: `2px solid ${T.blueBorder}`, borderRadius: 16, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "all 0.2s", boxShadow: `0 4px 12px ${T.blue}12` }}>
-                      <div>
-                        <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 16, color: T.text, margin: "0 0 4px" }}>{plan.sizeLabel}</p>
-                        <p style={{ fontFamily: T.font, fontSize: 13, color: T.textDim, margin: 0, fontWeight: 500 }}>{plan.validity}</p>
-                      </div>
-                      <div style={{ background: T.blueLight, border: `2px solid ${T.blue}`, borderRadius: 12, padding: "8px 16px" }}>
-                        <p style={{ fontFamily: T.mono, fontWeight: 700, fontSize: 16, color: T.blue, margin: 0 }}>₦{getPriceForTier(plan, user.tier).toLocaleString()}</p>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {buyDataStep === 3 && (
-            <div>
-              <button onClick={() => setBuyDataStep(2)} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: T.font, fontWeight: 700, fontSize: 14, color: T.blue, background: "none", border: "none", cursor: "pointer", marginBottom: 20, padding: 0 }}>
-                <ChevronLeft size={18} /> Back to Plans
-              </button>
-              {selectedPlan && (
-                <div style={{ background: T.blueLight, border: `2px solid ${T.blueBorder}`, borderRadius: 16, padding: "18px", marginBottom: 24 }}>
-                  <p style={{ fontFamily: T.font, fontSize: 13, color: T.textDim, margin: "0 0 6px", fontWeight: 600, textTransform: "uppercase" }}>Selected Plan</p>
-                  <p style={{ fontFamily: T.font, fontWeight: 700, fontSize: 18, color: T.text, margin: 0 }}>{selectedPlan.sizeLabel} • {selectedPlan.validity}</p>
-                  <p style={{ fontFamily: T.mono, fontWeight: 700, fontSize: 20, color: T.blue, margin: "10px 0 0" }}>₦{getPriceForTier(selectedPlan, user.tier).toLocaleString()}</p>
-                </div>
-              )}
-
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>Phone Number</label>
-                <input
-                  type="tel"
-                  maxLength={11}
-                  placeholder="08012345678"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                  style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.mono, fontSize: 16, color: T.text, background: T.surface, outline: "none", boxSizing: "border-box", transition: "all 0.2s" }}
-                  onFocus={(e) => {
-                    (e.target as HTMLInputElement).style.borderColor = T.blue;
-                    (e.target as HTMLInputElement).style.boxShadow = T.blueShadow;
-                  }}
-                  onBlur={(e) => {
-                    (e.target as HTMLInputElement).style.borderColor = T.border;
-                    (e.target as HTMLInputElement).style.boxShadow = "none";
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>Transaction PIN</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {pin.map((d, i) => (
-                    <input
-                      key={i}
-                      id={`pin-${i}`}
-                      type="password"
-                      maxLength={1}
-                      value={d}
-                      onChange={(e) => handlePinBoxInput(i, e.target.value, pin, setPin, "pin")}
-                      onKeyDown={(e) => handlePinBoxKeyDown(i, e, pin, setPin, "pin")}
-                      onFocus={(e) => e.currentTarget.select()}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        padding: "12px 0",
-                        textAlign: "center",
-                        borderRadius: 12,
-                        background: d ? T.blueLight : T.surface,
-                        border: `2px solid ${d ? T.blue : T.border}`,
-                        fontFamily: T.mono,
-                        fontSize: 20,
-                        fontWeight: 700,
-                        color: T.text,
-                        outline: "none",
-                        transition: "all 0.2s",
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <motion.button
-                onClick={() => handleDataPurchase()}
-                disabled={purchasingData}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+      <div style={{ minHeight: "100vh", background: T.bg, paddingBottom: 108 }}>
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 40,
+            background: "rgba(251,251,253,0.92)",
+            backdropFilter: "blur(16px)",
+            borderBottom: `1px solid ${T.border}`,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 520,
+              margin: "0 auto",
+              padding: "16px 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
                 style={{
-                  width: "100%",
-                  padding: "16px",
-                  borderRadius: 14,
-                  background: T.blue,
-                  border: "none",
-                  color: "#fff",
-                  fontFamily: T.font,
-                  fontSize: 15,
-                  fontWeight: 700,
-                  cursor: purchasingData ? "not-allowed" : "pointer",
-                  opacity: purchasingData ? 0.7 : 1,
+                  width: 42,
+                  height: 42,
+                  borderRadius: 16,
+                  background: "linear-gradient(135deg, #2463eb 0%, #4f8cff 100%)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 10,
-                  boxShadow: T.blueShadow,
-                  transition: "all 0.3s",
+                  color: "#fff",
+                  fontFamily: T.font,
+                  fontWeight: 800,
+                  fontSize: 15,
                 }}
               >
-                {purchasingData && <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />}
-                {purchasingData ? "Processing..." : "Confirm Purchase"}
-              </motion.button>
-            </div>
-          )}
-        </BottomSheet>
-
-        <BottomSheet open={airtimeOpen} onClose={() => { setAirtimeOpen(false); setAirtimeNetwork(null); setAirtimeAmount(null); setAirtimePhone(""); setAirtimePin(["", "", "", "", "", ""]); }} title="Buy Airtime" accentColor={T.green}>
-          <div>
-            <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, marginBottom: 20, fontWeight: 500 }}>Select network and amount</p>
-
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 12, textTransform: "uppercase" }}>Network</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {NETWORKS.map((net) => (
-                  <NetworkPill key={net.id} net={net} selected={airtimeNetwork === net.id} onSelect={() => setAirtimeNetwork(net.id)} />
-                ))}
+                {initials}
+              </div>
+              <div>
+                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 4px", textTransform: "uppercase" }}>
+                  SY Data Sub
+                </p>
+                <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text, margin: 0 }}>
+                  {user.fullName}
+                </p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              style={{
+                border: "none",
+                borderRadius: 14,
+                padding: "10px 12px",
+                background: T.card,
+                color: T.textMid,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: T.font,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              <LogOut size={14} />
+              Exit
+            </button>
+          </div>
+        </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 12, textTransform: "uppercase" }}>Amount</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {AIRTIME_AMOUNTS.map((amount) => (
-                  <motion.button
-                    key={amount}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setAirtimeAmount(amount)}
+        <main style={{ maxWidth: 520, margin: "0 auto", padding: "20px 20px 0" }}>
+          {activeTab === "home" && (
+            <HomeTab
+              user={user}
+              showBalance={showBalance}
+              syncingBalance={syncingBalance}
+              copied={copied}
+              onToggleBalance={() => setShowBalance((value) => !value)}
+              onSyncBalance={handleSyncBalance}
+              onCopyAccount={handleCopy}
+              onOpenData={() => setBuyDataOpen(true)}
+              onOpenAirtime={() => setAirtimeOpen(true)}
+              onOpenRewards={() => toast.info("Rewards screen is coming soon")}
+            />
+          )}
+          {activeTab === "accounts" && <AccountsTab />}
+          {activeTab === "transactions" && <TransactionsTab />}
+          {activeTab === "profile" && <ProfileTab user={user} onLogout={handleLogout} />}
+        </main>
+
+        <TabBar activeTab={activeTab} onChange={setActiveTab} />
+      </div>
+
+      <BottomSheet
+        open={buyDataOpen}
+        onClose={() => {
+          setBuyDataOpen(false);
+          setBuyDataStep(1);
+          setSelectedNetwork(null);
+          setSelectedPlan(null);
+        }}
+        title="Buy Data"
+        accentColor={T.blue}
+      >
+        {buyDataStep === 1 && (
+          <>
+            <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: "0 0 18px" }}>
+              Select a network to continue
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {NETWORKS.map((network) => (
+                <NetworkPill
+                  key={network.id}
+                  net={network}
+                  selected={selectedNetwork === network.id}
+                  onSelect={() => handleNetworkSelect(network.id)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {buyDataStep === 2 && (
+          <>
+            <button
+              onClick={() => setBuyDataStep(1)}
+              style={{ border: "none", background: "transparent", color: T.blue, fontFamily: T.font, fontWeight: 800, cursor: "pointer", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <ChevronLeft size={16} />
+              Back
+            </button>
+
+            {plansLoading ? (
+              <div style={{ display: "flex", justifyContent: "center", padding: "50px 0" }}>
+                <Loader2 size={24} className="animate-spin" color={T.blue} />
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {dataPlans.map((plan) => (
+                  <button
+                    key={plan.id}
+                    onClick={() => {
+                      setSelectedPlan(plan);
+                      setBuyDataStep(3);
+                    }}
                     style={{
-                      padding: "14px 12px",
-                      borderRadius: 12,
-                      border: `2px solid ${airtimeAmount === amount ? T.green : T.border}`,
-                      background: airtimeAmount === amount ? "rgba(16,185,129,0.15)" : T.surface,
-                      fontFamily: T.mono,
-                      fontWeight: 700,
-                      fontSize: 15,
-                      color: airtimeAmount === amount ? T.green : T.textMid,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 18,
+                      background: T.card,
+                      padding: "16px 16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
                       cursor: "pointer",
-                      transition: "all 0.2s",
                     }}
                   >
-                    ₦{amount}
-                  </motion.button>
+                    <div style={{ textAlign: "left" }}>
+                      <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text, margin: "0 0 4px" }}>{plan.sizeLabel}</p>
+                      <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: 0 }}>{plan.validity}</p>
+                    </div>
+                    <p style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 800, color: T.blue, margin: 0 }}>
+                      ₦{getPriceForTier(plan, user.tier).toLocaleString()}
+                    </p>
+                  </button>
                 ))}
               </div>
+            )}
+          </>
+        )}
+
+        {buyDataStep === 3 && selectedPlan && (
+          <>
+            <button
+              onClick={() => setBuyDataStep(2)}
+              style={{ border: "none", background: "transparent", color: T.blue, fontFamily: T.font, fontWeight: 800, cursor: "pointer", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <ChevronLeft size={16} />
+              Back
+            </button>
+
+            <div style={{ background: T.blueLight, borderRadius: 18, padding: 16, marginBottom: 18 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase", fontWeight: 800 }}>
+                Selected plan
+              </p>
+              <p style={{ fontFamily: T.font, fontSize: 16, fontWeight: 800, color: T.text, margin: "0 0 8px" }}>
+                {selectedPlan.sizeLabel} • {selectedPlan.validity}
+              </p>
+              <p style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 800, color: T.blue, margin: 0 }}>
+                ₦{getPriceForTier(selectedPlan, user.tier).toLocaleString()}
+              </p>
             </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>Phone Number</label>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+                Phone number
+              </label>
               <input
                 type="tel"
                 maxLength={11}
-                placeholder="08012345678"
-                value={airtimePhone}
-                onChange={(e) => setAirtimePhone(e.target.value.replace(/\D/g, ""))}
-                style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: `2px solid ${T.border}`, fontFamily: T.mono, fontSize: 16, color: T.text, background: T.surface, outline: "none", boxSizing: "border-box", transition: "all 0.2s" }}
-                onFocus={(e) => {
-                  (e.target as HTMLInputElement).style.borderColor = T.green;
-                  (e.target as HTMLInputElement).style.boxShadow = `0 12px 30px rgba(16, 185, 129, 0.15)`;
-                }}
-                onBlur={(e) => {
-                  (e.target as HTMLInputElement).style.borderColor = T.border;
-                  (e.target as HTMLInputElement).style.boxShadow = "none";
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value.replace(/\D/g, ""))}
+                style={{
+                  width: "100%",
+                  padding: "15px 16px",
+                  borderRadius: 16,
+                  border: `1px solid ${T.borderStrong}`,
+                  background: T.surface,
+                  fontFamily: T.mono,
+                  fontSize: 16,
+                  boxSizing: "border-box",
+                  outline: "none",
                 }}
               />
             </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>Transaction PIN</label>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {airtimePin.map((d, i) => (
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+                Transaction PIN
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+                {pin.map((digit, index) => (
                   <input
-                    key={i}
-                    id={`airtime-pin-${i}`}
+                    key={index}
+                    id={`data-pin-${index}`}
                     type="password"
                     maxLength={1}
-                    value={d}
-                    onChange={(e) => handlePinBoxInput(i, e.target.value, airtimePin, setAirtimePin, "airtime-pin")}
-                    onKeyDown={(e) => handlePinBoxKeyDown(i, e, airtimePin, setAirtimePin, "airtime-pin")}
-                    onFocus={(e) => e.currentTarget.select()}
+                    value={digit}
+                    onChange={(event) => handlePinBoxInput(index, event.target.value, pin, setPin, "data-pin")}
+                    onKeyDown={(event) => handlePinBoxKeyDown(index, event, pin, setPin, "data-pin")}
+                    onFocus={(event) => event.currentTarget.select()}
                     style={{
-                      flex: 1,
-                      minWidth: 0,
-                      padding: "12px 0",
+                      width: "100%",
+                      padding: "14px 0",
                       textAlign: "center",
-                      borderRadius: 12,
-                      background: d ? `${T.green}15` : T.surface,
-                      border: `2px solid ${d ? T.green : T.border}`,
+                      borderRadius: 14,
+                      border: `1px solid ${digit ? T.blue : T.borderStrong}`,
+                      background: digit ? T.blueLight : T.surface,
                       fontFamily: T.mono,
-                      fontSize: 20,
-                      fontWeight: 700,
-                      color: T.text,
+                      fontSize: 18,
+                      fontWeight: 800,
                       outline: "none",
-                      transition: "all 0.2s",
-                      boxSizing: "border-box",
                     }}
                   />
                 ))}
               </div>
             </div>
 
-            <motion.button
-              onClick={() => handleAirtimePurchase()}
-              disabled={purchasingAirtime}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
+              onClick={handleDataPurchase}
+              disabled={purchasingData}
               style={{
                 width: "100%",
-                padding: "16px",
-                borderRadius: 14,
-                background: T.green,
                 border: "none",
+                borderRadius: 16,
+                padding: 16,
+                background: T.blue,
                 color: "#fff",
                 fontFamily: T.font,
+                fontWeight: 800,
                 fontSize: 15,
-                fontWeight: 700,
-                cursor: purchasingAirtime ? "not-allowed" : "pointer",
-                opacity: purchasingAirtime ? 0.7 : 1,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                boxShadow: `0 12px 30px rgba(16, 185, 129, 0.15)`,
-                transition: "all 0.3s",
+                cursor: purchasingData ? "not-allowed" : "pointer",
+                opacity: purchasingData ? 0.7 : 1,
               }}
             >
-              {purchasingAirtime && <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />}
-              {purchasingAirtime ? "Processing..." : "Buy Airtime"}
-            </motion.button>
+              {purchasingData ? "Processing..." : "Confirm Purchase"}
+            </button>
+          </>
+        )}
+      </BottomSheet>
+
+      <BottomSheet
+        open={airtimeOpen}
+        onClose={() => {
+          setAirtimeOpen(false);
+          setAirtimeNetwork(null);
+          setAirtimeAmount(null);
+          setAirtimePhone("");
+          setAirtimePin(["", "", "", "", "", ""]);
+        }}
+        title="Buy Airtime"
+        accentColor={T.green}
+      >
+        <div style={{ marginBottom: 18 }}>
+          <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase" }}>
+            Choose network
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {NETWORKS.map((network) => (
+              <NetworkPill
+                key={network.id}
+                net={network}
+                selected={airtimeNetwork === network.id}
+                onSelect={() => setAirtimeNetwork(network.id)}
+              />
+            ))}
           </div>
-        </BottomSheet>
+        </div>
 
-        {/* Success Modal */}
-        <motion.div key={successModalOpen ? "open" : "closed"} initial={{ opacity: 0 }} animate={{ opacity: successModalOpen ? 1 : 0 }} style={{ position: "fixed", inset: 0, zIndex: 50, background: successModalOpen ? "rgba(0,0,0,0.5)" : "transparent", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: successModalOpen ? "auto" : "none", transition: "opacity 0.3s" }} onClick={() => setSuccessModalOpen(false)}>
-          <motion.div initial={{ scale: 0.8, y: 50 }} animate={{ scale: successModalOpen ? 1 : 0.8, y: successModalOpen ? 0 : 50 }} transition={{ type: "spring", damping: 20, stiffness: 300 }} style={{ background: T.card, borderRadius: 24, padding: "40px 24px", maxWidth: 320, width: "90%", textAlign: "center", border: `2px solid ${T.blueBorder}`, boxShadow: T.blueShadow }} onClick={(e) => e.stopPropagation()}>
-            <motion.div initial={{ scale: 0 }} animate={{ scale: successModalOpen ? 1 : 0 }} transition={{ delay: 0.3, type: "spring", damping: 15 }} style={{ width: 80, height: 80, borderRadius: "50%", background: "rgba(16, 185, 129, 0.15)", border: `2px solid ${T.green}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 40 }}>
-              ✓
-            </motion.div>
-            <h2 style={{ fontFamily: T.font, fontWeight: 700, fontSize: 20, color: T.text, margin: "0 0 8px" }}>Success!</h2>
-            <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: "0 0 24px", lineHeight: 1.5 }}>{successData?.type === "data" ? `Data purchased successfully` : "Airtime bought successfully"}</p>
-            
-            <div style={{ background: T.blueLight, borderRadius: 12, padding: "16px", marginBottom: 20, textAlign: "left" }}>
-              {successData?.type === "data" && (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
-                    <span style={{ color: T.textDim, fontWeight: 600 }}>Plan:</span>
-                    <span style={{ color: T.text, fontWeight: 700 }}>{successData?.plan}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
-                    <span style={{ color: T.textDim, fontWeight: 600 }}>Network:</span>
-                    <span style={{ color: T.text, fontWeight: 700 }}>{successData?.network}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 13 }}>
-                    <span style={{ color: T.textDim, fontWeight: 600 }}>Phone:</span>
-                    <span style={{ color: T.text, fontFamily: T.mono, fontWeight: 700 }}>{successData?.phone}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                    <span style={{ color: T.textDim, fontWeight: 600 }}>Amount:</span>
-                    <span style={{ color: T.blue, fontFamily: T.mono, fontWeight: 800 }}>₦{successData?.amount?.toLocaleString()}</span>
-                  </div>
-                </>
-              )}
-            </div>
+        <div style={{ marginBottom: 18 }}>
+          <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase" }}>
+            Amount
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            {AIRTIME_AMOUNTS.map((amount) => (
+              <button
+                key={amount}
+                onClick={() => setAirtimeAmount(amount)}
+                style={{
+                  border: `1px solid ${airtimeAmount === amount ? T.green : T.border}`,
+                  borderRadius: 14,
+                  padding: "12px 10px",
+                  background: airtimeAmount === amount ? "rgba(22,163,74,0.12)" : T.card,
+                  cursor: "pointer",
+                  fontFamily: T.mono,
+                  fontWeight: 800,
+                  color: T.text,
+                }}
+              >
+                ₦{amount}
+              </button>
+            ))}
+          </div>
+        </div>
 
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setSuccessModalOpen(false)} style={{ width: "100%", padding: "12px", borderRadius: 12, background: T.blue, border: "none", color: "#fff", fontFamily: T.font, fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: T.blueShadow, transition: "all 0.2s" }}>
-              Done
-            </motion.button>
-          </motion.div>
-        </motion.div>
-      </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+            Phone number
+          </label>
+          <input
+            type="tel"
+            maxLength={11}
+            value={airtimePhone}
+            onChange={(event) => setAirtimePhone(event.target.value.replace(/\D/g, ""))}
+            style={{
+              width: "100%",
+              padding: "15px 16px",
+              borderRadius: 16,
+              border: `1px solid ${T.borderStrong}`,
+              background: T.surface,
+              fontFamily: T.mono,
+              fontSize: 16,
+              boxSizing: "border-box",
+              outline: "none",
+            }}
+          />
+        </div>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+            Transaction PIN
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+            {airtimePin.map((digit, index) => (
+              <input
+                key={index}
+                id={`airtime-pin-${index}`}
+                type="password"
+                maxLength={1}
+                value={digit}
+                onChange={(event) => handlePinBoxInput(index, event.target.value, airtimePin, setAirtimePin, "airtime-pin")}
+                onKeyDown={(event) => handlePinBoxKeyDown(index, event, airtimePin, setAirtimePin, "airtime-pin")}
+                onFocus={(event) => event.currentTarget.select()}
+                style={{
+                  width: "100%",
+                  padding: "14px 0",
+                  textAlign: "center",
+                  borderRadius: 14,
+                  border: `1px solid ${digit ? T.green : T.borderStrong}`,
+                  background: digit ? "rgba(22,163,74,0.12)" : T.surface,
+                  fontFamily: T.mono,
+                  fontSize: 18,
+                  fontWeight: 800,
+                  outline: "none",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <button
+          onClick={handleAirtimePurchase}
+          disabled={purchasingAirtime}
+          style={{
+            width: "100%",
+            border: "none",
+            borderRadius: 16,
+            padding: 16,
+            background: T.green,
+            color: "#fff",
+            fontFamily: T.font,
+            fontWeight: 800,
+            fontSize: 15,
+            cursor: purchasingAirtime ? "not-allowed" : "pointer",
+            opacity: purchasingAirtime ? 0.7 : 1,
+          }}
+        >
+          {purchasingAirtime ? "Processing..." : "Buy Airtime"}
+        </button>
+      </BottomSheet>
     </>
   );
 }
