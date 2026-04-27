@@ -7,6 +7,7 @@ export const loginSchema = z.object({
 
 export const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Enter a valid email address"),
   phone: z.string().regex(/^0[0-9]{10}$/, "Phone number must be 11 digits starting with 0"),
   pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
   confirmPin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),

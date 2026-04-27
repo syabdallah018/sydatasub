@@ -38,9 +38,21 @@ This checklist is intended for release smoke-tests and incident response checks.
 ## Webhook Routes
 
 - Route: `POST /api/payments/webhook` (Billstack target)
-- Check: rejects invalid/missing gateway signature header
-- Check: idempotency is keyed by gateway transaction reference
+- Check: rejects invalid/missing `x-wiaxy-signature` header
+- Check: verifies `x-wiaxy-signature === md5(BILLSTACK_SECRET_KEY)`
+- Check: idempotency is keyed by both BillStack `reference` and `wiaxy_ref`
 - Check: repeated delivery of same event does not double-credit wallet
+
+## Reserved Account Routes
+
+- Route: `POST /api/payments/reserved-account`
+- Check: requires authenticated session
+- Check: rejects cross-site mutation without valid origin/referer
+- Check: outbound request includes `Authorization: Bearer <BILLSTACK_SECRET_KEY>`
+
+- Route: `GET /api/payments/reserved-account`
+- Check: requires authenticated session
+- Check: does not leak account details for other users
 
 ## Admin Auth and Mutations
 

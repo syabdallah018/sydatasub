@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Bolt,
+  Building2,
   Check,
   ChevronLeft,
+  Copy,
   CreditCard,
   Eye,
   EyeOff,
@@ -14,9 +16,9 @@ import {
   Loader2,
   LogOut,
   Moon,
+  MessageCircle,
   Phone,
   Receipt,
-  ShieldCheck,
   Sparkles,
   User,
   Wallet,
@@ -49,7 +51,7 @@ const T = {
   mono: "'DM Mono', monospace",
 };
 
-type AppTab = "home" | "transactions" | "agent" | "profile";
+type AppTab = "home" | "transactions" | "accounts" | "profile";
 
 interface UserData {
   id: string;
@@ -62,6 +64,17 @@ interface UserData {
   isActive?: boolean;
   joinedAt?: string;
   agentRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+}
+
+interface BankAccountItem {
+  id: string;
+  bankCode: string;
+  accountNumber: string;
+  accountName?: string | null;
+  bankName: string;
+  merchantReference: string;
+  isPrimary: boolean;
+  createdAt: string;
 }
 
 interface DataPlan {
@@ -1075,21 +1088,27 @@ function HomeTab({
   showBalance,
   syncingBalance,
   rewardBalance,
+  primaryAccount,
   onToggleBalance,
   onSyncBalance,
+  onCopyAccount,
   onOpenData,
   onOpenAirtime,
   onOpenRewards,
+  onOpenAccounts,
 }: {
   user: UserData;
   showBalance: boolean;
   syncingBalance: boolean;
   rewardBalance: number;
+  primaryAccount: BankAccountItem | null;
   onToggleBalance: () => void;
   onSyncBalance: () => void;
+  onCopyAccount: () => void;
   onOpenData: () => void;
   onOpenAirtime: () => void;
   onOpenRewards: () => void;
+  onOpenAccounts: () => void;
 }) {
   return (
     <>
@@ -1165,9 +1184,59 @@ function HomeTab({
             background: "rgba(255,255,255,0.82)",
           }}
         >
-          <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.textMid, margin: 0 }}>
-            Wallet funding via Billstack integration will be enabled soon.
-          </p>
+          {primaryAccount ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <p style={{ margin: "0 0 5px", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, textTransform: "uppercase" }}>
+                  Funding Account ({primaryAccount.bankCode})
+                </p>
+                <p style={{ margin: 0, fontFamily: T.mono, fontSize: 14, fontWeight: 700, color: T.text }}>
+                  {primaryAccount.accountNumber} • {primaryAccount.bankName}
+                </p>
+              </div>
+              <button
+                onClick={onCopyAccount}
+                style={{
+                  border: "none",
+                  borderRadius: 12,
+                  padding: "8px 10px",
+                  background: T.blueLight,
+                  color: T.blue,
+                  fontFamily: T.font,
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                }}
+              >
+                <Copy size={14} />
+                Copy
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.textMid, margin: 0 }}>
+                No reserved account yet. Create one to fund your wallet.
+              </p>
+              <button
+                onClick={onOpenAccounts}
+                style={{
+                  border: "none",
+                  borderRadius: 12,
+                  padding: "8px 10px",
+                  background: T.blue,
+                  color: "#fff",
+                  fontFamily: T.font,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Create Account
+              </button>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -1183,7 +1252,7 @@ function HomeTab({
           marginBottom: 20,
         }}
       >
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
           <HomeActionCard
             icon={<Bolt size={16} color={T.blue} />}
             title="Data"
@@ -1208,6 +1277,14 @@ function HomeTab({
             background="rgba(217,119,6,0.12)"
             onClick={onOpenRewards}
           />
+          <HomeActionCard
+            icon={<Building2 size={16} color={T.text} />}
+            title="Accounts"
+            subtitle="Manage"
+            color={T.text}
+            background="rgba(17,24,39,0.08)"
+            onClick={onOpenAccounts}
+          />
         </div>
       </motion.div>
 
@@ -1228,6 +1305,144 @@ function TransactionsTab() {
         </h2>
       </div>
       <InfiniteTransactionFeed />
+    </motion.div>
+  );
+}
+
+function AccountsTab({
+  user,
+  accounts,
+  onAccountsUpdated,
+}: {
+  user: UserData;
+  accounts: BankAccountItem[];
+  onAccountsUpdated: (accounts: BankAccountItem[]) => void;
+}) {
+  const [email, setEmail] = useState(user.email || "");
+  const [bank, setBank] = useState<"PALMPAY" | "9PSB" | "SAFEHAVEN" | "PROVIDUS" | "BANKLY">("PALMPAY");
+  const [creating, setCreating] = useState(false);
+
+  const createAccount = async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Ahh, sorry, enter a valid email address.");
+      return;
+    }
+    setCreating(true);
+    try {
+      const response = await fetch("/api/payments/accounts", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bank, email }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.success) {
+        toast.error(getFriendlyMessage(payload?.error, "Ahh, sorry, we couldn't create that account now."));
+        return;
+      }
+      const nextAccounts = Array.isArray(payload?.data) ? payload.data : [];
+      onAccountsUpdated(nextAccounts);
+      toast.success("Great, your bank account is ready.");
+    } catch {
+      toast.error("Ahh, sorry, network is unstable. Please try again shortly.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+          Accounts
+        </p>
+        <h2 style={{ fontFamily: T.font, fontSize: 26, fontWeight: 800, color: T.text, margin: 0 }}>
+          Reserved Accounts
+        </h2>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+        {accounts.length === 0 ? (
+          <div style={{ border: `1px solid ${T.border}`, background: T.card, borderRadius: 18, padding: 14 }}>
+            <p style={{ margin: 0, fontFamily: T.font, fontSize: 13, color: T.textMid }}>
+              You don&apos;t have any reserved account yet.
+            </p>
+          </div>
+        ) : (
+          accounts.map((account) => (
+            <div key={account.id} style={{ border: `1px solid ${T.border}`, background: T.card, borderRadius: 18, padding: 14 }}>
+              <p style={{ margin: "0 0 5px", fontFamily: T.font, fontWeight: 800, fontSize: 13, color: T.text }}>
+                {account.bankName} {account.isPrimary ? "• Primary" : ""}
+              </p>
+              <p style={{ margin: "0 0 6px", fontFamily: T.mono, fontWeight: 700, fontSize: 14, color: T.blue }}>
+                {account.accountNumber}
+              </p>
+              <p style={{ margin: 0, fontFamily: T.font, fontSize: 12, color: T.textMid }}>
+                Ref: {account.merchantReference}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={{ border: `1px solid ${T.borderStrong}`, background: T.surface, borderRadius: 18, padding: 14 }}>
+        <p style={{ margin: "0 0 10px", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, textTransform: "uppercase" }}>
+          Create Another Account
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+          <input
+            value={email}
+            onChange={(event) => setEmail(event.target.value.trim())}
+            placeholder="Email address"
+            style={{
+              border: `1px solid ${T.border}`,
+              borderRadius: 12,
+              padding: "11px 12px",
+              fontFamily: T.font,
+              fontSize: 14,
+              outline: "none",
+              background: T.card,
+            }}
+          />
+          <select
+            value={bank}
+            onChange={(event) => setBank(event.target.value as "PALMPAY" | "9PSB" | "SAFEHAVEN" | "PROVIDUS" | "BANKLY")}
+            style={{
+              border: `1px solid ${T.border}`,
+              borderRadius: 12,
+              padding: "11px 12px",
+              fontFamily: T.font,
+              fontSize: 14,
+              outline: "none",
+              background: T.card,
+            }}
+          >
+            <option value="PALMPAY">Palmpay</option>
+            <option value="9PSB">9PSB</option>
+            <option value="SAFEHAVEN">Safehaven</option>
+            <option value="PROVIDUS">Providus</option>
+            <option value="BANKLY">Bankly</option>
+          </select>
+          <button
+            onClick={createAccount}
+            disabled={creating}
+            style={{
+              border: "none",
+              borderRadius: 12,
+              padding: "11px 12px",
+              fontFamily: T.font,
+              fontSize: 14,
+              fontWeight: 800,
+              background: T.blue,
+              color: "#fff",
+              cursor: creating ? "not-allowed" : "pointer",
+              opacity: creating ? 0.7 : 1,
+            }}
+          >
+            {creating ? "Creating..." : "Create Account"}
+          </button>
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -1386,6 +1601,70 @@ function ProfileTab({
               <ChevronLeft size={16} color={T.textDim} style={{ transform: "rotate(180deg)" }} />
             </button>
           ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 16,
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 18,
+            padding: 14,
+          }}
+        >
+          <p style={{ margin: "0 0 8px", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, textTransform: "uppercase" }}>
+            Customer Care
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <a href="tel:+2347068614426" style={{ color: T.blue, fontFamily: T.font, fontWeight: 700, textDecoration: "none" }}>
+              +234 706 861 4426
+            </a>
+            <a href="tel:+2349061338534" style={{ color: T.blue, fontFamily: T.font, fontWeight: 700, textDecoration: "none" }}>
+              +234 906 133 8534
+            </a>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 18,
+            padding: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/anjal-ventures.svg" alt="Anjal Ventures" style={{ width: 28, height: 28, borderRadius: 8 }} />
+            <p style={{ margin: 0, fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.text }}>
+              Built by Anjal Ventures
+            </p>
+          </div>
+          <a
+            href="https://wa.me/2348164135836"
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              textDecoration: "none",
+              borderRadius: 10,
+              padding: "8px 10px",
+              background: "rgba(22,163,74,0.12)",
+              color: T.green,
+              fontFamily: T.font,
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            <MessageCircle size={14} />
+            WhatsApp
+          </a>
         </div>
       </motion.div>
 
@@ -1546,7 +1825,7 @@ function TabBar({
   const items = [
     { id: "home" as const, label: "Home", icon: Home },
     { id: "transactions" as const, label: "Transactions", icon: Receipt },
-    { id: "agent" as const, label: "Agent", icon: ShieldCheck },
+    { id: "accounts" as const, label: "Accounts", icon: Building2 },
     { id: "profile" as const, label: "Profile", icon: User },
   ];
 
@@ -1610,6 +1889,7 @@ export default function DashboardPage() {
   const [showRewards, setShowRewards] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccountItem[]>([]);
   const [rewardSnapshot, setRewardSnapshot] = useState<RewardSnapshot | null>(null);
   const [successState, setSuccessState] = useState<SuccessState>({
     open: false,
@@ -1672,6 +1952,16 @@ export default function DashboardPage() {
     if (payload?.success && payload?.data) setUser(payload.data);
   };
 
+  const refreshAccounts = async () => {
+    const response = await fetch("/api/payments/accounts", { credentials: "include", cache: "no-store" });
+    const payload = await response.json();
+    if (response.ok && payload?.success && Array.isArray(payload?.data)) {
+      setBankAccounts(payload.data as BankAccountItem[]);
+      return;
+    }
+    setBankAccounts([]);
+  };
+
   const refreshRewards = async () => {
     const response = await fetch("/api/rewards", { credentials: "include", cache: "no-store" });
     const payload = await response.json();
@@ -1707,6 +1997,11 @@ export default function DashboardPage() {
   }, [user?.id]);
 
   useEffect(() => {
+    if (!user?.id) return;
+    refreshAccounts().catch(() => undefined);
+  }, [user?.id]);
+
+  useEffect(() => {
     if (!user) return;
     const intervalId = setInterval(() => {
       refreshRewards().catch(() => undefined);
@@ -1722,11 +2017,22 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCopyAccount = async () => {
+    const primary = bankAccounts.find((item) => item.isPrimary) || bankAccounts[0];
+    if (!primary?.accountNumber) {
+      toast.error("Ahh, sorry, no account number is available yet.");
+      return;
+    }
+    await navigator.clipboard.writeText(primary.accountNumber);
+    toast.success("Account number copied.");
+  };
+
   const handleSyncBalance = async () => {
     setSyncingBalance(true);
     try {
       await refreshUser();
       await refreshRewards().catch(() => undefined);
+      await refreshAccounts().catch(() => undefined);
       toast.success("Your balance is up to date.");
     } catch {
       toast.error("Ahh, sorry, your balance could not refresh just now.");
@@ -1987,16 +2293,19 @@ export default function DashboardPage() {
               showBalance={showBalance}
               syncingBalance={syncingBalance}
               rewardBalance={Math.round((rewardSnapshot?.rewardBalance || user.rewardBalance || 0) / 100)}
+              primaryAccount={bankAccounts.find((item) => item.isPrimary) || bankAccounts[0] || null}
               onToggleBalance={() => setShowBalance((value) => !value)}
               onSyncBalance={handleSyncBalance}
+              onCopyAccount={handleCopyAccount}
               onOpenData={() => setBuyDataOpen(true)}
               onOpenAirtime={() => setAirtimeOpen(true)}
               onOpenRewards={() => setShowRewards(true)}
+              onOpenAccounts={() => setActiveTab("accounts")}
             />
           ) : activeTab === "transactions" ? (
             <TransactionsTab />
-          ) : activeTab === "agent" ? (
-            <AgentTab />
+          ) : activeTab === "accounts" ? (
+            <AccountsTab user={user} accounts={bankAccounts} onAccountsUpdated={setBankAccounts} />
           ) : (
             <ProfileTab user={user} onLogout={handleLogout} />
           )}

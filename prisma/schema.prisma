@@ -96,6 +96,7 @@ model User {
   updatedAt          DateTime           @updatedAt
 
   virtualAccount VirtualAccount?
+  bankAccounts   UserBankAccount[]
   transactions   Transaction[]
   userRewards    UserReward[]
 
@@ -116,6 +117,47 @@ model VirtualAccount {
   createdAt     DateTime @default(now())
 
   @@map("virtual_accounts")
+}
+
+model UserBankAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankCode          String
+  accountNumber     String   @unique
+  accountName       String?
+  bankName          String
+  merchantReference String   @unique
+  providerReference String?
+  isPrimary         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, bankCode])
+  @@index([userId, isPrimary])
+  @@index([merchantReference])
+  @@map("user_bank_accounts")
+}
+
+model PaymentWebhookEvent {
+  id                   String   @id @default(cuid())
+  provider             String
+  eventType            String
+  transactionReference String?
+  interbankReference   String?
+  merchantReference    String?
+  amount               Int?
+  payload              Json?
+  status               String   @default("RECEIVED")
+  transactionId        String?
+  createdAt            DateTime @default(now())
+  processedAt          DateTime?
+
+  @@unique([provider, transactionReference])
+  @@unique([provider, interbankReference])
+  @@index([merchantReference])
+  @@index([status])
+  @@map("payment_webhook_events")
 }
 
 model Plan {

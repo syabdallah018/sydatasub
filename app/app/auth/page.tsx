@@ -33,6 +33,7 @@ export default function AuthPage() {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,10 @@ export default function AuthPage() {
     e.preventDefault();
     if (!phone || phone.length !== 11) {
       toast.error("Enter your 11-digit phone number to continue.");
+      return;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Enter a valid email address to continue.");
       return;
     }
     if (pin.length !== 6) {
@@ -136,6 +141,7 @@ export default function AuthPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          email,
           phone,
           pin,
           confirmPin,
@@ -349,6 +355,8 @@ export default function AuthPage() {
                     type="button"
                       onClick={() => {
                         setMode("signup");
+                        setName("");
+                        setEmail("");
                         setPhone("");
                         setPin("");
                         setConfirmPin("");
@@ -376,6 +384,30 @@ export default function AuthPage() {
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "13px 12px",
+                      borderRadius: 14,
+                      background: T.surface,
+                      border: `1.5px solid ${T.border}`,
+                      fontFamily: T.font,
+                      fontSize: 15,
+                      color: T.text,
+                      outline: "none",
+                      boxSizing: "border-box",
+                      transition: "all 0.2s",
+                    }}
+                  />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>Email</label>
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value.trim())}
                     style={{
                       width: "100%",
                       padding: "13px 12px",
@@ -536,6 +568,7 @@ export default function AuthPage() {
                       onClick={() => {
                         setMode("login");
                         setName("");
+                        setEmail("");
                         setPhone("");
                         setPin("");
                         setConfirmPin("");

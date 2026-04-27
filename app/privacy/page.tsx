@@ -41,7 +41,7 @@ export default function PrivacyPage() {
     {
       icon: <Users size={24} />,
       title: "Third-Party Services",
-      content: "We use Flutterwave for payment processing. Visit their privacy policy for details on how they handle your data. Network providers may receive your phone number for service delivery."
+      content: "We use BillStack for reserved-account payment processing. Visit their privacy policy for details on how they handle your data. Network providers may receive your phone number for service delivery."
     },
     {
       icon: <FileText size={24} />,

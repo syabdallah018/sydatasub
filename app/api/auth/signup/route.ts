@@ -6,9 +6,11 @@ import { z } from "zod";
 import { buildUserCreateCompatData, getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 import { evaluateSignupRewardInTx } from "@/lib/rewards";
+import { provisionSignupBillstackAccount } from "@/lib/billstack-account";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Enter a valid email address"),
   phone: z.string().regex(/^0[0-9]{10}$/, "Phone number must be 11 digits starting with 0"),
   pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
   confirmPin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (rateLimitError) return rateLimitError;
 
     const body = await req.json();
-    const { name, phone, pin } = signupSchema.parse(body);
+    const { name, email, phone, pin } = signupSchema.parse(body);
     const compat = await getUserSelectCompat();
 
     const existingUser = await prisma.user.findUnique({
@@ -48,6 +50,7 @@ export async function POST(req: NextRequest) {
       data: await buildUserCreateCompatData({
         fullName: name,
         phone,
+        email,
         pinHash,
         role: "USER",
         tier: "user",
@@ -62,6 +65,23 @@ export async function POST(req: NextRequest) {
         phone: user.phone,
       });
     });
+
+    let fundingAccountProvisioned = false;
+    try {
+      const provisioning = await provisionSignupBillstackAccount({
+        userId: user.id,
+        fullName: user.fullName,
+        phone: user.phone,
+        email: user.email,
+      });
+      fundingAccountProvisioned = provisioning.success;
+    } catch (billstackError: unknown) {
+      const message = billstackError instanceof Error ? billstackError.message : "provision_failed";
+      console.error("[BILLSTACK SIGNUP PROVISION WARNING]", {
+        userId: user.id,
+        message,
+      });
+    }
 
     const token = await signToken({
       userId: user.id,
@@ -104,6 +124,7 @@ export async function POST(req: NextRequest) {
           balance: updatedUser.balance,
           rewardBalance: "rewardBalance" in updatedUser ? updatedUser.rewardBalance ?? 0 : 0,
         },
+        fundingAccountProvisioned,
       },
       { status: 201 }
     );

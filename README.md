@@ -13,7 +13,7 @@ Nigeria's fastest data delivery platform. Buy data for all networks at competiti
 - [API Routes](#api-routes)
 - [Database Setup](#database-setup)
 - [Deployment](#deployment)
-- [Flutterwave Integration](#flutterwave-integration)
+- [BillStack Integration](#billstack-integration)
 - [Admin Panel](#admin-panel)
 - [Data Plan Seeding](#data-plan-seeding)
 
@@ -25,7 +25,7 @@ Nigeria's fastest data delivery platform. Buy data for all networks at competiti
 
 - ✅ **Multi-Network Support** - MTN, Airtel, Glo, 9Mobile
 - ✅ **Real-Time Balance Management** - Instant balance updates
-- ✅ **Payment Integration** - Flutterwave payment gateway
+- ✅ **Payment Integration** - BillStack reserved accounts + webhook funding
 - ✅ **Automatic Rewards** - Bonus credits on deposits
 - ✅ **Admin Dashboard** - Complete management panel
 - ✅ **Agent Program** - Affiliate-style earning model
@@ -42,7 +42,7 @@ Nigeria's fastest data delivery platform. Buy data for all networks at competiti
 | **Database** | PostgreSQL (Neon Serverless), Prisma 7 |
 | **Authentication** | JWT (jose), next-themes |
 | **Data Fetching** | React Query, axios |
-| **Payment Gateway** | Flutterwave API |
+| **Payment Gateway** | BillStack API |
 | **UI Components** | shadcn/ui, Recharts |
 | **Validation** | Zod |
 | **Hashing** | bcryptjs |
@@ -58,7 +58,7 @@ Nigeria's fastest data delivery platform. Buy data for all networks at competiti
 - **Node.js** ≥ 18.0.0
 - **npm** or **yarn**
 - PostgreSQL database (or Neon account)
-- Flutterwave account
+- BillStack account
 - API A and API B data delivery partners
 
 ### Installation
@@ -111,11 +111,8 @@ Create a `.env.local` file with the following variables:
 | **DATABASE_URL** | Neon PostgreSQL connection string | `postgresql://user:pass@...` | ✅ |
 | **JWT_SECRET** | Secret key for JWT signing (min 32 chars) | `your-very-long-secret-key-min-32-chars` | ✅ |
 | **NEXT_PUBLIC_APP_URL** | Public application URL | `http://localhost:3000` | ✅ |
-| **FLUTTERWAVE_PUBLIC_KEY** | Flutterwave public key (test/live) | `FLWPUB_TEST_...` | ✅ |
-| **FLUTTERWAVE_SECRET_KEY** | Flutterwave secret key | `FLWSECK_TEST_...` | ✅ |
-| **FLUTTERWAVE_WEBHOOK_SECRET** | Webhook signature secret | `fs_test_webhook_...` | ✅ |
-| **FLW_ACCOUNT_EMAIL** | Flutterwave account email | `your-flw-email@example.com` | ✅ |
-| **FLW_BVN** | Flutterwave BVN (for virtual accounts) | `12345678901` | ✅ |
+| **BILLSTACK_SECRET_KEY** | BillStack secret key | `bs_live_...` | ✅ |
+| **BILLSTACK_BASE_URL** | BillStack API base URL | `https://api.billstack.co` | ✅ |
 | **SMEPLUG_API_KEY** | API A data provider key | `sk_test_...` | ✅ |
 | **SMEPLUG_BASE_URL** | API A base URL | `https://api.smeplug.com/` | ✅ |
 | **SAIFUL_API_KEY** | API B data provider key | `sk_...` | ✅ |
@@ -123,12 +120,11 @@ Create a `.env.local` file with the following variables:
 
 ### Getting Credentials
 
-**Flutterwave**:
-1. Visit [dashboard.flutterwave.com](https://dashboard.flutterwave.com)
-2. Sign up and verify your account
-3. Navigate to Settings → API → Keys
-4. Copy test/live keys to `.env.local`
-5. Add BVN from your Flutterwave account
+**BillStack**:
+1. Generate your merchant secret from the BillStack dashboard
+2. Set `BILLSTACK_SECRET_KEY` in `.env.local`
+3. Set webhook callback URL to `https://your-domain.com/api/payments/webhook`
+4. Optional: set `BILLSTACK_BASE_URL` (default is `https://api.billstack.co`)
 
 **API A (SMEPlug)**:
 1. Visit [smeplug.com](https://smeplug.com)
@@ -168,12 +164,13 @@ Create a `.env.local` file with the following variables:
 | GET | `/api/transactions/status?ref=REF` | Check payment status | ❌ |
 | POST | `/api/transactions/verify-manual` | Manually verify payment | ❌ |
 
-### Flutterwave (Payment)
+### BillStack (Payment)
 
 | Method | Route | Description | Protected |
 |--------|-------|-------------|-----------|
-| POST | `/api/flutterwave/create-temp-account` | Create virtual account (guest) | ❌ |
-| POST | `/api/flutterwave/webhook` | Webhook receiver (Flutterwave) | ❌ |
+| GET | `/api/payments/reserved-account` | Fetch authenticated user's reserved account | ✅ |
+| POST | `/api/payments/reserved-account` | Create/recreate authenticated user's reserved account | ✅ |
+| POST | `/api/payments/webhook` | Webhook receiver (BillStack) | ❌ |
 
 ### Rewards
 
@@ -300,11 +297,8 @@ In Vercel dashboard:
 ```
 DATABASE_URL=postgresql://...
 JWT_SECRET=your-secure-key-32-chars-min
-FLUTTERWAVE_PUBLIC_KEY=FLWPUB_...
-FLUTTERWAVE_SECRET_KEY=FLWSECK_...
-FLUTTERWAVE_WEBHOOK_SECRET=fs_...
-FLW_ACCOUNT_EMAIL=your-email@example.com
-FLW_BVN=12345678901
+BILLSTACK_SECRET_KEY=bs_live_...
+BILLSTACK_BASE_URL=https://api.billstack.co
 SMEPLUG_API_KEY=sk_...
 SMEPLUG_BASE_URL=https://api.smeplug.com/
 SAIFUL_API_KEY=sk_...
@@ -346,38 +340,53 @@ vercel deploy --prod
 
 ---
 
-## Flutterwave Integration
+## BillStack Integration
+
+BillStack reserved account integration now uses:
+- `POST /api/payments/reserved-account` to create/recreate a user's reserved account
+- `GET /api/payments/reserved-account` to fetch the authenticated user's reserved account
+- `POST /api/payments/webhook` for payment notifications
+
+Required env vars:
+- `BILLSTACK_SECRET_KEY`
+- `BILLSTACK_BASE_URL` (defaults to `https://api.billstack.co`)
+
+Run validation locally:
+```bash
+npm run test
+npm run lint
+```
 
 ### Webhook Setup
 
 1. **In your Flutterwave Dashboard**:
    - Settings → Webhooks
-   - Add webhook endpoint: `https://your-domain.com/api/flutterwave/webhook`
+  - Add webhook endpoint: `https://your-domain.com/api/payments/webhook`
    - Enable these events:
      - `charge.completed`
      - `charge.updated`
 
 2. **Get Webhook Secret**:
    - Dashboard → Settings → API
-   - Copy "Hash" value → `FLUTTERWAVE_WEBHOOK_SECRET`
+   - Copy your BillStack API secret value → `BILLSTACK_SECRET_KEY`
 
 ### Payment Flow
 
 **Guest User (Temp Virtual Account)**:
 ```
 1. Guest fills phone & selects plan
-2. Endpoint: POST /api/flutterwave/create-temp-account
+2. Endpoint: POST /api/payments/reserved-account
    - Parameters: phone, planId, amount
    - Returns: Virtual account details
 3. Guest transfers money to account
-4. Flutterwave webhook processes payment
+4. BillStack webhook processes payment
 5. Data automatically delivered to phone
 ```
 
 **Registered User (Permanent Virtual Account)**:
 ```
 1. User funds wallet via virtual account
-2. Endpoint: POST /api/flutterwave/create-temp-account
+2. Endpoint: POST /api/payments/reserved-account
    - Creates permanent VA tied to user
    - Returns: Account details
 3. User transfers money
@@ -387,16 +396,14 @@ vercel deploy --prod
 
 ### Webhook Signature Verification
 
-Webhook requests include `verif-hash` header. Verification:
+Webhook requests include `x-wiaxy-signature` header. Verification:
 ```ts
-import { createHmac } from "crypto";
+import { createHash } from "crypto";
 
-const secretKey = process.env.FLUTTERWAVE_WEBHOOK_SECRET;
-const expectedHash = createHmac("sha256", secretKey)
-  .update(JSON.stringify(requestBody))
-  .digest("hex");
+const secretKey = process.env.BILLSTACK_SECRET_KEY;
+const expectedHash = createHash("md5").update(secretKey).digest("hex");
 
-const isValid = expectedHash === req.headers["verif-hash"];
+const isValid = expectedHash === req.headers["x-wiaxy-signature"];
 ```
 
 ---
@@ -590,10 +597,10 @@ Error: connect ENOTFOUND neon.tech
 - Check Neon dashboard for IP whitelisting
 - Ensure `.env.local` file exists with valid URL
 
-### Flutterwave Webhook Not Firing
-- Verify webhook URL in Flutterwave dashboard
+### BillStack Webhook Not Firing
+- Verify webhook URL in BillStack dashboard
 - Check webhook secret is correctly set in `.env`
-- Test webhook in Flutterwave dashboard first
+- Test webhook from BillStack dashboard first
 
 ### Rate Limit Exceeded
 - Wait for the window to reset (5 mins for login, 1 min for purchases)
@@ -623,4 +630,3 @@ For issues, feature requests, or contributions:
 ---
 
 **Last Updated**: April 9, 2026
-
