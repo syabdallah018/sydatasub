@@ -49,8 +49,7 @@ const T = {
   mono: "'DM Mono', monospace",
 };
 
-type AppTab = "home" | "accounts" | "transactions" | "profile";
-type DetailScreen = "none" | "rewards";
+type AppTab = "home" | "rewards" | "transactions" | "profile";
 
 interface UserData {
   id: string;
@@ -938,21 +937,21 @@ function HomeTab({
         style={{
           background: "linear-gradient(135deg, #eef5ff 0%, #ffffff 100%)",
           borderRadius: 26,
-          padding: "26px 22px",
+          padding: "18px 18px",
           border: `1px solid ${T.borderStrong}`,
           boxShadow: T.blueShadow,
           marginBottom: 22,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div>
             <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Wallet Balance
             </p>
-            <p style={{ fontFamily: T.mono, fontSize: 32, fontWeight: 800, color: T.blueDark, margin: "0 0 8px" }}>
+            <p style={{ fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.blueDark, margin: "0 0 8px" }}>
               {showBalance ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(user.balance / 100) : "••••••"}
             </p>
-            <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textMid, margin: 0 }}>
+            <p style={{ display: "none", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textMid, margin: 0 }}>
               {user.virtualAccount?.bankName || "Virtual Account"}
             </p>
           </div>
@@ -996,17 +995,17 @@ function HomeTab({
           style={{
             border: `1px solid ${T.border}`,
             borderRadius: 18,
-            padding: "14px 14px 12px",
+            padding: "10px 12px",
             background: "rgba(255,255,255,0.82)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
             <div>
-              <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+              <p style={{ display: "none", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
                 Funding Account
               </p>
               <p style={{ fontFamily: T.mono, fontSize: 15, fontWeight: 700, color: T.text, margin: 0 }}>
-                {user.virtualAccount?.accountNumber || "Unavailable"}
+                {user.virtualAccount?.accountNumber || "Unavailable"} {user.virtualAccount?.bankName ? `• ${user.virtualAccount.bankName}` : ""}
               </p>
             </div>
             <button
@@ -1074,49 +1073,6 @@ function HomeTab({
 
       <InfiniteTransactionFeed compact title="Recent transaction" />
     </>
-  );
-}
-
-function AccountsTab() {
-  return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-      <div
-        style={{
-          minHeight: 320,
-          borderRadius: 26,
-          border: `1px solid ${T.borderStrong}`,
-          background: "linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          padding: 28,
-        }}
-      >
-        <div>
-          <div
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 24,
-              background: T.blueLight,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 16px",
-            }}
-          >
-            <Wallet size={30} color={T.blue} />
-          </div>
-          <p style={{ fontFamily: T.font, fontSize: 22, fontWeight: 800, color: T.text, margin: "0 0 8px" }}>
-            Accounts
-          </p>
-          <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: 0 }}>
-            Coming soon. You can wire this tab later.
-          </p>
-        </div>
-      </div>
-    </motion.div>
   );
 }
 
@@ -1309,7 +1265,7 @@ function TabBar({
 }) {
   const items = [
     { id: "home" as const, label: "Home", icon: Home },
-    { id: "accounts" as const, label: "Accounts", icon: Wallet },
+    { id: "rewards" as const, label: "Rewards", icon: Sparkles },
     { id: "transactions" as const, label: "Transactions", icon: Receipt },
     { id: "profile" as const, label: "Profile", icon: User },
   ];
@@ -1371,7 +1327,6 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
-  const [detailScreen, setDetailScreen] = useState<DetailScreen>("none");
   const [copied, setCopied] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
@@ -1709,9 +1664,7 @@ export default function DashboardPage() {
         <main style={{ maxWidth: 520, margin: "0 auto", padding: "20px 20px 0" }}>
           <BroadcastBanner notice={broadcasts[0] || null} onDismiss={() => broadcasts[0] && dismissBroadcast(broadcasts[0].id)} />
 
-          {detailScreen === "rewards" ? (
-            <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setDetailScreen("none")} />
-          ) : activeTab === "home" ? (
+          {activeTab === "home" ? (
             <HomeTab
               user={user}
               showBalance={showBalance}
@@ -1723,10 +1676,10 @@ export default function DashboardPage() {
               onCopyAccount={handleCopy}
               onOpenData={() => setBuyDataOpen(true)}
               onOpenAirtime={() => setAirtimeOpen(true)}
-              onOpenRewards={() => setDetailScreen("rewards")}
+              onOpenRewards={() => setActiveTab("rewards")}
             />
-          ) : activeTab === "accounts" ? (
-            <AccountsTab />
+          ) : activeTab === "rewards" ? (
+            <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setActiveTab("home")} />
           ) : activeTab === "transactions" ? (
             <TransactionsTab />
           ) : (
@@ -1736,10 +1689,7 @@ export default function DashboardPage() {
 
         <TabBar
           activeTab={activeTab}
-          onChange={(tab) => {
-            setDetailScreen("none");
-            setActiveTab(tab);
-          }}
+          onChange={setActiveTab}
         />
       </div>
 
