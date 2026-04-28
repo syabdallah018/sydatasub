@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
-import { rejectCrossSiteMutation } from "@/lib/security";
+import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
 const verifySchema = z.object({
   pin: z.string().regex(/^\d{6}$/, "Invalid PIN format"),
@@ -13,6 +13,9 @@ export async function POST(req: NextRequest) {
   try {
     const originError = rejectCrossSiteMutation(req, { requireOrigin: true });
     if (originError) return originError;
+
+    const rateLimitError = enforceRateLimit(req, "login", "verify-pin");
+    if (rateLimitError) return rateLimitError;
 
     const user = await getSessionUser(req);
 

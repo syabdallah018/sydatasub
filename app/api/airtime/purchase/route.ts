@@ -11,7 +11,7 @@ const purchaseSchema = z.object({
   buyerPhone: z.string().regex(/^0[0-9]{10}$/, "Invalid buyer phone"),
   recipientPhone: z.string().regex(/^0[0-9]{10}$/, "Invalid recipient phone number"),
   amount: z.number().min(50, "Minimum amount is N50").max(50000, "Maximum amount is N50,000"),
-  network: z.string().min(1, "Select network"),
+  network: z.string().min(1, "Select network").transform((value) => value.toLowerCase()),
   pin: z.string().regex(/^\d{6}$/, "Invalid PIN"),
   confirmDuplicate: z.boolean().optional(),
 });
@@ -22,6 +22,12 @@ const networkIds: Record<string, number> = {
   "9mobile": 3,
   airtel: 4,
 };
+
+const IDEMPOTENCY_WINDOW_MINUTES = 5;
+
+async function acquirePurchaseLock(tx: any, lockKey: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -71,6 +77,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid PIN" }, { status: 401 });
     }
 
+    const networkId = networkIds[network];
+    if (!networkId) {
+      return NextResponse.json({ success: false, error: "Plan not available now, choose other plans!" }, { status: 400 });
+    }
+
     const amountInKobo = amount * 100;
     if (user.balance < amountInKobo) {
       return NextResponse.json({ success: false, error: "Insufficient balance" }, { status: 400 });
@@ -96,8 +107,51 @@ export async function POST(req: NextRequest) {
     }
 
     const reference = `AIRTIME-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const lockKey = `airtime:${user.id}:${recipientPhone}:${amount}:${network}`;
 
-    await prisma.$transaction(async (tx) => {
+    const txResult = await prisma.$transaction(async (tx) => {
+      await acquirePurchaseLock(tx, lockKey);
+
+      const existingDuplicate = await tx.transaction.findFirst({
+        where: {
+          userId: user.id,
+          type: "AIRTIME_PURCHASE",
+          phone: recipientPhone,
+          amount,
+          createdAt: {
+            gte: new Date(Date.now() - IDEMPOTENCY_WINDOW_MINUTES * 60 * 1000),
+          },
+          status: { in: ["PENDING", "SUCCESS"] },
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          reference: true,
+          status: true,
+          amount: true,
+          phone: true,
+          createdAt: true,
+          description: true,
+        },
+      });
+
+      if (existingDuplicate?.status === "PENDING") {
+        return { kind: "pending_duplicate" as const, duplicateTransaction: existingDuplicate };
+      }
+
+      if (existingDuplicate && !confirmDuplicate) {
+        return { kind: "needs_confirmation" as const, duplicateTransaction: existingDuplicate };
+      }
+
+      const latestUser = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { balance: true },
+      });
+
+      if (!latestUser || latestUser.balance < amountInKobo) {
+        return { kind: "insufficient_funds" as const };
+      }
+
       await tx.user.update({
         where: { id: user.id },
         data: { balance: { decrement: amountInKobo } },
@@ -113,15 +167,45 @@ export async function POST(req: NextRequest) {
           description: `Airtime: N${amount} to ${recipientPhone}`,
           phone: recipientPhone,
           apiUsed: "API_A",
-          balanceBefore: user.balance,
-          balanceAfter: user.balance - amountInKobo,
+          balanceBefore: latestUser.balance,
+          balanceAfter: latestUser.balance - amountInKobo,
         },
       });
+
+      return { kind: "created" as const };
     });
+
+    if (txResult.kind === "pending_duplicate") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "A similar airtime purchase is already processing.",
+          requiresConfirmation: false,
+          duplicateTransaction: txResult.duplicateTransaction,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (txResult.kind === "needs_confirmation") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Duplicate transaction detected. Confirm to continue.",
+          requiresConfirmation: true,
+          duplicateTransaction: txResult.duplicateTransaction,
+        },
+        { status: 409 }
+      );
+    }
+
+    if (txResult.kind === "insufficient_funds") {
+      return NextResponse.json({ success: false, error: "Insufficient balance" }, { status: 400 });
+    }
 
     try {
       const apiResult = await purchaseAirtime({
-        networkId: networkIds[network.toLowerCase()] || 1,
+        networkId,
         amount,
         phone: recipientPhone,
         reference,

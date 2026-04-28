@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function middleware(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith("/api/admin/")) {
+    const publicAdminApi =
+      req.nextUrl.pathname === "/api/admin/login" ||
+      req.nextUrl.pathname === "/api/admin/verify";
+
+    if (!publicAdminApi) {
+      const hasAdminSession = Boolean(req.cookies.get("sy_admin_session")?.value);
+      if (!hasAdminSession) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+  }
+
   if (req.nextUrl.pathname.startsWith("/admin/")) {
     const hasAdminSession = Boolean(req.cookies.get("sy_admin_session")?.value);
     if (!hasAdminSession) {
