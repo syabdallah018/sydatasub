@@ -53,16 +53,17 @@ export async function processBillstackWebhook(payload: RawPayload) {
         transactionReference?: string | null;
         interbankReference?: string | null;
       }) => {
-        if (!transactionReference && !interbankReference) return null;
+        const idempotencyReference = interbankReference || transactionReference || null;
+        if (!idempotencyReference) return null;
+
         if (webhookEventStoreAvailable) {
           try {
             const candidates = await tx.paymentWebhookEvent.findMany({
               where: {
                 provider: "BILLSTACK",
-                OR: [
-                  ...(transactionReference ? [{ transactionReference }] : []),
-                  ...(interbankReference ? [{ interbankReference }] : []),
-                ],
+                ...(interbankReference
+                  ? { interbankReference }
+                  : { transactionReference }),
               },
               orderBy: { createdAt: "desc" },
               take: 1,
@@ -84,10 +85,9 @@ export async function processBillstackWebhook(payload: RawPayload) {
           where: {
             type: "WALLET_FUNDING",
             status: "SUCCESS",
-            OR: [
-              ...(interbankReference ? [{ externalReference: interbankReference }] : []),
-              ...(transactionReference ? [{ externalReference: transactionReference }] : []),
-            ],
+            ...(interbankReference
+              ? { externalReference: interbankReference }
+              : { externalReference: transactionReference || undefined }),
           },
           select: { id: true },
         });
@@ -149,7 +149,10 @@ export async function processBillstackWebhook(payload: RawPayload) {
             data: {
               provider: "BILLSTACK",
               eventType: normalizedPayload.event,
-              transactionReference: normalizedPayload.transactionReference || undefined,
+              // BillStack can reuse `reference` across multiple deposits. Keep DB dedupe anchored on interbank ref.
+              transactionReference: normalizedPayload.interbankReference
+                ? undefined
+                : normalizedPayload.transactionReference || undefined,
               interbankReference: normalizedPayload.interbankReference || undefined,
               merchantReference: normalizedPayload.merchantReference || undefined,
               amount: normalizedPayload.amountNaira,
