@@ -25,9 +25,12 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [editedPrices, setEditedPrices] = useState<Record<string, EditedPrice>>({});
+  const [airtimeCashFee, setAirtimeCashFee] = useState(10);
+  const [savingFee, setSavingFee] = useState(false);
 
   useEffect(() => {
     fetchPlans();
+    fetchAirtimeCashFee();
   }, []);
 
   const fetchPlans = async () => {
@@ -49,6 +52,43 @@ export default function PricingPage() {
       toast.error('Failed to load plans');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAirtimeCashFee = async () => {
+    try {
+      const res = await fetch('/api/admin/settings/airtime-cash', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const fee = Number(data?.data?.feePercent);
+      if (Number.isFinite(fee)) {
+        setAirtimeCashFee(Math.max(0, Math.min(100, Math.round(fee))));
+      }
+    } catch (error) {
+      console.error('Error fetching airtime-to-cash fee:', error);
+    }
+  };
+
+  const saveAirtimeCashFee = async () => {
+    try {
+      setSavingFee(true);
+      const res = await fetch('/api/admin/settings/airtime-cash', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feePercent: airtimeCashFee }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload?.success) {
+        toast.error(payload?.error || 'Could not update airtime-to-cash fee');
+        return;
+      }
+      toast.success(payload?.message || 'Airtime-to-cash fee updated');
+      setAirtimeCashFee(Number(payload?.data?.feePercent ?? airtimeCashFee));
+    } catch (error) {
+      console.error('Error updating airtime-to-cash fee:', error);
+      toast.error('Could not update airtime-to-cash fee');
+    } finally {
+      setSavingFee(false);
     }
   };
 
@@ -129,6 +169,38 @@ export default function PricingPage() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">Tier Pricing Management</h2>
         <p className="text-slate-600">Manage both regular-user and agent prices, and the backend will charge exactly these values.</p>
+      </div>
+
+      <div className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow">
+        <h3 className="text-lg font-bold text-slate-900 mb-2">Airtime To Cash Settings</h3>
+        <p className="text-sm text-slate-600 mb-4">
+          Set the fee percentage charged on airtime-to-cash requests. Users receive the remaining payout percentage.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+              Fee Percent
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={airtimeCashFee}
+              onChange={(e) => setAirtimeCashFee(Math.max(0, Math.min(100, parseInt(e.target.value, 10) || 0)))}
+              className="w-28 rounded border border-slate-300 px-3 py-2 text-sm font-medium text-slate-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div className="text-sm text-slate-700">
+            User receives: <span className="font-bold">{100 - airtimeCashFee}%</span>
+          </div>
+          <button
+            onClick={saveAirtimeCashFee}
+            disabled={savingFee}
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {savingFee ? 'Saving...' : 'Save Fee'}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-6">

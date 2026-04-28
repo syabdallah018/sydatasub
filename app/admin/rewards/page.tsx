@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, SquarePen, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-type RewardType = "SIGNUP_BONUS" | "FIRST_DEPOSIT_2K" | "DEPOSIT_10K_UPGRADE" | "SALES_50GB_WEEKLY" | "SALES_100GB_WEEKLY";
+type RewardType = "FIRST_DEPOSIT_2K" | "DEPOSIT_10K_UPGRADE" | "SALES_50GB_WEEKLY" | "SALES_100GB_WEEKLY";
 
 type RewardItem = {
   id: string;
@@ -21,7 +21,6 @@ type RewardItem = {
 };
 
 const REWARD_OPTIONS: { value: RewardType; label: string; rule: string }[] = [
-  { value: "SIGNUP_BONUS", label: "Signup reward N100", rule: "One-time account creation reward" },
   { value: "FIRST_DEPOSIT_2K", label: "First deposit N2,000-N9,999", rule: "One-time deposit reward" },
   { value: "DEPOSIT_10K_UPGRADE", label: "First deposit N10,000+", rule: "One-time premium deposit reward" },
   { value: "SALES_50GB_WEEKLY", label: "50GB sales in 7 days", rule: "One-time sales milestone reward" },

@@ -8,6 +8,7 @@ import {
   Building2,
   Check,
   ChevronLeft,
+  ChevronRight,
   Copy,
   CreditCard,
   Eye,
@@ -52,7 +53,7 @@ const T = {
   mono: "'DM Mono', monospace",
 };
 
-type AppTab = "home" | "transactions" | "accounts" | "agent" | "profile";
+type AppTab = "home" | "transactions" | "accounts" | "agent" | "profile" | "airtime-cash";
 
 interface UserData {
   id: string;
@@ -1097,6 +1098,7 @@ function HomeTab({
   onOpenAirtime,
   onOpenRewards,
   onOpenAccounts,
+  onViewAllTransactions,
 }: {
   user: UserData;
   showBalance: boolean;
@@ -1110,6 +1112,7 @@ function HomeTab({
   onOpenAirtime: () => void;
   onOpenRewards: () => void;
   onOpenAccounts: () => void;
+  onViewAllTransactions: () => void;
 }) {
   return (
     <>
@@ -1289,7 +1292,29 @@ function HomeTab({
         </div>
       </motion.div>
 
-      <InfiniteTransactionFeed compact title="Recent transaction" />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <p style={{ margin: 0, fontFamily: T.font, fontSize: 14, fontWeight: 800, color: T.text }}>Recent transaction</p>
+        <button
+          onClick={onViewAllTransactions}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            color: T.blue,
+            fontFamily: T.font,
+            fontSize: 12,
+            fontWeight: 800,
+            padding: 0,
+          }}
+        >
+          View all transactions
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      <InfiniteTransactionFeed compact />
     </>
   );
 }
@@ -1306,6 +1331,176 @@ function TransactionsTab() {
         </h2>
       </div>
       <InfiniteTransactionFeed />
+    </motion.div>
+  );
+}
+
+function AirtimeToCashTab() {
+  const [network, setNetwork] = useState<string>("mtn");
+  const [phone, setPhone] = useState("");
+  const [amount, setAmount] = useState("");
+  const [feePercent, setFeePercent] = useState(10);
+  const [loadingFee, setLoadingFee] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/settings/airtime-cash", { credentials: "include", cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => {
+        const fee = Number(payload?.data?.feePercent);
+        if (Number.isFinite(fee)) {
+          setFeePercent(Math.max(0, Math.min(100, Math.round(fee))));
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setLoadingFee(false));
+  }, []);
+
+  const amountValue = Number(amount || 0);
+  const payout = amountValue > 0 ? Math.max(0, amountValue * (1 - feePercent / 100)) : 0;
+
+  const handleConvert = () => {
+    if (phone.length !== 11) {
+      toast.error("Ahh, sorry, enter a valid 11-digit phone number.");
+      return;
+    }
+    if (!amountValue || amountValue < 50) {
+      toast.error("Ahh, sorry, enter a valid airtime amount.");
+      return;
+    }
+
+    const message =
+      `Hello SY Data, I want to convert airtime to cash.%0A` +
+      `Phone: ${phone}%0A` +
+      `Network: ${network.toUpperCase()}%0A` +
+      `Airtime Amount: ₦${amountValue.toLocaleString()}%0A` +
+      `Configured Fee: ${feePercent}% %0A` +
+      `Expected Payout: ₦${payout.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+    window.open(`https://wa.me/2347068614426?text=${message}`, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+          Airtime To Cash
+        </p>
+        <h2 style={{ fontFamily: T.font, fontSize: 26, fontWeight: 800, color: T.text, margin: 0 }}>
+          Convert Airtime
+        </h2>
+      </div>
+
+      <div style={{ background: T.card, border: `1px solid ${T.borderStrong}`, borderRadius: 18, padding: 16, marginBottom: 14 }}>
+        <p style={{ margin: "0 0 6px", fontFamily: T.font, fontWeight: 800, color: T.text }}>
+          Convert your airtime to cash
+        </p>
+        <p style={{ margin: 0, fontFamily: T.font, fontSize: 13, color: T.textMid, lineHeight: 1.5 }}>
+          We charge {loadingFee ? "..." : `${feePercent}%`} for every transaction. You will receive{" "}
+          {loadingFee ? "..." : `${100 - feePercent}%`} of the airtime value.
+        </p>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+          Phone number
+        </label>
+        <input
+          type="tel"
+          maxLength={11}
+          value={phone}
+          onChange={(event) => setPhone(event.target.value.replace(/\D/g, ""))}
+          style={{
+            width: "100%",
+            padding: "14px 14px",
+            borderRadius: 14,
+            border: `1px solid ${T.borderStrong}`,
+            background: T.card,
+            fontFamily: T.mono,
+            fontSize: 15,
+            boxSizing: "border-box",
+            outline: "none",
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+          Airtime amount
+        </label>
+        <input
+          type="number"
+          min={50}
+          value={amount}
+          onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ""))}
+          style={{
+            width: "100%",
+            padding: "14px 14px",
+            borderRadius: 14,
+            border: `1px solid ${T.borderStrong}`,
+            background: T.card,
+            fontFamily: T.mono,
+            fontSize: 15,
+            boxSizing: "border-box",
+            outline: "none",
+          }}
+        />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+          Network
+        </label>
+        <select
+          value={network}
+          onChange={(event) => setNetwork(event.target.value)}
+          style={{
+            width: "100%",
+            padding: "14px 14px",
+            borderRadius: 14,
+            border: `1px solid ${T.borderStrong}`,
+            background: T.card,
+            fontFamily: T.font,
+            fontSize: 15,
+            boxSizing: "border-box",
+            outline: "none",
+          }}
+        >
+          <option value="mtn">MTN</option>
+          <option value="airtel">Airtel</option>
+          <option value="glo">Glo</option>
+          <option value="9mobile">9mobile</option>
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 16, fontFamily: T.font, fontSize: 13, color: T.textMid }}>
+        You will receive approximately{" "}
+        <span style={{ color: T.green, fontWeight: 800 }}>
+          ₦{payout.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        </span>
+      </div>
+
+      <button
+        onClick={handleConvert}
+        style={{
+          width: "100%",
+          border: "none",
+          borderRadius: 14,
+          padding: "13px 14px",
+          background: "#22c55e",
+          color: "#fff",
+          fontFamily: T.font,
+          fontWeight: 800,
+          fontSize: 14,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
+        <MessageCircle size={16} />
+        Convert
+      </button>
     </motion.div>
   );
 }
@@ -1825,7 +2020,7 @@ function TabBar({
 }) {
   const items = [
     { id: "home" as const, label: "Home", icon: Home },
-    { id: "transactions" as const, label: "Transactions", icon: Receipt },
+    { id: "airtime-cash" as const, label: "Airtime Cash", icon: MessageCircle },
     { id: "agent" as const, label: "Agent", icon: ShieldCheck },
     { id: "profile" as const, label: "Profile", icon: User },
   ];
@@ -2302,9 +2497,12 @@ export default function DashboardPage() {
               onOpenAirtime={() => setAirtimeOpen(true)}
               onOpenRewards={() => setShowRewards(true)}
               onOpenAccounts={() => setActiveTab("accounts")}
+              onViewAllTransactions={() => setActiveTab("transactions")}
             />
           ) : activeTab === "transactions" ? (
             <TransactionsTab />
+          ) : activeTab === "airtime-cash" ? (
+            <AirtimeToCashTab />
           ) : activeTab === "accounts" ? (
             <AccountsTab user={user} accounts={bankAccounts} onAccountsUpdated={setBankAccounts} />
           ) : activeTab === "agent" ? (

@@ -5,7 +5,6 @@ import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { buildUserCreateCompatData, getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
-import { evaluateSignupRewardInTx } from "@/lib/rewards";
 import { provisionSignupBillstackAccount } from "@/lib/billstack-account";
 
 const signupSchema = z.object({
@@ -57,13 +56,6 @@ export async function POST(req: NextRequest) {
         balance: 0,
         isBanned: false,
       }),
-    });
-
-    await prisma.$transaction(async (tx) => {
-      await evaluateSignupRewardInTx(tx, {
-        userId: user.id,
-        phone: user.phone,
-      });
     });
 
     let fundingAccountProvisioned = false;
