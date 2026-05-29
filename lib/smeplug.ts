@@ -144,14 +144,27 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
   try {
     const { networkId, amount, phone, reference } = params;
     const { baseUrl, apiKey } = getSmeplugConfig();
+    const formattedPhone = formatSmeplugPhone(phone);
+    const requestBody = {
+      network_id: networkId,
+      amount,
+      phone: formattedPhone,
+    };
+
+    console.log(
+      "[SMEPLUG AIRTIME REQUEST]",
+      JSON.stringify({
+        stage: "request",
+        at: new Date().toISOString(),
+        reference,
+        url: `${baseUrl}/airtime/purchase`,
+        payload: requestBody,
+      })
+    );
 
     const response = await axios.post(
       `${baseUrl}/airtime/purchase`,
-      {
-        network_id: networkId,
-        amount,
-        phone: formatSmeplugPhone(phone),
-      },
+      requestBody,
       {
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -159,6 +172,17 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
         },
         timeout: 30000,
       }
+    );
+
+    console.log(
+      "[SMEPLUG AIRTIME RESPONSE]",
+      JSON.stringify({
+        stage: "response",
+        at: new Date().toISOString(),
+        reference,
+        status: response.status,
+        body: response.data,
+      })
     );
 
     if (response.data?.status === true && response.data?.data) {
@@ -178,12 +202,17 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
         "Airtime purchase failed",
     };
   } catch (error: any) {
-    console.error("[SMEPLUG AIRTIME ERROR]", {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      reference: params.reference,
-    });
+    console.error(
+      "[SMEPLUG AIRTIME ERROR]",
+      JSON.stringify({
+        stage: "error",
+        at: new Date().toISOString(),
+        reference: params.reference,
+        message: error.message,
+        status: error.response?.status,
+        body: error.response?.data,
+      })
+    );
 
     if (error.response) {
       return {
