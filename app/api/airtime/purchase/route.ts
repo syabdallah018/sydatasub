@@ -18,8 +18,8 @@ const purchaseSchema = z.object({
 
 const networkIds: Record<string, number> = {
   mtn: 1,
-  airtel: 2,
-  glo: 4,
+  airtel: 4,
+  glo: 2,
 };
 
 const IDEMPOTENCY_WINDOW_MINUTES = 5;
