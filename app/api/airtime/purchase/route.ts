@@ -18,6 +18,7 @@ const purchaseSchema = z.object({
 
 const networkIds: Record<string, number> = {
   mtn: 1,
+  "9mobile": 3,
   airtel: 4,
   glo: 2,
 };
@@ -204,7 +205,7 @@ export async function POST(req: NextRequest) {
 
     try {
       const apiResult = await purchaseAirtime({
-        networkId,
+        network: networkId,
         amount,
         phone: recipientPhone,
         reference,

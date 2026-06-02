@@ -189,6 +189,46 @@ async function testAlrahuzAirtimeClientFailure() {
   assert.equal(result.externalReference, "AIR-456");
 }
 
+async function testAlrahuzAirtimeClientUsesNetworkIdFallback() {
+  let seen = null;
+
+  const postImpl = async (url, body, init) => {
+    seen = { url, body, init };
+    return {
+      status: 200,
+      data: {
+        status: true,
+        message: "Airtime queued",
+        reference: "AIR-789",
+      },
+    };
+  };
+
+  const result = await purchaseAlrahuzAirtime(
+    {
+      networkId: 1,
+      amount: 1000,
+      phone: "08164135836",
+      reference: "AIR-REF-2",
+    },
+    {
+      baseUrl: "https://alrahuzdata.com.ng/api",
+      token: "token_123",
+      postImpl,
+    }
+  );
+
+  assert.deepEqual(seen.body, {
+    network: 1,
+    amount: 1000,
+    mobile_number: "08164135836",
+    Ported_number: true,
+    airtime_type: "VTU",
+  });
+  assert.equal(result.success, true);
+  assert.equal(result.message, "Airtime queued");
+}
+
 async function testApiCRouting() {
   let called = false;
 
@@ -238,6 +278,7 @@ async function main() {
     ["BillStack webhook signature + idempotency", testWebhookSignatureAndIdempotency],
     ["Alrahuz data client", testAlrahuzDataClient],
     ["Alrahuz airtime client failure", testAlrahuzAirtimeClientFailure],
+    ["Alrahuz airtime client networkId fallback", testAlrahuzAirtimeClientUsesNetworkIdFallback],
     ["API_C routing", testApiCRouting],
   ];
 
