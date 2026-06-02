@@ -33,6 +33,9 @@ const PROVIDER_TECHNICAL_FAILURE_PATTERNS = [
 export const PLAN_UNAVAILABLE_MESSAGE = "plan not available now, choose other plans!";
 export const DATA_INSUFFICIENT_FUNDS_MESSAGE = "Aahh! insufficient fund";
 export const PROVIDER_TECHNICAL_FAILURE_MESSAGE = "unable to send data, try again later";
+export const DATA_PURCHASE_SUCCESS_MESSAGE = "Data purchase completed successfully";
+export const AIRTIME_PURCHASE_SUCCESS_MESSAGE = "Airtime purchase completed successfully";
+export const PURCHASE_FAILED_GENERIC_MESSAGE = "Purchase failed. Please try again later.";
 
 export function normalizeProviderFailureMessage(message?: string | null) {
   const normalizedMessage = (message || "").toLowerCase();

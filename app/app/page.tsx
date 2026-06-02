@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { BrandEntryScreen } from "@/components/app/BrandEntry";
 import { getFriendlyMessage } from "@/lib/user-feedback";
+import { AIRTIME_PURCHASE_SUCCESS_MESSAGE, DATA_PURCHASE_SUCCESS_MESSAGE } from "@/lib/purchase-utils";
 
 const fontStyle = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@400;500&display=swap');
@@ -2342,7 +2343,7 @@ export default function DashboardPage() {
       setSuccessState({
         open: true,
         title: "Data purchase successful",
-        description: result.message || `Your ${selectedPlan.sizeLabel} data purchase was completed successfully.`,
+        description: DATA_PURCHASE_SUCCESS_MESSAGE,
         reference: result.reference,
       });
       await refreshUser();
@@ -2402,7 +2403,7 @@ export default function DashboardPage() {
       setSuccessState({
         open: true,
         title: "Airtime purchase successful",
-        description: result.message || `Your airtime purchase of N${airtimeAmount.toLocaleString()} was completed successfully.`,
+        description: AIRTIME_PURCHASE_SUCCESS_MESSAGE,
         reference: result.reference,
       });
       await refreshUser();

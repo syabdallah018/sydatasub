@@ -4,7 +4,13 @@ import { purchaseData as purchaseFromSmeplug } from "@/lib/smeplug";
 import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { purchaseData as purchaseFromAlrahuz } from "@/lib/alrahuz.mjs";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
-import { findRecentDuplicateTransaction, normalizeProviderFailureMessage, DATA_INSUFFICIENT_FUNDS_MESSAGE } from "@/lib/purchase-utils";
+import {
+  findRecentDuplicateTransaction,
+  normalizeProviderFailureMessage,
+  DATA_INSUFFICIENT_FUNDS_MESSAGE,
+  DATA_PURCHASE_SUCCESS_MESSAGE,
+  PURCHASE_FAILED_GENERIC_MESSAGE,
+} from "@/lib/purchase-utils";
 import { getPlanPriceForUser } from "@/lib/pricing";
 import { checkAndAwardRewards } from "@/lib/rewards";
 import { getSessionUser } from "@/lib/auth";
@@ -275,7 +281,7 @@ export async function POST(req: NextRequest) {
           });
         });
 
-        return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+        return NextResponse.json({ success: false, error: PURCHASE_FAILED_GENERIC_MESSAGE }, { status: 400 });
       }
 
       await prisma.transaction.updateMany({
@@ -292,11 +298,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: true,
-          message: apiResult.message,
+          message: DATA_PURCHASE_SUCCESS_MESSAGE,
           reference,
-          amountCharged: planPrice,
-          walletUsed: txResult.walletDebit / 100,
-          rewardUsed: txResult.rewardDebit / 100,
         },
         { status: 200 }
       );
@@ -322,7 +325,7 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json(
-        { success: false, error: "Purchase failed, balances refunded" },
+        { success: false, error: PURCHASE_FAILED_GENERIC_MESSAGE },
         { status: 500 }
       );
     }

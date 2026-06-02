@@ -5,7 +5,11 @@ import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { purchaseData as purchaseFromAlrahuz } from "@/lib/alrahuz.mjs";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
 import { getPlanPriceForUser } from "@/lib/pricing";
-import { normalizeProviderFailureMessage } from "@/lib/purchase-utils";
+import {
+  normalizeProviderFailureMessage,
+  DATA_PURCHASE_SUCCESS_MESSAGE,
+  PURCHASE_FAILED_GENERIC_MESSAGE,
+} from "@/lib/purchase-utils";
 import { z } from "zod";
 
 const guestPurchaseSchema = z.object({
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             success: true,
-            message: apiResult.message || "Data delivered successfully",
+            message: DATA_PURCHASE_SUCCESS_MESSAGE,
             reference,
           },
           { status: 200 }
@@ -84,7 +88,7 @@ export async function POST(req: NextRequest) {
         data: { status: "FAILED", description: errorMessage },
       });
 
-      return NextResponse.json({ error: errorMessage, reference }, { status: 400 });
+      return NextResponse.json({ error: PURCHASE_FAILED_GENERIC_MESSAGE, reference }, { status: 400 });
     } catch (apiError) {
       console.error("[GUEST DATA PURCHASE API ERROR]", apiError);
 
@@ -95,7 +99,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(
         {
-          error: "Purchase processing failed. Please contact support.",
+          error: PURCHASE_FAILED_GENERIC_MESSAGE,
           reference,
         },
         { status: 500 }

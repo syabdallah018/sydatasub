@@ -3,7 +3,11 @@ import * as smeplug from "@/lib/smeplug";
 import * as saiful from "@/lib/saiful";
 import { purchaseData as purchaseFromAlrahuz } from "@/lib/alrahuz.mjs";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
-import { normalizeProviderFailureMessage } from "@/lib/purchase-utils";
+import {
+  normalizeProviderFailureMessage,
+  DATA_PURCHASE_SUCCESS_MESSAGE,
+  PURCHASE_FAILED_GENERIC_MESSAGE,
+} from "@/lib/purchase-utils";
 import { Transaction } from "@prisma/client";
 
 /**
@@ -50,7 +54,7 @@ export async function deliverGuestData(transaction: Transaction) {
 
     return {
       success: result.success,
-      message: result.success ? result.message : normalizeProviderFailureMessage(result.message),
+      message: result.success ? DATA_PURCHASE_SUCCESS_MESSAGE : PURCHASE_FAILED_GENERIC_MESSAGE,
       externalReference: result.externalReference,
     };
   } catch (error: any) {
@@ -67,7 +71,7 @@ export async function deliverGuestData(transaction: Transaction) {
 
     return {
       success: false,
-      message: `Delivery error: ${error.message}`,
+      message: PURCHASE_FAILED_GENERIC_MESSAGE,
     };
   }
 }

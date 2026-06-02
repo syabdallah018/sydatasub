@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { purchaseAirtime } from "@/lib/alrahuz.mjs";
-import { findRecentDuplicateTransaction, normalizeProviderFailureMessage } from "@/lib/purchase-utils";
+import {
+  findRecentDuplicateTransaction,
+  normalizeProviderFailureMessage,
+  AIRTIME_PURCHASE_SUCCESS_MESSAGE,
+  PURCHASE_FAILED_GENERIC_MESSAGE,
+} from "@/lib/purchase-utils";
 import { getSessionUser } from "@/lib/auth";
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
@@ -230,7 +235,7 @@ export async function POST(req: NextRequest) {
           });
         });
 
-        return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+        return NextResponse.json({ success: false, error: PURCHASE_FAILED_GENERIC_MESSAGE }, { status: 400 });
       }
 
       await prisma.transaction.updateMany({
@@ -245,7 +250,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: true,
-          message: apiResult.message || "Airtime purchased successfully",
+          message: AIRTIME_PURCHASE_SUCCESS_MESSAGE,
           reference,
         },
         { status: 200 }
@@ -269,7 +274,7 @@ export async function POST(req: NextRequest) {
       });
 
       return NextResponse.json(
-        { success: false, error: "Purchase failed. Balance refunded." },
+        { success: false, error: PURCHASE_FAILED_GENERIC_MESSAGE },
         { status: 500 }
       );
     }
