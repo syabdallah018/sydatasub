@@ -246,6 +246,15 @@ export async function POST(req: NextRequest) {
     }
 
     try {
+      console.log("[DATA PURCHASE PROVIDER REQUEST]", {
+        planId: plan.id,
+        apiSource: plan.apiSource,
+        externalPlanId: plan.externalPlanId,
+        externalNetworkId: plan.externalNetworkId,
+        phone: recipientPhone,
+        reference,
+      });
+
       const apiResult = await purchaseDataByPlan(
         plan,
         {
@@ -258,6 +267,15 @@ export async function POST(req: NextRequest) {
           API_C: purchaseFromAlrahuz,
         }
       );
+
+      console.log("[DATA PURCHASE PROVIDER RESPONSE]", {
+        planId: plan.id,
+        apiSource: plan.apiSource,
+        reference,
+        success: apiResult.success,
+        message: apiResult.message,
+        externalReference: apiResult.externalReference || null,
+      });
 
       if (!apiResult.success) {
         const errorMessage = normalizeProviderFailureMessage(apiResult.message);
