@@ -147,6 +147,40 @@ async function testAlrahuzDataClient() {
   assert.equal(result.externalReference, "ARH-123");
 }
 
+async function testAlrahuzDataClientFailureResponse() {
+  let seen = null;
+
+  const postImpl = async (url, body, init) => {
+    seen = { url, body, init };
+    return {
+      status: 400,
+      data: {
+        message: "invalid input value for enum \"ApiSource\": \"API_C\"",
+        reference: "ARH-ERR-1",
+      },
+    };
+  };
+
+  const result = await purchaseAlrahuzData(
+    {
+      network: 1,
+      plan: 423,
+      phone: "09037346247",
+      reference: "DATA-REF-FAIL-1",
+    },
+    {
+      baseUrl: "https://alrahuzdata.com.ng/api",
+      token: "token_123",
+      postImpl,
+    }
+  );
+
+  assert.equal(seen.url, "https://alrahuzdata.com.ng/api/data/");
+  assert.equal(result.success, false);
+  assert.equal(result.message, "invalid input value for enum \"ApiSource\": \"API_C\"");
+  assert.equal(result.externalReference, "ARH-ERR-1");
+}
+
 async function testAlrahuzAirtimeClientFailure() {
   let seen = null;
 
@@ -277,6 +311,7 @@ async function main() {
     ["BillStack create account client", testCreateReservedVirtualAccount],
     ["BillStack webhook signature + idempotency", testWebhookSignatureAndIdempotency],
     ["Alrahuz data client", testAlrahuzDataClient],
+    ["Alrahuz data client failure response", testAlrahuzDataClientFailureResponse],
     ["Alrahuz airtime client failure", testAlrahuzAirtimeClientFailure],
     ["Alrahuz airtime client networkId fallback", testAlrahuzAirtimeClientUsesNetworkIdFallback],
     ["API_C routing", testApiCRouting],

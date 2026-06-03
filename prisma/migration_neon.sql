@@ -58,6 +58,15 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  BEGIN
+    ALTER TYPE "ApiSource" ADD VALUE IF NOT EXISTS 'API_C';
+  EXCEPTION
+    WHEN duplicate_object THEN NULL;
+  END;
+END $$;
+
 -- Create RewardType enum if it doesn't exist
 DO $$
 BEGIN
