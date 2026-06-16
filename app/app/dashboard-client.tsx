@@ -519,6 +519,216 @@ function BroadcastModal({
   );
 }
 
+function LockScreen({
+  phone,
+  fullName,
+  onUnlockSuccess,
+}: {
+  phone: string;
+  fullName: string;
+  onUnlockSuccess: () => void;
+}) {
+  const [pin, setPin] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
+  const handleBiometricUnlock = async () => {
+    if (typeof window === "undefined" || !(window as any).AndroidBridge) return;
+    try {
+      const token = await new Promise<string>((resolve, reject) => {
+        (window as any).onBiometricTokenReceived = (t: string) => {
+          resolve(t);
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).onBiometricTokenFailed = (err: string) => {
+          reject(new Error(err));
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).AndroidBridge.getBiometricToken();
+      });
+
+      const res = await fetch("/api/auth/biometric-login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, token }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onUnlockSuccess();
+        toast.success("Unlocked successfully");
+      } else {
+        toast.error("Biometric verification failed. Please use your PIN.");
+      }
+    } catch (err: any) {
+      console.error("[BIOMETRIC UNLOCK ERROR]", err);
+    }
+  };
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      handleBiometricUnlock();
+    }, 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handlePinUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin.length !== 6) return;
+
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, pin }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        onUnlockSuccess();
+        toast.success("Unlocked successfully");
+      } else {
+        toast.error("Incorrect transaction PIN");
+      }
+    } catch {
+      toast.error("Verification failed, try again");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const firstName = fullName.trim().split(" ")[0];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 99999,
+        background: "rgba(17, 24, 39, 0.7)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{
+          width: "100%",
+          maxWidth: 360,
+          textAlign: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 24,
+            background: "rgba(36, 99, 235, 0.1)",
+            color: T.blue,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 24px",
+          }}
+        >
+          <ShieldCheck size={36} />
+        </div>
+
+        <h2 style={{ fontFamily: T.font, fontWeight: 900, fontSize: 24, color: "#fff", margin: "0 0 8px" }}>
+          App Locked
+        </h2>
+        <p style={{ fontFamily: T.font, fontSize: 14, color: "rgba(255, 255, 255, 0.6)", margin: "0 0 32px" }}>
+          Welcome back, {firstName}. Please unlock to continue.
+        </p>
+
+        <form onSubmit={handlePinUnlock} style={{ width: "100%", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ position: "relative" }}>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              placeholder="Enter 6-digit transaction PIN"
+              style={{
+                width: "100%",
+                padding: "16px 20px",
+                borderRadius: 16,
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                background: "rgba(255, 255, 255, 0.08)",
+                color: "#fff",
+                textAlign: "center",
+                fontSize: 18,
+                letterSpacing: 4,
+                fontFamily: T.font,
+                outline: "none",
+                transition: "all 0.2s",
+              }}
+            />
+          </div>
+
+          <motion.button
+            type="submit"
+            disabled={verifying || pin.length !== 6}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            style={{
+              width: "100%",
+              padding: "16px",
+              borderRadius: 16,
+              border: "none",
+              background: verifying || pin.length !== 6 ? "rgba(255, 255, 255, 0.1)" : "#fff",
+              color: verifying || pin.length !== 6 ? "rgba(255, 255, 255, 0.4)" : T.text,
+              fontFamily: T.font,
+              fontWeight: 800,
+              fontSize: 15,
+              cursor: pin.length === 6 ? "pointer" : "default",
+              boxShadow: pin.length === 6 ? "0 10px 20px rgba(255, 255, 255, 0.1)" : "none",
+            }}
+          >
+            {verifying ? "Verifying PIN..." : "Unlock with PIN"}
+          </motion.button>
+        </form>
+
+        {typeof window !== "undefined" && (window as any).AndroidBridge && (
+          <motion.button
+            onClick={handleBiometricUnlock}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            style={{
+              marginTop: 24,
+              border: "none",
+              background: "transparent",
+              color: T.blue,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              fontFamily: T.font,
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: "pointer",
+            }}
+          >
+            <Fingerprint size={20} />
+            <span>Use Fingerprint / Face ID</span>
+          </motion.button>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 function RewardCreditBanner({
   amount,
   onDismiss,
@@ -2356,6 +2566,7 @@ export default function DashboardClient({
     reference: undefined,
   });
   const [broadcasts, setBroadcasts] = useState<BroadcastNotice[]>([]);
+  const [isLocked, setIsLocked] = useState(false);
   const rewardBalanceSeenRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -2419,6 +2630,13 @@ export default function DashboardClient({
       .then((payload) => {
         if (payload?.success && payload?.data) {
           setUser(payload.data);
+          if (typeof window !== "undefined") {
+            const hasBiometrics = localStorage.getItem("biometric_enabled_" + payload.data.phone) === "true";
+            const justLoggedIn = sessionStorage.getItem("just_logged_in") === "true";
+            if (hasBiometrics && !justLoggedIn && (window as any).AndroidBridge) {
+              setIsLocked(true);
+            }
+          }
           return;
         }
         router.replace("/app/auth");
@@ -2516,6 +2734,21 @@ export default function DashboardClient({
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refreshDashboardState();
+        if (typeof window !== "undefined" && user?.phone) {
+          const minimizedAt = localStorage.getItem("app_minimized_timestamp");
+          if (minimizedAt) {
+            const elapsed = Date.now() - Number(minimizedAt);
+            const hasBiometrics = localStorage.getItem("biometric_enabled_" + user.phone) === "true";
+            if (elapsed > 5000 && hasBiometrics && (window as any).AndroidBridge) {
+              setIsLocked(true);
+            }
+          }
+          localStorage.removeItem("app_minimized_timestamp");
+        }
+      } else if (document.visibilityState === "hidden") {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("app_minimized_timestamp", Date.now().toString());
+        }
       }
     };
 
@@ -2790,6 +3023,16 @@ export default function DashboardClient({
     <>
       <style>{fontStyle}</style>
 
+      <AnimatePresence>
+        {isLocked && user && (
+          <LockScreen
+            phone={user.phone}
+            fullName={user.fullName}
+            onUnlockSuccess={() => setIsLocked(false)}
+          />
+        )}
+      </AnimatePresence>
+
       <div style={{ minHeight: "100vh", background: T.bg, paddingBottom: 108 }}>
         <div
           style={{
@@ -2814,31 +3057,44 @@ export default function DashboardClient({
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div
                 style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 16,
-                  background: "linear-gradient(135deg, #2463eb 0%, #4f8cff 100%)",
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  background: "linear-gradient(135deg, #2463eb 0%, #1d4ed8 100%)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   color: "#fff",
                   fontFamily: T.font,
-                  fontWeight: 800,
-                  fontSize: 15,
+                  fontWeight: 900,
+                  fontSize: 14,
+                  boxShadow: "0 4px 12px rgba(36, 99, 235, 0.15)",
                 }}
               >
                 {initials}
               </div>
-              <div>
-                <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 4px", textTransform: "uppercase" }}>
-                  SY Data Sub
-                </p>
-                <p style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text, margin: 0 }}>
-                  {user.fullName}
-                </p>
-                <p style={{ fontFamily: T.font, fontSize: 11, color: T.textMid, margin: "2px 0 0" }}>
-                  {user.tier === "agent" ? "Agent" : "User"}
-                </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text }}>
+                    Hey, {user.fullName.trim().split(" ")[0]} 👋
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: T.font,
+                      fontSize: 9,
+                      fontWeight: 800,
+                      color: user.tier === "agent" ? T.amber : T.blue,
+                      background: user.tier === "agent" ? "rgba(217, 119, 6, 0.08)" : "rgba(36, 99, 235, 0.08)",
+                      border: `1px solid ${user.tier === "agent" ? "rgba(217, 119, 6, 0.15)" : "rgba(36, 99, 235, 0.15)"}`,
+                      borderRadius: 6,
+                      padding: "1px 5px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {user.tier === "agent" ? "Agent" : "User"}
+                  </span>
+                </div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

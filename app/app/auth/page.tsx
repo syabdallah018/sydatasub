@@ -174,6 +174,7 @@ export default function AuthPage() {
       if (res.ok) {
         if (typeof window !== "undefined") {
           localStorage.setItem("saved_phone", phone);
+          sessionStorage.setItem("just_logged_in", "true");
         }
         toast.success("You are signed in.");
         router.replace("/app");
@@ -226,6 +227,7 @@ export default function AuthPage() {
       if (res.ok) {
         if (typeof window !== "undefined") {
           localStorage.setItem("saved_phone", phone);
+          sessionStorage.setItem("just_logged_in", "true");
         }
         toast.success("Biometric login successful.");
         router.replace("/app");
@@ -288,6 +290,10 @@ export default function AuthPage() {
       }
 
       if (res.ok) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("saved_phone", phone);
+          sessionStorage.setItem("just_logged_in", "true");
+        }
         toast.success("Your account is ready.");
         router.replace("/app");
         return;
