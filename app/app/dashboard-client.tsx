@@ -3054,50 +3054,63 @@ export default function DashboardClient({
               justifyContent: "space-between",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  background: "linear-gradient(135deg, #2463eb 0%, #1d4ed8 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontFamily: T.font,
-                  fontWeight: 900,
-                  fontSize: 14,
-                  boxShadow: "0 4px 12px rgba(36, 99, 235, 0.15)",
-                }}
-              >
-                {initials}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text }}>
-                    Hey, {user.fullName.trim().split(" ")[0]} 👋
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: T.font,
-                      fontSize: 9,
-                      fontWeight: 800,
-                      color: user.tier === "agent" ? T.amber : T.blue,
-                      background: user.tier === "agent" ? "rgba(217, 119, 6, 0.08)" : "rgba(36, 99, 235, 0.08)",
-                      border: `1px solid ${user.tier === "agent" ? "rgba(217, 119, 6, 0.15)" : "rgba(36, 99, 235, 0.15)"}`,
-                      borderRadius: 6,
-                      padding: "1px 5px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                    }}
-                  >
-                    {user.tier === "agent" ? "Agent" : "User"}
-                  </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 12,
+                    background: "linear-gradient(135deg, #2463eb 0%, #1d4ed8 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#fff",
+                    fontFamily: T.font,
+                    fontWeight: 900,
+                    fontSize: 13,
+                    boxShadow: "0 4px 12px rgba(36, 99, 235, 0.15)",
+                  }}
+                >
+                  {initials}
                 </div>
+                <span style={{ fontFamily: T.font, fontSize: 15, fontWeight: 800, color: T.text, lineHeight: 1.2 }}>
+                  Hey, {user.fullName.trim().split(" ")[0]} 👋
+                </span>
+              </div>
+              <div style={{ display: "flex" }}>
+                <span
+                  style={{
+                    fontFamily: T.font,
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: user.tier === "agent" ? T.amber : T.blue,
+                    background: user.tier === "agent" ? "rgba(217, 119, 6, 0.08)" : "rgba(36, 99, 235, 0.08)",
+                    border: `1px solid ${user.tier === "agent" ? "rgba(217, 119, 6, 0.15)" : "rgba(36, 99, 235, 0.15)"}`,
+                    borderRadius: 6,
+                    padding: "2px 6px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  {user.tier === "agent" ? (
+                    <>
+                      <ShieldCheck size={10} />
+                      <span>Agent Partner</span>
+                    </>
+                  ) : (
+                    <>
+                      <User size={10} />
+                      <span>Standard Member</span>
+                    </>
+                  )}
+                </span>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", marginLeft: "auto" }}>
               <motion.a
                 href="https://whatsapp.com/channel/0029VbCniugEquiRVCHrkd36"
                 target="_blank"
@@ -3125,27 +3138,6 @@ export default function DashboardClient({
                 </svg>
                 <span>Join our WhatsApp channel</span>
               </motion.a>
-              <motion.button
-                onClick={handleLogout}
-                whileHover={{ scale: 1.05, backgroundColor: "#fee2e2", color: "#ef4444" }}
-                whileTap={{ scale: 0.95 }}
-                title="Logout / Exit"
-                style={{
-                  border: "none",
-                  borderRadius: 14,
-                  width: 36,
-                  height: 36,
-                  background: T.surface,
-                  color: T.textMid,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  transition: "color 0.2s, background-color 0.2s",
-                }}
-              >
-                <LogOut size={15} />
-              </motion.button>
             </div>
           </div>
         </div>
