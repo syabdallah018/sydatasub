@@ -221,6 +221,7 @@ export default function PlansPage() {
                       <SelectItem value="API_A">SMEPlug</SelectItem>
                       <SelectItem value="API_B">Saiful</SelectItem>
                       <SelectItem value="API_C">Alrahuz</SelectItem>
+                      <SelectItem value="API_D">Amysub</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

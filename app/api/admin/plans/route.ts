@@ -11,7 +11,7 @@ const planSchema = z
     validity: z.string().min(1, "Validity is required"),
     user_price: z.number().min(50, "Minimum user price is N50"),
     agent_price: z.number().min(50, "Minimum agent price is N50"),
-    apiSource: z.enum(["API_A", "API_B", "API_C"]),
+    apiSource: z.enum(["API_A", "API_B", "API_C", "API_D"]),
     externalPlanId: z.number().int().positive(),
     externalNetworkId: z.number().int().positive(),
   })
