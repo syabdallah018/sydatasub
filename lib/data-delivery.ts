@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import * as smeplug from "@/lib/smeplug";
 import * as saiful from "@/lib/saiful";
 import { purchaseData as purchaseFromAlrahuz } from "@/lib/alrahuz.mjs";
+import { purchaseData as purchaseFromAmysub } from "@/lib/amysub";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
 import {
   normalizeProviderFailureMessage,
@@ -39,6 +40,7 @@ export async function deliverGuestData(transaction: Transaction) {
         API_A: smeplug.purchaseData,
         API_B: saiful.purchaseData,
         API_C: purchaseFromAlrahuz,
+        API_D: purchaseFromAmysub,
       }
     );
 

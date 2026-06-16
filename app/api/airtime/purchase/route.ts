@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
           reference,
           description: `Airtime: N${amount} to ${recipientPhone}`,
           phone: recipientPhone,
-          apiUsed: "API_A",
+          apiUsed: "API_C",
           balanceBefore: latestUser.balance,
           balanceAfter: latestUser.balance - amountInKobo,
         },

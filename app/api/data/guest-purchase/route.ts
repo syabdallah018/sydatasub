@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { purchaseData as purchaseFromSmeplug } from "@/lib/smeplug";
 import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { purchaseData as purchaseFromAlrahuz } from "@/lib/alrahuz.mjs";
+import { purchaseData as purchaseFromAmysub } from "@/lib/amysub";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
 import { getPlanPriceForUser } from "@/lib/pricing";
 import {
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
           API_A: purchaseFromSmeplug,
           API_B: purchaseFromSaiful,
           API_C: purchaseFromAlrahuz,
+          API_D: purchaseFromAmysub,
         }
       );
 

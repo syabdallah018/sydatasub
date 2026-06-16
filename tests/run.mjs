@@ -296,6 +296,8 @@ async function testApiCRouting() {
           success: true,
           message: "OK",
           externalReference: "ARH-777",
+
+
         };
       },
     }
@@ -304,6 +306,45 @@ async function testApiCRouting() {
   assert.equal(called, true);
   assert.equal(result.success, true);
   assert.equal(result.externalReference, "ARH-777");
+}
+
+async function testApiDRouting() {
+  let called = false;
+
+  const result = await purchaseDataByPlan(
+    {
+      apiSource: "API_D",
+      externalNetworkId: 1,
+      externalPlanId: 888,
+      sizeLabel: "2GB",
+      network: "MTN",
+    },
+    {
+      phone: "0810778800",
+      reference: "DATA-REF-API-D",
+    },
+    {
+      API_D: async (params) => {
+        called = true;
+        assert.deepEqual(params, {
+          plan: 888,
+          sizeLabel: "2GB",
+          network: 1,
+          phone: "0810778800",
+          reference: "DATA-REF-API-D",
+        });
+        return {
+          success: true,
+          message: "OK",
+          externalReference: "AMY-888",
+        };
+      },
+    }
+  );
+
+  assert.equal(called, true);
+  assert.equal(result.success, true);
+  assert.equal(result.externalReference, "AMY-888");
 }
 
 async function main() {
@@ -315,6 +356,7 @@ async function main() {
     ["Alrahuz airtime client failure", testAlrahuzAirtimeClientFailure],
     ["Alrahuz airtime client networkId fallback", testAlrahuzAirtimeClientUsesNetworkIdFallback],
     ["API_C routing", testApiCRouting],
+    ["API_D routing", testApiDRouting],
   ];
 
   let passed = 0;
