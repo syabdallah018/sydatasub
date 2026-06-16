@@ -87,18 +87,24 @@ export async function purchaseData(params: AmysubPurchaseParams): Promise<Amysub
       reference,
     });
 
-    // Check for success status (can be "success" or "successful")
-    if (response.data && (response.data.status === "success" || response.data.status === "successful")) {
+    // Check for success status (can be "success" or "successful", case-insensitive)
+    const data = response.data;
+    const statusVal = data?.status || data?.Status;
+    const isSuccess =
+      typeof statusVal === "string" &&
+      (statusVal.toLowerCase() === "success" || statusVal.toLowerCase() === "successful");
+
+    if (data && isSuccess) {
       const returnData = {
         success: true,
-        message: response.data.api_response || response.data.description || "Data purchase successful",
-        externalReference: String(response.data.reference || response.data.id || ""),
+        message: data.api_response || data.description || "Data purchase successful",
+        externalReference: String(data.reference || data.ident || data.id || ""),
       };
       logProviderTraffic("[AMYSUB SUCCESS]", returnData);
       return returnData;
     } else {
-      const errorMsg = response.data?.api_response || response.data?.description || response.data?.message || "Data purchase failed";
-      logProviderTraffic("[AMYSUB FAILED]", { message: errorMsg, response: response.data });
+      const errorMsg = data?.api_response || data?.description || data?.message || "Data purchase failed";
+      logProviderTraffic("[AMYSUB FAILED]", { message: errorMsg, response: data });
       return {
         success: false,
         message: errorMsg,

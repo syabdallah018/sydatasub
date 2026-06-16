@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import axios from "axios";
 import { createReservedVirtualAccount, md5Hex, verifyBillstackSignature } from "../lib/billstack-core.mjs";
 import { processBillstackWebhookWithAdapter } from "../lib/billstack-webhook-core.mjs";
 import { purchaseData as purchaseAlrahuzData, purchaseAirtime as purchaseAlrahuzAirtime } from "../lib/alrahuz.mjs";
+import { purchaseData as purchaseAmysubData } from "../lib/amysub.ts";
 import { purchaseDataByPlan } from "../lib/data-provider.mjs";
 
 async function testCreateReservedVirtualAccount() {
@@ -345,6 +347,72 @@ async function testApiDRouting() {
   assert.equal(result.externalReference, "AMY-888");
 }
 
+async function testAmysubDataClientSuccess() {
+  const originalPost = axios.post;
+  let seen = null;
+  axios.post = async (url, body, config) => {
+    seen = { url, body, config };
+    return {
+      status: 200,
+      data: {
+        id: 847931,
+        network: {},
+        ident: "DT20260616231301406986",
+        amount: "440.00",
+        api_response: "Y'ello! You have gifted 1GB to 2348164135836.",
+        description: "1GB Data MTN to 08164135836",
+        Status: "successful",
+      },
+    };
+  };
+
+  process.env.AMYSUB_API_KEY = "test_key";
+  try {
+    const result = await purchaseAmysubData({
+      plan: 123,
+      network: 1,
+      phone: "08164135836",
+      reference: "test_ref",
+    });
+
+    assert.equal(seen.url, "https://app.amysub.ng/api/data");
+    assert.equal(seen.config.headers.Authorization, "Bearer test_key");
+    assert.equal(result.success, true);
+    assert.equal(result.message, "Y'ello! You have gifted 1GB to 2348164135836.");
+    assert.equal(result.externalReference, "DT20260616231301406986");
+  } finally {
+    axios.post = originalPost;
+  }
+}
+
+async function testAmysubDataClientFailure() {
+  const originalPost = axios.post;
+  axios.post = async () => {
+    return {
+      status: 200,
+      data: {
+        Status: "failed",
+        api_response: "Insufficient wallet balance",
+      },
+    };
+  };
+
+  process.env.AMYSUB_API_KEY = "test_key";
+  try {
+    const result = await purchaseAmysubData({
+      plan: 123,
+      network: 1,
+      phone: "08164135836",
+      reference: "test_ref",
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.message, "Insufficient wallet balance");
+  } finally {
+    axios.post = originalPost;
+  }
+}
+
 async function main() {
   const tests = [
     ["BillStack create account client", testCreateReservedVirtualAccount],
@@ -355,6 +423,8 @@ async function main() {
     ["Alrahuz airtime client networkId fallback", testAlrahuzAirtimeClientUsesNetworkIdFallback],
     ["API_C routing", testApiCRouting],
     ["API_D routing", testApiDRouting],
+    ["Amysub data client success response", testAmysubDataClientSuccess],
+    ["Amysub data client failure response", testAmysubDataClientFailure],
   ];
 
   let passed = 0;
