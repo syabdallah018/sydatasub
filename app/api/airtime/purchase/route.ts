@@ -11,14 +11,19 @@ import { getSessionUser } from "@/lib/auth";
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
+import { sendPushToUser } from "@/lib/push";
 
 const purchaseSchema = z.object({
   buyerPhone: z.string().regex(/^0[0-9]{10}$/, "Invalid buyer phone"),
   recipientPhone: z.string().regex(/^0[0-9]{10}$/, "Invalid recipient phone number"),
   amount: z.number().min(50, "Minimum amount is N50").max(50000, "Maximum amount is N50,000"),
   network: z.string().min(1, "Select network").transform((value) => value.toLowerCase()),
-  pin: z.string().regex(/^\d{6}$/, "Invalid PIN"),
+  pin: z.string().regex(/^\d{6}$/, "Invalid PIN").optional(),
+  biometricToken: z.string().optional(),
   confirmDuplicate: z.boolean().optional(),
+}).refine((data) => data.pin || data.biometricToken, {
+  message: "Either PIN or Biometric Token is required",
+  path: ["pin"],
 });
 
 const networkIds: Record<string, number> = {
@@ -49,6 +54,7 @@ export async function POST(req: NextRequest) {
       amount,
       network,
       pin,
+      biometricToken,
       confirmDuplicate = false,
     } = purchaseSchema.parse(body);
 
@@ -73,13 +79,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Account is banned" }, { status: 403 });
     }
 
-    if (!user.pinHash) {
-      return NextResponse.json({ success: false, error: "PIN not set" }, { status: 400 });
-    }
-
-    const isPinValid = await bcryptjs.compare(pin, user.pinHash);
-    if (!isPinValid) {
-      return NextResponse.json({ success: false, error: "Invalid PIN" }, { status: 401 });
+    if (biometricToken) {
+      if (!user.biometricTokenHash) {
+        return NextResponse.json({ success: false, error: "Biometric authentication not registered" }, { status: 400 });
+      }
+      const isBiometricValid = await bcryptjs.compare(biometricToken, user.biometricTokenHash);
+      if (!isBiometricValid) {
+        return NextResponse.json({ success: false, error: "Biometric authentication failed" }, { status: 401 });
+      }
+    } else if (pin) {
+      if (!user.pinHash) {
+        return NextResponse.json({ success: false, error: "PIN not set" }, { status: 400 });
+      }
+      const isPinValid = await bcryptjs.compare(pin, user.pinHash);
+      if (!isPinValid) {
+        return NextResponse.json({ success: false, error: "Invalid PIN" }, { status: 401 });
+      }
+    } else {
+      return NextResponse.json({ success: false, error: "Authentication credentials required" }, { status: 400 });
     }
 
     const networkId = networkIds[network];
@@ -246,6 +263,12 @@ export async function POST(req: NextRequest) {
           description: apiResult.message,
         },
       });
+
+      sendPushToUser(
+        user.id,
+        "Airtime Purchase Successful",
+        `You have successfully purchased ₦${amount} airtime for ${recipientPhone}. Ref: ${reference}`
+      ).catch(err => console.error("[PUSH ERROR] Purchase push failed:", err));
 
       return NextResponse.json(
         {

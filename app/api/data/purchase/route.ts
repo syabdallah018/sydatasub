@@ -19,13 +19,18 @@ import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 import { getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
+import { sendPushToUser } from "@/lib/push";
 
 const purchaseSchema = z.object({
   planId: z.string().min(1, "Plan ID is required"),
   buyerPhone: z.string().regex(/^0[0-9]{10}$/, "Invalid buyer phone number"),
   recipientPhone: z.string().regex(/^0[0-9]{10}$/, "Invalid recipient phone number"),
-  pin: z.string().regex(/^\d{6}$/, "Invalid PIN"),
+  pin: z.string().regex(/^\d{6}$/, "Invalid PIN").optional(),
+  biometricToken: z.string().optional(),
   confirmDuplicate: z.boolean().optional(),
+}).refine((data) => data.pin || data.biometricToken, {
+  message: "Either PIN or Biometric Token is required",
+  path: ["pin"],
 });
 
 const IDEMPOTENCY_WINDOW_MINUTES = 5;
@@ -43,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (rateLimitError) return rateLimitError;
 
     const body = await req.json();
-    const { planId, buyerPhone, recipientPhone, pin, confirmDuplicate = false } =
+    const { planId, buyerPhone, recipientPhone, pin, biometricToken, confirmDuplicate = false } =
       purchaseSchema.parse(body);
     const sessionUser = await getSessionUser(req);
     const compat = await getUserSelectCompat();
@@ -58,6 +63,7 @@ export async function POST(req: NextRequest) {
         id: true,
         phone: true,
         pinHash: true,
+        biometricTokenHash: true,
         isBanned: true,
         tier: true,
         balance: true,
@@ -77,13 +83,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Account is banned" }, { status: 403 });
     }
 
-    if (!user.pinHash) {
-      return NextResponse.json({ success: false, error: "PIN not set" }, { status: 400 });
-    }
-
-    const isPinValid = await bcryptjs.compare(pin, user.pinHash);
-    if (!isPinValid) {
-      return NextResponse.json({ success: false, error: "Invalid PIN" }, { status: 401 });
+    if (biometricToken) {
+      if (!user.biometricTokenHash) {
+        return NextResponse.json({ success: false, error: "Biometric authentication not registered" }, { status: 400 });
+      }
+      const isBiometricValid = await bcryptjs.compare(biometricToken, user.biometricTokenHash);
+      if (!isBiometricValid) {
+        return NextResponse.json({ success: false, error: "Biometric authentication failed" }, { status: 401 });
+      }
+    } else if (pin) {
+      if (!user.pinHash) {
+        return NextResponse.json({ success: false, error: "PIN not set" }, { status: 400 });
+      }
+      const isPinValid = await bcryptjs.compare(pin, user.pinHash);
+      if (!isPinValid) {
+        return NextResponse.json({ success: false, error: "Invalid PIN" }, { status: 401 });
+      }
+    } else {
+      return NextResponse.json({ success: false, error: "Authentication credentials required" }, { status: 400 });
     }
 
     const plan = await prisma.plan.findUnique({
@@ -314,6 +331,12 @@ export async function POST(req: NextRequest) {
       });
 
       await checkAndAwardRewards(user.id);
+
+      sendPushToUser(
+        user.id,
+        "Data Purchase Successful",
+        `You have successfully purchased ${plan.sizeLabel} for ${recipientPhone}. Ref: ${reference}`
+      ).catch(err => console.error("[PUSH ERROR] Purchase push failed:", err));
 
       return NextResponse.json(
         {

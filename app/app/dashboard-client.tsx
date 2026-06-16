@@ -25,6 +25,7 @@ import {
   User,
   Wallet,
   X,
+  Fingerprint,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandEntryScreen } from "@/components/app/BrandEntry";
@@ -1643,6 +1644,128 @@ function AccountsTab({
   );
 }
 
+function BiometricSetupModal({
+  open,
+  onClose,
+  phone,
+  userId,
+  onRegistered,
+}: {
+  open: boolean;
+  onClose: () => void;
+  phone: string;
+  userId: string;
+  onRegistered: () => void;
+}) {
+  const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (pin.length !== 6) {
+      toast.error("Please enter your 6-digit transaction PIN.");
+      return;
+    }
+
+    if (typeof window === "undefined" || !(window as any).AndroidBridge) {
+      toast.error("Biometric registration is only available in the Android app.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = (typeof crypto !== "undefined" && crypto.randomUUID) 
+        ? crypto.randomUUID() 
+        : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
+
+      const nativeSuccess = await new Promise<boolean>((resolve) => {
+        (window as any).onBiometricRegisterResult = (success: boolean) => {
+          resolve(success);
+          delete (window as any).onBiometricRegisterResult;
+        };
+        (window as any).AndroidBridge.registerBiometrics(userId, token);
+      });
+
+      if (!nativeSuccess) {
+        throw new Error("Biometric registration cancelled or failed on device.");
+      }
+
+      const res = await fetch("/api/auth/biometric-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, pin }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to register biometrics on server.");
+      }
+
+      localStorage.setItem("biometric_enabled_" + phone, "true");
+      toast.success("Biometrics registered successfully!");
+      onRegistered();
+      onClose();
+      setPin("");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to set up biometrics.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Setup Biometrics" accentColor={T.blue}>
+      <div style={{ marginBottom: 14 }}>
+        <p style={{ fontFamily: T.font, fontSize: 13, color: T.textDim, marginBottom: 16, textAlign: "center" }}>
+          Enter your 6-digit transaction PIN to authorize Fingerprint / Face ID setup on this device.
+        </p>
+        <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+          Transaction PIN
+        </label>
+        <input
+          type="password"
+          maxLength={6}
+          value={pin}
+          onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          style={{
+            width: "100%",
+            padding: "15px 16px",
+            borderRadius: 14,
+            border: `1px solid ${T.borderStrong}`,
+            background: T.surface,
+            fontFamily: T.mono,
+            fontSize: 18,
+            letterSpacing: "0.25em",
+            boxSizing: "border-box",
+            outline: "none",
+            textAlign: "center",
+          }}
+        />
+      </div>
+
+      <motion.button
+        whileTap={{ scale: 0.98 }}
+        onClick={submit}
+        disabled={loading || pin.length !== 6}
+        style={{
+          width: "100%",
+          border: "none",
+          borderRadius: 16,
+          padding: 16,
+          background: T.blue,
+          color: "#fff",
+          fontFamily: T.font,
+          fontWeight: 800,
+          fontSize: 15,
+          cursor: loading || pin.length !== 6 ? "not-allowed" : "pointer",
+          opacity: loading || pin.length !== 6 ? 0.7 : 1,
+        }}
+      >
+        {loading ? "Registering..." : "Enable Biometrics"}
+      </motion.button>
+    </BottomSheet>
+  );
+}
+
 function ProfileTab({
   user,
   onLogout,
@@ -1654,6 +1777,23 @@ function ProfileTab({
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [darkThemeEnabled, setDarkThemeEnabled] = useState(false);
   const [metrics, setMetrics] = useState({ volume: 0, count: 0 });
+  const [biometricSetupOpen, setBiometricSetupOpen] = useState(false);
+  const [biometricRegistered, setBiometricRegistered] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("biometric_enabled_" + user.phone) === "true";
+    }
+    return false;
+  });
+
+  const handleBiometricRegisterToggle = () => {
+    if (biometricRegistered) {
+      localStorage.removeItem("biometric_enabled_" + user.phone);
+      setBiometricRegistered(false);
+      toast.info("Biometrics disabled on this device.");
+    } else {
+      setBiometricSetupOpen(true);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/transactions?limit=100", { credentials: "include", cache: "no-store" })
@@ -1749,6 +1889,16 @@ function ProfileTab({
               action: () => setSecurityOpen(true),
               icon: <CreditCard size={16} color={T.blue} />,
             },
+            ...(typeof window !== "undefined" && (window as any).AndroidBridge
+              ? [
+                  {
+                    label: "Fingerprint / Face ID",
+                    sub: biometricRegistered ? "Registered & Enabled" : "Tap to set up biometrics",
+                    action: handleBiometricRegisterToggle,
+                    icon: <Fingerprint size={16} color={T.blue} />,
+                  },
+                ]
+              : []),
             {
               label: "Sign out",
               sub: "Log out from this device",
@@ -1865,6 +2015,13 @@ function ProfileTab({
       </motion.div>
 
       <SecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />
+      <BiometricSetupModal
+        open={biometricSetupOpen}
+        onClose={() => setBiometricSetupOpen(false)}
+        phone={user.phone}
+        userId={user.id}
+        onRegistered={() => setBiometricRegistered(true)}
+      />
     </>
   );
 }
@@ -2100,6 +2257,35 @@ export default function DashboardClient({
   const [broadcasts, setBroadcasts] = useState<BroadcastNotice[]>([]);
   const rewardBalanceSeenRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    const registerFcmToken = async (token: string) => {
+      try {
+        await fetch("/api/push/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fcmToken: token }),
+        });
+      } catch (err) {
+        console.error("[FCM REGISTER ERROR]", err);
+      }
+    };
+
+    if (typeof window !== "undefined" && (window as any).AndroidBridge) {
+      try {
+        const token = (window as any).AndroidBridge.getFcmToken();
+        if (token) {
+          registerFcmToken(token);
+        }
+      } catch (e) {
+        // Direct method might not exist yet or failed
+      }
+
+      (window as any).onFcmTokenReceived = (token: string) => {
+        registerFcmToken(token);
+      };
+    }
+  }, []);
+
   const [buyDataOpen, setBuyDataOpen] = useState(false);
   const [buyDataStep, setBuyDataStep] = useState(1);
   const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
@@ -2304,9 +2490,9 @@ export default function DashboardClient({
     }
   };
 
-  const handleDataPurchase = async () => {
-    if (!selectedPlan || phoneNumber.length !== 11 || pin.length !== 6 || !user) {
-      toast.error("Ahh, sorry, please complete the phone number and PIN before continuing.");
+  const handleDataPurchase = async (biometricToken?: string) => {
+    if (!selectedPlan || phoneNumber.length !== 11 || (!biometricToken && pin.length !== 6) || !user) {
+      toast.error("Ahh, sorry, please complete the phone number and PIN/Biometrics before continuing.");
       return;
     }
 
@@ -2316,7 +2502,7 @@ export default function DashboardClient({
         planId: selectedPlan.id,
         buyerPhone: user.phone,
         recipientPhone: phoneNumber,
-        pin,
+        ...(biometricToken ? { biometricToken } : { pin }),
       };
 
       let response = await fetch("/api/data/purchase", {
@@ -2364,9 +2550,36 @@ export default function DashboardClient({
     }
   };
 
-  const handleAirtimePurchase = async () => {
-    if (!airtimeNetwork || !airtimeAmount || airtimePhone.length !== 11 || airtimePin.length !== 6 || !user) {
-      toast.error("Ahh, sorry, please complete the phone number and PIN before continuing.");
+  const triggerBiometricDataPurchase = async () => {
+    if (typeof window === "undefined" || !(window as any).AndroidBridge) {
+      toast.error("Biometrics is only available in the Android app.");
+      return;
+    }
+    
+    try {
+      const token = await new Promise<string>((resolve, reject) => {
+        (window as any).onBiometricTokenReceived = (t: string) => {
+          resolve(t);
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).onBiometricTokenFailed = (err: string) => {
+          reject(new Error(err));
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).AndroidBridge.getBiometricToken();
+      });
+
+      await handleDataPurchase(token);
+    } catch (err: any) {
+      toast.error(err.message || "Biometric authentication failed.");
+    }
+  };
+
+  const handleAirtimePurchase = async (biometricToken?: string) => {
+    if (!airtimeNetwork || !airtimeAmount || airtimePhone.length !== 11 || (!biometricToken && airtimePin.length !== 6) || !user) {
+      toast.error("Ahh, sorry, please complete the phone number and PIN/Biometrics before continuing.");
       return;
     }
 
@@ -2377,7 +2590,7 @@ export default function DashboardClient({
         recipientPhone: airtimePhone,
         amount: airtimeAmount,
         network: airtimeNetwork,
-        pin: airtimePin,
+        ...(biometricToken ? { biometricToken } : { pin: airtimePin }),
       };
 
       let response = await fetch("/api/airtime/purchase", {
@@ -2421,6 +2634,33 @@ export default function DashboardClient({
       toast.error("Ahh, sorry, we could not complete that airtime purchase right now.");
     } finally {
       setPurchasingAirtime(false);
+    }
+  };
+
+  const triggerBiometricAirtimePurchase = async () => {
+    if (typeof window === "undefined" || !(window as any).AndroidBridge) {
+      toast.error("Biometrics is only available in the Android app.");
+      return;
+    }
+    
+    try {
+      const token = await new Promise<string>((resolve, reject) => {
+        (window as any).onBiometricTokenReceived = (t: string) => {
+          resolve(t);
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).onBiometricTokenFailed = (err: string) => {
+          reject(new Error(err));
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).AndroidBridge.getBiometricToken();
+      });
+
+      await handleAirtimePurchase(token);
+    } catch (err: any) {
+      toast.error(err.message || "Biometric authentication failed.");
     }
   };
 
@@ -2698,32 +2938,54 @@ export default function DashboardClient({
               <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
                 Transaction PIN
               </label>
-              <input
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={pin}
-                onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                style={{
-                  width: "100%",
-                  padding: "15px 16px",
-                  textAlign: "center",
-                  borderRadius: 14,
-                  border: `1px solid ${pin ? T.blue : T.borderStrong}`,
-                  background: pin ? T.blueLight : T.surface,
-                  fontFamily: T.mono,
-                  fontSize: 18,
-                  fontWeight: 800,
-                  outline: "none",
-                  boxSizing: "border-box",
-                  letterSpacing: "0.18em",
-                }}
-              />
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  style={{
+                    flex: 1,
+                    padding: "15px 16px",
+                    textAlign: "center",
+                    borderRadius: 14,
+                    border: `1px solid ${pin ? T.blue : T.borderStrong}`,
+                    background: pin ? T.blueLight : T.surface,
+                    fontFamily: T.mono,
+                    fontSize: 18,
+                    fontWeight: 800,
+                    outline: "none",
+                    boxSizing: "border-box",
+                    letterSpacing: "0.18em",
+                  }}
+                />
+                {typeof window !== "undefined" && (window as any).AndroidBridge && localStorage.getItem("biometric_enabled_" + user?.phone) === "true" && (
+                  <button
+                    onClick={triggerBiometricDataPurchase}
+                    disabled={purchasingData}
+                    style={{
+                      width: 50,
+                      height: 52,
+                      borderRadius: 14,
+                      border: `1px solid ${T.blue}`,
+                      background: T.blueLight,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    <Fingerprint size={24} color={T.blue} />
+                  </button>
+                )}
+              </div>
             </div>
 
             <button
-              onClick={handleDataPurchase}
+              onClick={() => handleDataPurchase()}
               disabled={purchasingData}
               style={{
                 width: "100%",
@@ -2826,32 +3088,54 @@ export default function DashboardClient({
           <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
             Transaction PIN
           </label>
-          <input
-            type="password"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={6}
-            value={airtimePin}
-            onChange={(event) => setAirtimePin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            style={{
-              width: "100%",
-              padding: "15px 16px",
-              textAlign: "center",
-              borderRadius: 14,
-              border: `1px solid ${airtimePin ? T.green : T.borderStrong}`,
-              background: airtimePin ? "rgba(22,163,74,0.12)" : T.surface,
-              fontFamily: T.mono,
-              fontSize: 18,
-              fontWeight: 800,
-              outline: "none",
-              boxSizing: "border-box",
-              letterSpacing: "0.18em",
-            }}
-          />
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={airtimePin}
+              onChange={(event) => setAirtimePin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              style={{
+                flex: 1,
+                padding: "15px 16px",
+                textAlign: "center",
+                borderRadius: 14,
+                border: `1px solid ${airtimePin ? T.green : T.borderStrong}`,
+                background: airtimePin ? "rgba(22,163,74,0.12)" : T.surface,
+                fontFamily: T.mono,
+                fontSize: 18,
+                fontWeight: 800,
+                outline: "none",
+                boxSizing: "border-box",
+                letterSpacing: "0.18em",
+              }}
+            />
+            {typeof window !== "undefined" && (window as any).AndroidBridge && localStorage.getItem("biometric_enabled_" + user?.phone) === "true" && (
+              <button
+                onClick={triggerBiometricAirtimePurchase}
+                disabled={purchasingAirtime}
+                style={{
+                  width: 50,
+                  height: 52,
+                  borderRadius: 14,
+                  border: `1px solid ${T.green}`,
+                  background: "rgba(22,163,74,0.12)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <Fingerprint size={24} color={T.green} />
+              </button>
+            )}
+          </div>
         </div>
 
         <button
-          onClick={handleAirtimePurchase}
+          onClick={() => handleAirtimePurchase()}
           disabled={purchasingAirtime}
           style={{
             width: "100%",

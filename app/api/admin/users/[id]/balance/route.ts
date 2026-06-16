@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceAdminMutationGuard, logAdminAction, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { sendPushToUser } from "@/lib/push";
 
 const balanceSchema = z.object({
   action: z.enum(["ADD", "DEDUCT"]),
@@ -87,6 +88,14 @@ export async function POST(
       amountNaira: amount,
       resultingBalanceKobo: updatedUser.balance,
     });
+
+    sendPushToUser(
+      id,
+      action === "ADD" ? "Wallet Credited" : "Wallet Debited",
+      action === "ADD" 
+        ? `Your wallet has been credited with ₦${amount.toFixed(2)} by Admin. New balance: ₦${(updatedUser.balance / 100).toFixed(2)}`
+        : `Your wallet was debited by ₦${amount.toFixed(2)} by Admin. New balance: ₦${(updatedUser.balance / 100).toFixed(2)}`
+    ).catch(err => console.error("[PUSH ERROR] Admin balance push failed:", err));
 
     return NextResponse.json(
       {

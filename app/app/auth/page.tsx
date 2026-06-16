@@ -15,6 +15,7 @@ import {
   Sparkles,
   User,
   WalletCards,
+  Fingerprint,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -183,6 +184,58 @@ export default function AuthPage() {
       toast.error(getFriendlyMessage(data.error, "We could not sign you in right now."));
     } catch {
       toast.error("Connection is unstable right now. Please try again shortly.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    if (!phone || phone.length !== 11) {
+      toast.error("Enter your 11-digit phone number first.");
+      return;
+    }
+
+    if (typeof window === "undefined" || !(window as any).AndroidBridge) {
+      toast.error("Biometric login is only available in the Android app.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = await new Promise<string>((resolve, reject) => {
+        (window as any).onBiometricTokenReceived = (t: string) => {
+          resolve(t);
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).onBiometricTokenFailed = (err: string) => {
+          reject(new Error(err));
+          delete (window as any).onBiometricTokenReceived;
+          delete (window as any).onBiometricTokenFailed;
+        };
+        (window as any).AndroidBridge.getBiometricToken();
+      });
+
+      const res = await fetch("/api/auth/biometric-login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, token }),
+      });
+
+      if (res.ok) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("saved_phone", phone);
+        }
+        toast.success("Biometric login successful.");
+        router.replace("/app");
+        return;
+      }
+
+      const data = await res.json();
+      toast.error(data.error || "Biometric login failed.");
+    } catch (err: any) {
+      toast.error(err.message || "Biometric verification failed or cancelled.");
     } finally {
       setLoading(false);
     }
@@ -459,6 +512,20 @@ export default function AuthPage() {
                         </>
                       )}
                     </motion.button>
+
+                    {typeof window !== "undefined" && !!(window as any).AndroidBridge && (
+                      <motion.button
+                        type="button"
+                        onClick={handleBiometricLogin}
+                        disabled={loading || !phone || phone.length !== 11}
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.99 }}
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Fingerprint size={18} className="text-emerald-500" />
+                        Sign In with Biometrics
+                      </motion.button>
+                    )}
 
                     <p className="text-center text-sm text-slate-600">
                       No account yet?{" "}

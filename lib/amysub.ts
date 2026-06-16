@@ -48,7 +48,10 @@ function formatAmysubPhone(phone: string) {
   return phone;
 }
 
-export async function purchaseData(params: AmysubPurchaseParams): Promise<AmysubResponse> {
+export async function purchaseData(
+  params: AmysubPurchaseParams,
+  options?: { postImpl?: any }
+): Promise<AmysubResponse> {
   try {
     const { plan, network, phone, reference } = params;
     const { baseUrl, apiKey } = getAmysubConfig();
@@ -67,7 +70,8 @@ export async function purchaseData(params: AmysubPurchaseParams): Promise<Amysub
       reference,
     });
 
-    const response = await axios.post(
+    const postFn = options?.postImpl || axios.post;
+    const response = await postFn(
       `${baseUrl}/data`,
       requestBody,
       {

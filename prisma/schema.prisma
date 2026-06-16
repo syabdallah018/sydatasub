@@ -94,6 +94,8 @@ model User {
   agentRequestStatus AgentRequestStatus @default(NONE)
   isBanned           Boolean            @default(false)
   isActive           Boolean            @default(true)
+  fcmToken           String?
+  biometricTokenHash String?
   joinedAt           DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import axios from "axios";
+import * as jose from "jose";
 import { createReservedVirtualAccount, md5Hex, verifyBillstackSignature } from "../lib/billstack-core.mjs";
 import { processBillstackWebhookWithAdapter } from "../lib/billstack-webhook-core.mjs";
 import { purchaseData as purchaseAlrahuzData, purchaseAirtime as purchaseAlrahuzAirtime } from "../lib/alrahuz.mjs";
 import { purchaseData as purchaseAmysubData } from "../lib/amysub.ts";
 import { purchaseDataByPlan } from "../lib/data-provider.mjs";
+import { sendPushNotification, _joseDeps } from "../lib/push.ts";
 
 async function testCreateReservedVirtualAccount() {
   let seenHeaders = null;
@@ -348,9 +350,8 @@ async function testApiDRouting() {
 }
 
 async function testAmysubDataClientSuccess() {
-  const originalPost = axios.post;
   let seen = null;
-  axios.post = async (url, body, config) => {
+  const postImpl = async (url, body, config) => {
     seen = { url, body, config };
     return {
       status: 200,
@@ -373,7 +374,7 @@ async function testAmysubDataClientSuccess() {
       network: 1,
       phone: "08164135836",
       reference: "test_ref",
-    });
+    }, { postImpl });
 
     assert.equal(seen.url, "https://app.amysub.ng/api/data");
     assert.equal(seen.config.headers.Authorization, "Bearer test_key");
@@ -381,13 +382,12 @@ async function testAmysubDataClientSuccess() {
     assert.equal(result.message, "Y'ello! You have gifted 1GB to 2348164135836.");
     assert.equal(result.externalReference, "DT20260616231301406986");
   } finally {
-    axios.post = originalPost;
+    delete process.env.AMYSUB_API_KEY;
   }
 }
 
 async function testAmysubDataClientFailure() {
-  const originalPost = axios.post;
-  axios.post = async () => {
+  const postImpl = async () => {
     return {
       status: 200,
       data: {
@@ -404,12 +404,145 @@ async function testAmysubDataClientFailure() {
       network: 1,
       phone: "08164135836",
       reference: "test_ref",
-    });
+    }, { postImpl });
 
     assert.equal(result.success, false);
     assert.equal(result.message, "Insufficient wallet balance");
   } finally {
-    axios.post = originalPost;
+    delete process.env.AMYSUB_API_KEY;
+  }
+}
+
+async function testFcmPushNotificationSuccess() {
+  const originalFetch = globalThis.fetch;
+  let seenUrl = null;
+  let seenBody = null;
+  let seenHeaders = null;
+
+  globalThis.fetch = async (url, init) => {
+    if (url === "https://oauth2.googleapis.com/token") {
+      return new Response(
+        JSON.stringify({
+          access_token: "mocked_access_token",
+          expires_in: 3600,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    seenUrl = url;
+    seenBody = JSON.parse(init.body);
+    seenHeaders = init.headers;
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  process.env.FIREBASE_PROJECT_ID = "test-project-123";
+  process.env.FIREBASE_CLIENT_EMAIL = "test@test-project-123.iam.gserviceaccount.com";
+  process.env.FIREBASE_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3\n-----END PRIVATE KEY-----";
+
+  const originalImportPKCS8 = _joseDeps.importPKCS8;
+  const originalSignJWT = _joseDeps.SignJWT;
+  _joseDeps.importPKCS8 = async () => ({});
+  _joseDeps.SignJWT = class MockSignJWT {
+    constructor(payload) {
+      this.payload = payload;
+    }
+    setProtectedHeader(header) {
+      return this;
+    }
+    async sign() {
+      return "mocked_signed_jwt";
+    }
+  };
+
+  try {
+    const success = await sendPushNotification("device_token_abc", "Hello", "World", { key: "val" });
+    assert.equal(success, true);
+    assert.equal(seenUrl, "https://fcm.googleapis.com/v1/projects/test-project-123/messages:send");
+    assert.equal(seenHeaders.Authorization, "Bearer mocked_access_token");
+    assert.deepEqual(seenBody.message, {
+      token: "device_token_abc",
+      notification: { title: "Hello", body: "World" },
+      data: { key: "val" },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    _joseDeps.importPKCS8 = originalImportPKCS8;
+    _joseDeps.SignJWT = originalSignJWT;
+    delete process.env.FIREBASE_PROJECT_ID;
+    delete process.env.FIREBASE_CLIENT_EMAIL;
+    delete process.env.FIREBASE_PRIVATE_KEY;
+  }
+}
+
+async function testFcmPushNotificationFallback() {
+  const success = await sendPushNotification("token_123", "Test Title", "Test Body");
+  assert.equal(success, false);
+}
+
+async function testFcmPushNotificationServiceAccountSuccess() {
+  const originalFetch = globalThis.fetch;
+  let seenUrl = null;
+  let seenBody = null;
+  let seenHeaders = null;
+
+  globalThis.fetch = async (url, init) => {
+    if (url === "https://oauth2.googleapis.com/token") {
+      return new Response(
+        JSON.stringify({
+          access_token: "mocked_access_token",
+          expires_in: 3600,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    seenUrl = url;
+    seenBody = JSON.parse(init.body);
+    seenHeaders = init.headers;
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({
+    project_id: "test-project-sa",
+    client_email: "sa@test-project-sa.iam.gserviceaccount.com",
+    private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3\n-----END PRIVATE KEY-----",
+  });
+
+  const originalImportPKCS8 = _joseDeps.importPKCS8;
+  const originalSignJWT = _joseDeps.SignJWT;
+  _joseDeps.importPKCS8 = async () => ({});
+  _joseDeps.SignJWT = class MockSignJWT {
+    constructor(payload) {
+      this.payload = payload;
+    }
+    setProtectedHeader(header) {
+      return this;
+    }
+    async sign() {
+      return "mocked_signed_jwt";
+    }
+  };
+
+  try {
+    const success = await sendPushNotification("device_token_xyz", "Hello SA", "World SA", { key: "val" });
+    assert.equal(success, true);
+    assert.equal(seenUrl, "https://fcm.googleapis.com/v1/projects/test-project-sa/messages:send");
+    assert.equal(seenHeaders.Authorization, "Bearer mocked_access_token");
+    assert.deepEqual(seenBody.message, {
+      token: "device_token_xyz",
+      notification: { title: "Hello SA", body: "World SA" },
+      data: { key: "val" },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    _joseDeps.importPKCS8 = originalImportPKCS8;
+    _joseDeps.SignJWT = originalSignJWT;
+    delete process.env.FIREBASE_SERVICE_ACCOUNT;
   }
 }
 
@@ -425,6 +558,9 @@ async function main() {
     ["API_D routing", testApiDRouting],
     ["Amysub data client success response", testAmysubDataClientSuccess],
     ["Amysub data client failure response", testAmysubDataClientFailure],
+    ["FCM Push Notification success", testFcmPushNotificationSuccess],
+    ["FCM Push Notification fallback", testFcmPushNotificationFallback],
+    ["FCM Push Notification via Service Account JSON", testFcmPushNotificationServiceAccountSuccess],
   ];
 
   let passed = 0;

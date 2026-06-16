@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Providers } from "@/components/providers";
-import { Loader2, BarChart3, Users, Database, LogOut, Bell, Gift, Receipt, UserCheck, Webhook, Phone } from "lucide-react";
+import { Loader2, BarChart3, Users, Database, LogOut, Bell, Gift, Receipt, UserCheck, Webhook, Phone, Send } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -17,6 +17,7 @@ const SIDEBAR_ITEMS = [
   { href: "/admin/rewards", label: "Rewards", icon: Gift },
   { href: "/admin/airtime-cash", label: "Airtime Cash", icon: Phone },
   { href: "/admin/notices", label: "Broadcasts", icon: Bell },
+  { href: "/admin/push", label: "Push Broadcast", icon: Send },
   { href: "/admin/webhooks", label: "Webhooks", icon: Webhook },
 ];
 
