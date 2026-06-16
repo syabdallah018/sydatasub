@@ -48,7 +48,17 @@ export function normalizeProviderFailureMessage(message?: string | null) {
     return PROVIDER_TECHNICAL_FAILURE_MESSAGE;
   }
 
-  return message || "Purchase failed";
+  // Map third-party gateway balance exhaustion or wallet errors to network error
+  if (
+    normalizedMessage.includes("balance") ||
+    normalizedMessage.includes("insufficient") ||
+    normalizedMessage.includes("fund") ||
+    normalizedMessage.includes("wallet")
+  ) {
+    return "Network error, please try again later";
+  }
+
+  return PURCHASE_FAILED_GENERIC_MESSAGE;
 }
 
 type DuplicateCheckParams = {

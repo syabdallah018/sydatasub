@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Bolt,
   Building2,
@@ -362,7 +362,7 @@ function HomeActionCard({
   );
 }
 
-function BroadcastBanner({
+function BroadcastModal({
   notice,
   onDismiss,
 }: {
@@ -373,48 +373,149 @@ function BroadcastBanner({
 
   const tone =
     notice.severity === "ERROR" || notice.severity === "WARNING"
-      ? { bg: "#fff4e5", border: "#f5c27a", accent: T.amber }
+      ? { bg: "#fff4e5", border: "#f5c27a", accent: T.amber, iconBg: "rgba(217, 119, 6, 0.1)" }
       : notice.severity === "SUCCESS"
-        ? { bg: "#ecfdf3", border: "#86efac", accent: T.green }
-        : { bg: "#eef5ff", border: "#bfd4ff", accent: T.blue };
+        ? { bg: "#ecfdf3", border: "#86efac", accent: T.green, iconBg: "rgba(22, 163, 74, 0.1)" }
+        : { bg: "#eef5ff", border: "#bfd4ff", accent: T.blue, iconBg: "rgba(36, 99, 235, 0.1)" };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
+    <div
       style={{
-        marginBottom: 16,
-        borderRadius: 20,
-        border: `1px solid ${tone.border}`,
-        background: tone.bg,
-        padding: 16,
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 14, color: T.text, margin: "0 0 6px" }}>
-            {notice.title || "Update"}
-          </p>
-          <p style={{ fontFamily: T.font, fontSize: 13, color: T.textMid, margin: 0, lineHeight: 1.5 }}>
+      {/* Backdrop blur overlay */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onDismiss}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(17, 24, 39, 0.6)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+        }}
+      />
+
+      {/* Modal card */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        transition={{ type: "spring", damping: 25, stiffness: 350 }}
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 440,
+          background: T.card,
+          borderRadius: 24,
+          border: `1px solid ${tone.border}`,
+          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+          overflow: "hidden",
+          zIndex: 1,
+        }}
+      >
+        {/* Status top accent stripe */}
+        <div style={{ height: 6, background: tone.accent }} />
+
+        <div style={{ padding: 24 }}>
+          {/* Header row with status icon & dismiss X */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: tone.iconBg,
+                color: tone.accent,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Sparkles size={20} />
+            </div>
+            <button
+              onClick={onDismiss}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: T.textDim,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 4,
+                borderRadius: 8,
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Title & message content */}
+          <h3
+            style={{
+              fontFamily: T.font,
+              fontWeight: 800,
+              fontSize: 18,
+              color: T.text,
+              margin: "0 0 10px",
+            }}
+          >
+            {notice.title || "Update Announcement"}
+          </h3>
+          <p
+            style={{
+              fontFamily: T.font,
+              fontSize: 14,
+              color: T.textMid,
+              lineHeight: 1.6,
+              margin: "0 0 24px",
+              whiteSpace: "pre-wrap",
+            }}
+          >
             {notice.message}
           </p>
+
+          {/* Action button */}
+          <motion.button
+            onClick={onDismiss}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            style={{
+              width: "100%",
+              border: "none",
+              borderRadius: 16,
+              padding: "14px 16px",
+              background: tone.accent,
+              color: "#fff",
+              fontFamily: T.font,
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: "pointer",
+              boxShadow: `0 4px 12px ${tone.accent}25`,
+            }}
+          >
+            Acknowledge & Dismiss
+          </motion.button>
         </div>
-        <button
-          onClick={onDismiss}
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            color: tone.accent,
-            fontFamily: T.font,
-            fontWeight: 800,
-            fontSize: 12,
-          }}
-        >
-          Dismiss
-        </button>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -2740,30 +2841,68 @@ export default function DashboardClient({
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              style={{
-                border: "none",
-                borderRadius: 14,
-                padding: "10px 12px",
-                background: T.card,
-                color: T.textMid,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontFamily: T.font,
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              <LogOut size={14} />
-              Exit
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <motion.a
+                href="https://whatsapp.com/channel/0029VbCniugEquiRVCHrkd36"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.02, backgroundColor: "rgba(22, 163, 74, 0.12)" }}
+                whileTap={{ scale: 0.98 }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  textDecoration: "none",
+                  background: "rgba(22, 163, 74, 0.08)",
+                  border: "1px solid rgba(22, 163, 74, 0.15)",
+                  borderRadius: 14,
+                  padding: "8px 12px",
+                  color: "#16a34a",
+                  fontFamily: T.font,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.003 5.324 5.328.001 11.894 0c3.182.001 6.176 1.239 8.426 3.491 2.25 2.253 3.487 5.249 3.485 8.432-.005 6.568-5.33 11.89-11.893 11.89-2.007-.001-3.98-.51-5.73-1.483L0 24zm6.59-4.846c1.657.983 3.28 1.485 4.808 1.487 5.379-.001 9.75-4.37 9.754-9.751.002-2.607-1.01-5.059-2.854-6.905C16.452 2.138 14.004 1.125 11.4 1.125c-5.38 0-9.75 4.37-9.754 9.752-.001 1.704.452 3.369 1.312 4.858l-.995 3.637 3.73-.978zm10.742-6.52c-.29-.145-1.71-.845-1.975-.94-.266-.096-.46-.144-.652.146-.19.29-.74.94-.905 1.13-.166.19-.332.213-.622.068-.29-.145-1.22-.45-2.325-1.434-.86-.767-1.44-1.716-1.61-2.006-.17-.29-.018-.446.127-.59.13-.13.29-.338.435-.507.145-.17.193-.29.29-.483.097-.19.048-.362-.024-.508-.073-.146-.653-1.573-.895-2.152-.236-.57-.496-.49-.652-.497-.17-.008-.36-.008-.553-.008-.193 0-.507.072-.772.362-.266.29-1.013.99-1.013 2.414 0 1.423 1.037 2.8 1.18 2.99 1.42 1.86 2.605 2.76 4.35 3.46 1.745.7 1.745.47 2.052.44.307-.03.99-.405 1.13-.8.14-.395.14-.73.097-.8-.043-.07-.16-.113-.45-.258z"/>
+                </svg>
+                <span>Join our WhatsApp channel</span>
+              </motion.a>
+              <motion.button
+                onClick={handleLogout}
+                whileHover={{ scale: 1.05, backgroundColor: "#fee2e2", color: "#ef4444" }}
+                whileTap={{ scale: 0.95 }}
+                title="Logout / Exit"
+                style={{
+                  border: "none",
+                  borderRadius: 14,
+                  width: 36,
+                  height: 36,
+                  background: T.surface,
+                  color: T.textMid,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "color 0.2s, background-color 0.2s",
+                }}
+              >
+                <LogOut size={15} />
+              </motion.button>
+            </div>
           </div>
         </div>
 
         <main style={{ maxWidth: 520, margin: "0 auto", padding: "20px 20px 0" }}>
-          <BroadcastBanner notice={broadcasts[0] || null} onDismiss={() => broadcasts[0] && dismissBroadcast(broadcasts[0].id)} />
+          <AnimatePresence>
+            {broadcasts[0] && (
+              <BroadcastModal
+                notice={broadcasts[0]}
+                onDismiss={() => dismissBroadcast(broadcasts[0].id)}
+              />
+            )}
+          </AnimatePresence>
 
           {showRewards ? (
             <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setShowRewards(false)} />
