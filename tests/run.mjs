@@ -316,7 +316,6 @@ async function testApiDRouting() {
       apiSource: "API_D",
       externalNetworkId: 1,
       externalPlanId: 888,
-      sizeLabel: "2GB",
       network: "MTN",
     },
     {
@@ -328,7 +327,6 @@ async function testApiDRouting() {
         called = true;
         assert.deepEqual(params, {
           plan: 888,
-          sizeLabel: "2GB",
           network: 1,
           phone: "0810778800",
           reference: "DATA-REF-API-D",

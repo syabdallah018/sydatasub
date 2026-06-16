@@ -2,7 +2,6 @@ import axios from "axios";
 
 interface AmysubPurchaseParams {
   plan: number; // Amysub external plan ID (integer from DB)
-  sizeLabel?: string; // e.g. "1GB", "500MB" (fallback for mapping string plan)
   network: number; // Amysub external network ID (e.g. 1)
   phone: string; // Recipient phone number
   reference?: string; // Unique transaction reference (optional)
@@ -15,6 +14,11 @@ interface AmysubResponse {
 }
 
 const PLAN_MAPPING: Record<number, string> = {
+  3: "SME_1GB",
+  4: "SME_2GB",
+  5: "SME_5GB",
+  6: "SME_10GB",
+  7: "SME_500MB",
   500: "SME_500MB",
   1000: "SME_1GB",
   2000: "SME_2GB",
@@ -59,24 +63,12 @@ function formatAmysubPhone(phone: string) {
 
 export async function purchaseData(params: AmysubPurchaseParams): Promise<AmysubResponse> {
   try {
-    const { plan, sizeLabel, network, phone, reference } = params;
+    const { plan, network, phone, reference } = params;
     const { baseUrl, apiKey } = getAmysubConfig();
     const formattedPhone = formatAmysubPhone(phone);
 
-    // Resolve string plan code, prioritizing sizeLabel parsing (e.g. "1gb" -> "SME_1GB")
-    let planCode = "";
-    if (sizeLabel) {
-      const match = sizeLabel.match(/(\d+(?:\.\d+)?)\s*(GB|MB)/i);
-      if (match) {
-        const amount = match[1];
-        const unit = match[2].toUpperCase();
-        planCode = `SME_${amount}${unit}`;
-      }
-    }
-
-    if (!planCode) {
-      planCode = PLAN_MAPPING[plan] || String(plan);
-    }
+    // Resolve string plan code strictly from externalPlanId mapping
+    const planCode = PLAN_MAPPING[plan] || String(plan);
 
     const requestBody = {
       mobile_number: formattedPhone,
