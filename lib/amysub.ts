@@ -13,19 +13,6 @@ interface AmysubResponse {
   externalReference?: string;
 }
 
-const PLAN_MAPPING: Record<number, string> = {
-  3: "SME_1GB",
-  4: "SME_2GB",
-  5: "SME_5GB",
-  6: "SME_10GB",
-  7: "SME_500MB",
-  500: "SME_500MB",
-  1000: "SME_1GB",
-  2000: "SME_2GB",
-  3000: "SME_3GB",
-  5000: "SME_5GB",
-  10000: "SME_10GB",
-};
 
 const shouldLogProviderTraffic =
   process.env.NODE_ENV !== "production" && process.env.DEBUG_PROVIDER_LOGS === "1";
@@ -67,12 +54,9 @@ export async function purchaseData(params: AmysubPurchaseParams): Promise<Amysub
     const { baseUrl, apiKey } = getAmysubConfig();
     const formattedPhone = formatAmysubPhone(phone);
 
-    // Resolve string plan code strictly from externalPlanId mapping
-    const planCode = PLAN_MAPPING[plan] || String(plan);
-
     const requestBody = {
       mobile_number: formattedPhone,
-      plan: planCode,
+      plan: plan,
       network: network,
     };
 
