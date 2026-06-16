@@ -21,11 +21,6 @@ const PLAN_MAPPING: Record<number, string> = {
   3000: "SME_3GB",
   5000: "SME_5GB",
   10000: "SME_10GB",
-  1: "SME_1GB",
-  2: "SME_2GB",
-  3: "SME_3GB",
-  5: "SME_5GB",
-  10: "SME_10GB",
 };
 
 const shouldLogProviderTraffic =
@@ -68,14 +63,19 @@ export async function purchaseData(params: AmysubPurchaseParams): Promise<Amysub
     const { baseUrl, apiKey } = getAmysubConfig();
     const formattedPhone = formatAmysubPhone(phone);
 
-    // Resolve string plan code
-    let planCode = PLAN_MAPPING[plan];
-    if (!planCode && sizeLabel) {
-      const cleanSize = sizeLabel.toUpperCase().replace(/\s+/g, "");
-      planCode = `SME_${cleanSize}`;
+    // Resolve string plan code, prioritizing sizeLabel parsing (e.g. "1gb" -> "SME_1GB")
+    let planCode = "";
+    if (sizeLabel) {
+      const match = sizeLabel.match(/(\d+(?:\.\d+)?)\s*(GB|MB)/i);
+      if (match) {
+        const amount = match[1];
+        const unit = match[2].toUpperCase();
+        planCode = `SME_${amount}${unit}`;
+      }
     }
+
     if (!planCode) {
-      planCode = String(plan);
+      planCode = PLAN_MAPPING[plan] || String(plan);
     }
 
     const requestBody = {
