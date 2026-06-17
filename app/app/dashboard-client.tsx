@@ -3233,26 +3233,73 @@ export default function DashboardClient({
     };
   }, [user?.id]);
 
+  // Track sub-view state and handle hardware back navigation routing to Home tab
+  const isSubView = activeTab !== "home" || fullView !== null || showRewards;
+  const isSubViewRef = useRef(isSubView);
+  useEffect(() => {
+    isSubViewRef.current = isSubView;
+  }, [isSubView]);
+
+  const prevSubViewRef = useRef(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const handlePopState = (event: PopStateEvent) => {
-      if (activeTab !== "home" || fullView !== null || showRewards) {
-        event.preventDefault();
+      if (isSubViewRef.current) {
         setActiveTab("home");
         setFullView(null);
         setShowRewards(false);
-        window.history.pushState({ tab: "home", view: null }, "");
       }
     };
 
     window.addEventListener("popstate", handlePopState);
-    window.history.pushState({ tab: activeTab, view: fullView }, "");
-
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [activeTab, fullView, showRewards]);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (isSubView && !prevSubViewRef.current) {
+      window.history.pushState({ isSub: true }, "");
+    }
+    prevSubViewRef.current = isSubView;
+  }, [isSubView]);
+
+  const goHome = () => {
+    if (activeTab !== "home" || fullView !== null || showRewards) {
+      window.history.back();
+    }
+  };
+
+  const handleTabChange = (tab: AppTab) => {
+    setShowRewards(false);
+    setFullView(null);
+    if (tab === "home") {
+      goHome();
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
+  const handleOpenData = () => {
+    setSelectedNetwork("mtn");
+    setPhoneNumber("");
+    setSelectedPlan(null);
+    setBuyDataOpen(false);
+    setBuyDataStep(3);
+    setFullView("data");
+  };
+
+  const handleOpenAirtime = () => {
+    setAirtimeNetwork("mtn");
+    setAirtimePhone("");
+    setAirtimeAmount(null);
+    setAirtimeOpen(false);
+    setFullView("airtime");
+  };
 
   const dismissBroadcast = (id: string) => {
     setBroadcasts((current) => current.filter((item) => item.id !== id));
@@ -3487,6 +3534,26 @@ export default function DashboardClient({
     }
   };
 
+  // Auto-trigger biometric for data purchase
+  useEffect(() => {
+    if (buyDataOpen && buyDataStep === 3 && typeof window !== "undefined" && (window as any).AndroidBridge && localStorage.getItem("biometric_enabled_" + user?.phone) === "true") {
+      const timer = setTimeout(() => {
+        triggerBiometricDataPurchase();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [buyDataOpen, buyDataStep, user?.phone]);
+
+  // Auto-trigger biometric for airtime purchase
+  useEffect(() => {
+    if (airtimeOpen && typeof window !== "undefined" && (window as any).AndroidBridge && localStorage.getItem("biometric_enabled_" + user?.phone) === "true") {
+      const timer = setTimeout(() => {
+        triggerBiometricAirtimePurchase();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [airtimeOpen, user?.phone]);
+
   if (loading) {
     return <BrandEntryScreen subtitle="Loading your dashboard" message="We are checking your session, balance, and latest activity." />;
   }
@@ -3642,12 +3709,12 @@ export default function DashboardClient({
           </AnimatePresence>
 
           {showRewards ? (
-            <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setShowRewards(false)} />
+            <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={goHome} />
           ) : activeTab === "home" ? (
             fullView === "data" ? (
               <DataWindow
                 user={user}
-                onBack={() => setFullView(null)}
+                onBack={goHome}
                 onSelectPlan={(plan) => {
                   setSelectedPlan(plan);
                   setPin("");
@@ -3664,7 +3731,7 @@ export default function DashboardClient({
             ) : fullView === "airtime" ? (
               <AirtimeWindow
                 user={user}
-                onBack={() => setFullView(null)}
+                onBack={goHome}
                 onProceed={() => {
                   setAirtimePin("");
                   setAirtimeOpen(true);
@@ -3686,8 +3753,8 @@ export default function DashboardClient({
                 onToggleBalance={() => setShowBalance((value) => !value)}
                 onSyncBalance={handleSyncBalance}
                 onCopyAccount={handleCopyAccount}
-                onOpenData={() => setFullView("data")}
-                onOpenAirtime={() => setFullView("airtime")}
+                onOpenData={handleOpenData}
+                onOpenAirtime={handleOpenAirtime}
                 onOpenRewards={() => setShowRewards(true)}
                 onOpenAccounts={() => setActiveTab("accounts")}
                 onViewAllTransactions={() => setActiveTab("transactions")}
@@ -3708,10 +3775,7 @@ export default function DashboardClient({
 
         <TabBar
           activeTab={activeTab}
-          onChange={(tab) => {
-            setShowRewards(false);
-            setActiveTab(tab);
-          }}
+          onChange={handleTabChange}
         />
       </div>
 
