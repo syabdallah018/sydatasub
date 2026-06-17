@@ -569,11 +569,14 @@ function LockScreen({
   };
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      handleBiometricUnlock();
-    }, 400);
-    return () => clearTimeout(t);
-  }, []);
+    const hasBiometrics = typeof window !== "undefined" && localStorage.getItem("biometric_enabled_" + phone) === "true";
+    if (hasBiometrics) {
+      const t = setTimeout(() => {
+        handleBiometricUnlock();
+      }, 400);
+      return () => clearTimeout(t);
+    }
+  }, [phone]);
 
   const handlePinUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -3099,9 +3102,8 @@ export default function DashboardClient({
         if (payload?.success && payload?.data) {
           setUser(payload.data);
           if (typeof window !== "undefined") {
-            const hasBiometrics = localStorage.getItem("biometric_enabled_" + payload.data.phone) === "true";
             const justLoggedIn = sessionStorage.getItem("just_logged_in") === "true";
-            if (hasBiometrics && !justLoggedIn && (window as any).AndroidBridge) {
+            if (!justLoggedIn && (window as any).AndroidBridge) {
               setIsLocked(true);
             }
           }
@@ -3206,8 +3208,7 @@ export default function DashboardClient({
           const minimizedAt = localStorage.getItem("app_minimized_timestamp");
           if (minimizedAt) {
             const elapsed = Date.now() - Number(minimizedAt);
-            const hasBiometrics = localStorage.getItem("biometric_enabled_" + user.phone) === "true";
-            if (elapsed > 5000 && hasBiometrics && (window as any).AndroidBridge) {
+            if (elapsed > 5000 && (window as any).AndroidBridge) {
               setIsLocked(true);
             }
           }
@@ -3720,6 +3721,12 @@ export default function DashboardClient({
                   setPin("");
                   setBuyDataStep(3);
                   setBuyDataOpen(true);
+                  const hasBiometrics = typeof window !== "undefined" && localStorage.getItem("biometric_enabled_" + user?.phone) === "true";
+                  if (hasBiometrics && (window as any).AndroidBridge) {
+                    setTimeout(() => {
+                      triggerBiometricDataPurchase();
+                    }, 300);
+                  }
                 }}
                 plans={dataPlans}
                 plansLoading={plansLoading}
@@ -3735,6 +3742,12 @@ export default function DashboardClient({
                 onProceed={() => {
                   setAirtimePin("");
                   setAirtimeOpen(true);
+                  const hasBiometrics = typeof window !== "undefined" && localStorage.getItem("biometric_enabled_" + user?.phone) === "true";
+                  if (hasBiometrics && (window as any).AndroidBridge) {
+                    setTimeout(() => {
+                      triggerBiometricAirtimePurchase();
+                    }, 300);
+                  }
                 }}
                 selectedNetwork={airtimeNetwork}
                 setSelectedNetwork={setAirtimeNetwork}
