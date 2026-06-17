@@ -49,21 +49,43 @@ export function getNetworkFromPhone(phone: string): string {
   const firstDigits = formatted.slice(-10, -7);
 
   const networkMap: { [key: string]: string } = {
+    // MTN
     "703": "MTN",
     "704": "MTN",
     "706": "MTN",
     "803": "MTN",
+    "806": "MTN",
+    "810": "MTN",
+    "813": "MTN",
+    "814": "MTN",
+    "816": "MTN",
     "903": "MTN",
+    "906": "MTN",
+    "913": "MTN",
+    "916": "MTN",
+    // Airtel
     "701": "AIRTEL",
-    "714": "AIRTEL",
+    "708": "AIRTEL",
     "802": "AIRTEL",
     "808": "AIRTEL",
+    "812": "AIRTEL",
+    "901": "AIRTEL",
     "902": "AIRTEL",
+    "907": "AIRTEL",
+    "912": "AIRTEL",
+    // Glo
     "705": "GLO",
+    "805": "GLO",
+    "807": "GLO",
+    "811": "GLO",
     "815": "GLO",
     "905": "GLO",
-    "807": "9MOBILE",
-    "811": "9MOBILE",
+    "915": "GLO",
+    // 9mobile
+    "809": "9MOBILE",
+    "817": "9MOBILE",
+    "818": "9MOBILE",
+    "908": "9MOBILE",
     "909": "9MOBILE",
   };
 

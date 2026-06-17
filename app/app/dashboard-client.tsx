@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { BrandEntryScreen } from "@/components/app/BrandEntry";
 import { getFriendlyMessage } from "@/lib/user-feedback";
 import { AIRTIME_PURCHASE_SUCCESS_MESSAGE, DATA_PURCHASE_SUCCESS_MESSAGE } from "@/lib/purchase-utils";
+import { getNetworkFromPhone } from "@/lib/utils";
 
 const fontStyle = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@400;500&display=swap');
@@ -155,6 +156,7 @@ const NETWORKS = [
   { id: "mtn", name: "MTN", color: "#FFCC00", bg: "#fff7cc", logo: "/mtn.jpg" },
   { id: "airtel", name: "Airtel", color: "#FF3333", bg: "#ffe2e2", logo: "/airtel.jpg" },
   { id: "glo", name: "Glo", color: "#16a34a", bg: "#dcfce7", logo: "/glo.jpg" },
+  { id: "9mobile", name: "9mobile", color: "#005a2b", bg: "#e6f4ea", logo: "/9mobile.jpg" },
 ];
 
 const AIRTIME_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
@@ -2077,6 +2079,395 @@ function BiometricSetupModal({
   );
 }
 
+function DataWindow({
+  user,
+  onBack,
+  onSelectPlan,
+  plans,
+  plansLoading,
+  selectedNetwork,
+  setSelectedNetwork,
+  phoneNumber,
+  setPhoneNumber,
+}: {
+  user: UserData;
+  onBack: () => void;
+  onSelectPlan: (plan: DataPlan) => void;
+  plans: DataPlan[];
+  plansLoading: boolean;
+  selectedNetwork: string | null;
+  setSelectedNetwork: (net: string) => void;
+  phoneNumber: string;
+  setPhoneNumber: (num: string) => void;
+}) {
+  const handlePhoneChange = (val: string) => {
+    const cleaned = val.replace(/\D/g, "");
+    setPhoneNumber(cleaned);
+    if (cleaned.length >= 4) {
+      const detected = getNetworkFromPhone(cleaned).toLowerCase();
+      if (detected !== "unknown" && ["mtn", "airtel", "glo", "9mobile"].includes(detected)) {
+        setSelectedNetwork(detected);
+      }
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <button
+          onClick={onBack}
+          style={{
+            border: "none",
+            background: T.surface,
+            width: 36,
+            height: 36,
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <ChevronLeft size={20} color={T.text} />
+        </button>
+        <h2 style={{ fontFamily: T.font, fontSize: 18, fontWeight: 900, color: T.text, margin: 0 }}>
+          Buy Mobile Data
+        </h2>
+      </div>
+
+      <div style={{ background: T.card, borderRadius: 22, padding: 18, border: `1px solid ${T.border}`, marginBottom: 16 }}>
+        <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Recipient Phone Number
+        </label>
+        <div style={{ position: "relative" }}>
+          <Phone size={16} color={T.textDim} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }} />
+          <input
+            type="tel"
+            maxLength={11}
+            value={phoneNumber}
+            placeholder="08012345678"
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "14px 16px 14px 44px",
+              borderRadius: 14,
+              border: `1px solid ${T.borderStrong}`,
+              background: T.surface,
+              fontFamily: T.mono,
+              fontSize: 16,
+              boxSizing: "border-box",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: 18 }}>
+          <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Network Provider
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+            {NETWORKS.map((net) => {
+              const isSelected = selectedNetwork === net.id;
+              return (
+                <button
+                  key={net.id}
+                  onClick={() => setSelectedNetwork(net.id)}
+                  style={{
+                    border: `1px solid ${isSelected ? net.color : T.border}`,
+                    borderRadius: 12,
+                    padding: "8px 4px",
+                    background: isSelected ? net.bg : T.card,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 4,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <img
+                    src={net.logo}
+                    alt={net.name}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 6,
+                      objectFit: "cover",
+                    }}
+                  />
+                  <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 800, color: T.text }}>
+                    {net.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Available Plans
+        </p>
+        
+        {plansLoading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+            <Loader2 size={24} className="animate-spin" color={T.blue} />
+          </div>
+        ) : plans.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "30px 10px", background: T.card, borderRadius: 18, border: `1px solid ${T.border}` }}>
+            <p style={{ fontFamily: T.font, fontSize: 13, color: T.textMid, margin: 0, textAlign: "center" }}>
+              No plans available for this network provider.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {plans.map((plan) => (
+              <button
+                key={plan.id}
+                onClick={() => onSelectPlan(plan)}
+                style={{
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 16,
+                  background: T.card,
+                  padding: "12px 14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  minHeight: 80,
+                  transition: "all 0.2s",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                }}
+              >
+                <div>
+                  <p style={{ fontFamily: T.font, fontSize: 14, fontWeight: 800, color: T.text, margin: "0 0 2px" }}>
+                    {plan.sizeLabel}
+                  </p>
+                  <p style={{ fontFamily: T.font, fontSize: 11, color: T.textDim, margin: 0 }}>
+                    {plan.validity}
+                  </p>
+                </div>
+                <p style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 800, color: T.blue, margin: "8px 0 0" }}>
+                  ₦{getPriceForTier(plan, user.tier).toLocaleString()}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function AirtimeWindow({
+  user,
+  onBack,
+  onProceed,
+  selectedNetwork,
+  setSelectedNetwork,
+  phoneNumber,
+  setPhoneNumber,
+  amount,
+  setAmount,
+}: {
+  user: UserData;
+  onBack: () => void;
+  onProceed: () => void;
+  selectedNetwork: string | null;
+  setSelectedNetwork: (net: string) => void;
+  phoneNumber: string;
+  setPhoneNumber: (num: string) => void;
+  amount: number | null;
+  setAmount: (amt: number | null) => void;
+}) {
+  const handlePhoneChange = (val: string) => {
+    const cleaned = val.replace(/\D/g, "");
+    setPhoneNumber(cleaned);
+    if (cleaned.length >= 4) {
+      const detected = getNetworkFromPhone(cleaned).toLowerCase();
+      if (detected !== "unknown" && ["mtn", "airtel", "glo", "9mobile"].includes(detected)) {
+        setSelectedNetwork(detected);
+      }
+    }
+  };
+
+  const isFormValid = selectedNetwork && phoneNumber.length === 11 && amount && amount > 0;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ width: "100%" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <button
+          onClick={onBack}
+          style={{
+            border: "none",
+            background: T.surface,
+            width: 36,
+            height: 36,
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <ChevronLeft size={20} color={T.text} />
+        </button>
+        <h2 style={{ fontFamily: T.font, fontSize: 18, fontWeight: 900, color: T.text, margin: 0 }}>
+          Buy Airtime
+        </h2>
+      </div>
+
+      <div style={{ background: T.card, borderRadius: 22, padding: 18, border: `1px solid ${T.border}`, marginBottom: 16 }}>
+        <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Recipient Phone Number
+        </label>
+        <div style={{ position: "relative" }}>
+          <Phone size={16} color={T.textDim} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }} />
+          <input
+            type="tel"
+            maxLength={11}
+            value={phoneNumber}
+            placeholder="08012345678"
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "14px 16px 14px 44px",
+              borderRadius: 14,
+              border: `1px solid ${T.borderStrong}`,
+              background: T.surface,
+              fontFamily: T.mono,
+              fontSize: 16,
+              boxSizing: "border-box",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: 18 }}>
+          <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Network Provider
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+            {NETWORKS.map((net) => {
+              const isSelected = selectedNetwork === net.id;
+              return (
+                <button
+                  key={net.id}
+                  onClick={() => setSelectedNetwork(net.id)}
+                  style={{
+                    border: `1px solid ${isSelected ? net.color : T.border}`,
+                    borderRadius: 12,
+                    padding: "8px 4px",
+                    background: isSelected ? net.bg : T.card,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 4,
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <img
+                    src={net.logo}
+                    alt={net.name}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 6,
+                      objectFit: "cover",
+                    }}
+                  />
+                  <span style={{ fontFamily: T.font, fontSize: 10, fontWeight: 800, color: T.text }}>
+                    {net.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: T.card, borderRadius: 22, padding: 18, border: `1px solid ${T.border}`, marginBottom: 20 }}>
+        <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Recharge Amount
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>
+          {AIRTIME_AMOUNTS.map((amt) => (
+            <button
+              key={amt}
+              onClick={() => setAmount(amt)}
+              style={{
+                border: `1px solid ${amount === amt ? T.green : T.border}`,
+                borderRadius: 12,
+                padding: "10px 6px",
+                background: amount === amt ? "rgba(22,163,74,0.08)" : T.surface,
+                cursor: "pointer",
+                fontFamily: T.mono,
+                fontSize: 13,
+                fontWeight: 800,
+                color: amount === amt ? T.green : T.text,
+                transition: "all 0.2s",
+              }}
+            >
+              ₦{amt}
+            </button>
+          ))}
+        </div>
+
+        <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Or Custom Amount (₦)
+        </label>
+        <input
+          type="number"
+          min={50}
+          max={50000}
+          placeholder="Enter amount"
+          value={amount || ""}
+          onChange={(e) => {
+            const val = e.target.value === "" ? null : Number(e.target.value);
+            setAmount(val);
+          }}
+          style={{
+            width: "100%",
+            padding: "14px 16px",
+            borderRadius: 14,
+            border: `1px solid ${T.borderStrong}`,
+            background: T.surface,
+            fontFamily: T.mono,
+            fontSize: 16,
+            boxSizing: "border-box",
+            outline: "none",
+          }}
+        />
+      </div>
+
+      <button
+        onClick={onProceed}
+        disabled={!isFormValid}
+        style={{
+          width: "100%",
+          border: "none",
+          borderRadius: 16,
+          padding: 16,
+          background: isFormValid ? T.green : T.borderStrong,
+          color: "#fff",
+          fontFamily: T.font,
+          fontWeight: 800,
+          fontSize: 15,
+          cursor: isFormValid ? "pointer" : "not-allowed",
+          transition: "all 0.2s",
+        }}
+      >
+        Proceed to Recharge
+      </button>
+    </motion.div>
+  );
+}
+
 function ProfileTab({
   user,
   onLogout,
@@ -2554,6 +2945,7 @@ export default function DashboardClient({
   const [user, setUser] = useState<UserData | null>(initialUser);
   const [loading, setLoading] = useState(() => !initialUser);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [fullView, setFullView] = useState<"data" | "airtime" | null>(null);
   const [showRewards, setShowRewards] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
   const [syncingBalance, setSyncingBalance] = useState(false);
@@ -2656,7 +3048,7 @@ export default function DashboardClient({
 
   const [buyDataOpen, setBuyDataOpen] = useState(false);
   const [buyDataStep, setBuyDataStep] = useState(1);
-  const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<string | null>("mtn");
   const [dataPlans, setDataPlans] = useState<DataPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<DataPlan | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -2665,11 +3057,31 @@ export default function DashboardClient({
   const [plansLoading, setPlansLoading] = useState(false);
 
   const [airtimeOpen, setAirtimeOpen] = useState(false);
-  const [airtimeNetwork, setAirtimeNetwork] = useState<string | null>(null);
+  const [airtimeNetwork, setAirtimeNetwork] = useState<string | null>("mtn");
   const [airtimeAmount, setAirtimeAmount] = useState<number | null>(null);
   const [airtimePhone, setAirtimePhone] = useState("");
   const [airtimePin, setAirtimePin] = useState("");
   const [purchasingAirtime, setPurchasingAirtime] = useState(false);
+
+  useEffect(() => {
+    if (fullView !== "data") return;
+    const network = selectedNetwork || "mtn";
+    
+    const fetchPlans = async () => {
+      setPlansLoading(true);
+      try {
+        const response = await fetch(`/api/data/plans?network=${network}`, { cache: "no-store" });
+        const payload = await response.json();
+        setDataPlans(payload.data || []);
+      } catch {
+        toast.error("Could not load plans. Please try again.");
+      } finally {
+        setPlansLoading(false);
+      }
+    };
+
+    fetchPlans();
+  }, [selectedNetwork, fullView]);
 
   useEffect(() => {
     if (initialUser) {
@@ -2820,6 +3232,27 @@ export default function DashboardClient({
       window.removeEventListener("focus", onFocus);
     };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (activeTab !== "home" || fullView !== null || showRewards) {
+        event.preventDefault();
+        setActiveTab("home");
+        setFullView(null);
+        setShowRewards(false);
+        window.history.pushState({ tab: "home", view: null }, "");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.history.pushState({ tab: activeTab, view: fullView }, "");
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [activeTab, fullView, showRewards]);
 
   const dismissBroadcast = (id: string) => {
     setBroadcasts((current) => current.filter((item) => item.id !== id));
@@ -3211,21 +3644,55 @@ export default function DashboardClient({
           {showRewards ? (
             <RewardsScreen rewardSnapshot={rewardSnapshot} onBack={() => setShowRewards(false)} />
           ) : activeTab === "home" ? (
-            <HomeTab
-              user={user}
-              showBalance={showBalance}
-              syncingBalance={syncingBalance}
-              rewardBalance={Math.round((rewardSnapshot?.rewardBalance || user.rewardBalance || 0) / 100)}
-              primaryAccount={bankAccounts.find((item) => item.isPrimary) || bankAccounts[0] || null}
-              onToggleBalance={() => setShowBalance((value) => !value)}
-              onSyncBalance={handleSyncBalance}
-              onCopyAccount={handleCopyAccount}
-              onOpenData={() => setBuyDataOpen(true)}
-              onOpenAirtime={() => setAirtimeOpen(true)}
-              onOpenRewards={() => setShowRewards(true)}
-              onOpenAccounts={() => setActiveTab("accounts")}
-              onViewAllTransactions={() => setActiveTab("transactions")}
-            />
+            fullView === "data" ? (
+              <DataWindow
+                user={user}
+                onBack={() => setFullView(null)}
+                onSelectPlan={(plan) => {
+                  setSelectedPlan(plan);
+                  setPin("");
+                  setBuyDataStep(3);
+                  setBuyDataOpen(true);
+                }}
+                plans={dataPlans}
+                plansLoading={plansLoading}
+                selectedNetwork={selectedNetwork}
+                setSelectedNetwork={setSelectedNetwork}
+                phoneNumber={phoneNumber}
+                setPhoneNumber={setPhoneNumber}
+              />
+            ) : fullView === "airtime" ? (
+              <AirtimeWindow
+                user={user}
+                onBack={() => setFullView(null)}
+                onProceed={() => {
+                  setAirtimePin("");
+                  setAirtimeOpen(true);
+                }}
+                selectedNetwork={airtimeNetwork}
+                setSelectedNetwork={setAirtimeNetwork}
+                phoneNumber={airtimePhone}
+                setPhoneNumber={setAirtimePhone}
+                amount={airtimeAmount}
+                setAmount={setAirtimeAmount}
+              />
+            ) : (
+              <HomeTab
+                user={user}
+                showBalance={showBalance}
+                syncingBalance={syncingBalance}
+                rewardBalance={Math.round((rewardSnapshot?.rewardBalance || user.rewardBalance || 0) / 100)}
+                primaryAccount={bankAccounts.find((item) => item.isPrimary) || bankAccounts[0] || null}
+                onToggleBalance={() => setShowBalance((value) => !value)}
+                onSyncBalance={handleSyncBalance}
+                onCopyAccount={handleCopyAccount}
+                onOpenData={() => setFullView("data")}
+                onOpenAirtime={() => setFullView("airtime")}
+                onOpenRewards={() => setShowRewards(true)}
+                onOpenAccounts={() => setActiveTab("accounts")}
+                onViewAllTransactions={() => setActiveTab("transactions")}
+              />
+            )
           ) : activeTab === "transactions" ? (
             <TransactionsTab />
           ) : activeTab === "airtime-cash" ? (
@@ -3335,7 +3802,13 @@ export default function DashboardClient({
         {buyDataStep === 3 && selectedPlan && (
           <>
             <button
-              onClick={() => setBuyDataStep(2)}
+              onClick={() => {
+                if (fullView === "data") {
+                  setBuyDataOpen(false);
+                } else {
+                  setBuyDataStep(2);
+                }
+              }}
               style={{ border: "none", background: "transparent", color: T.blue, fontFamily: T.font, fontWeight: 800, cursor: "pointer", padding: 0, marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}
             >
               <ChevronLeft size={16} />
@@ -3462,140 +3935,228 @@ export default function DashboardClient({
         title="Buy Airtime"
         accentColor={T.green}
       >
-        <div style={{ marginBottom: 18 }}>
-          <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase" }}>
-            Choose network
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {NETWORKS.map((network) => (
-              <NetworkPill
-                key={network.id}
-                net={network}
-                selected={airtimeNetwork === network.id}
-                onSelect={() => setAirtimeNetwork(network.id)}
-              />
-            ))}
-          </div>
-        </div>
+        {fullView === "airtime" ? (
+          <>
+            <div style={{ background: "rgba(22,163,74,0.08)", borderRadius: 18, padding: 16, marginBottom: 18 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase", fontWeight: 800 }}>
+                Selected Recharge
+              </p>
+              <p style={{ fontFamily: T.font, fontSize: 16, fontWeight: 800, color: T.text, margin: "0 0 8px" }}>
+                {airtimeNetwork?.toUpperCase()} Airtime • {airtimePhone}
+              </p>
+              <p style={{ fontFamily: T.mono, fontSize: 18, fontWeight: 800, color: T.green, margin: 0 }}>
+                ₦{airtimeAmount?.toLocaleString()}
+              </p>
+            </div>
 
-        <div style={{ marginBottom: 18 }}>
-          <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase" }}>
-            Amount
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-            {AIRTIME_AMOUNTS.map((amount) => (
-              <button
-                key={amount}
-                onClick={() => setAirtimeAmount(amount)}
-                style={{
-                  border: `1px solid ${airtimeAmount === amount ? T.green : T.border}`,
-                  borderRadius: 14,
-                  padding: "12px 10px",
-                  background: airtimeAmount === amount ? "rgba(22,163,74,0.12)" : T.card,
-                  cursor: "pointer",
-                  fontFamily: T.mono,
-                  fontWeight: 800,
-                  color: T.text,
-                }}
-              >
-                ₦{amount}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+                Transaction PIN
+              </label>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={airtimePin}
+                  onChange={(event) => setAirtimePin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  style={{
+                    flex: 1,
+                    padding: "15px 16px",
+                    textAlign: "center",
+                    borderRadius: 14,
+                    border: `1px solid ${airtimePin ? T.green : T.borderStrong}`,
+                    background: airtimePin ? "rgba(22,163,74,0.12)" : T.surface,
+                    fontFamily: T.mono,
+                    fontSize: 18,
+                    fontWeight: 800,
+                    outline: "none",
+                    boxSizing: "border-box",
+                    letterSpacing: "0.18em",
+                  }}
+                />
+                {typeof window !== "undefined" && (window as any).AndroidBridge && localStorage.getItem("biometric_enabled_" + user?.phone) === "true" && (
+                  <button
+                    onClick={triggerBiometricAirtimePurchase}
+                    disabled={purchasingAirtime}
+                    style={{
+                      width: 50,
+                      height: 52,
+                      borderRadius: 14,
+                      border: `1px solid ${T.green}`,
+                      background: "rgba(22,163,74,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    <Fingerprint size={24} color={T.green} />
+                  </button>
+                )}
+              </div>
+            </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
-            Phone number
-          </label>
-          <input
-            type="tel"
-            maxLength={11}
-            value={airtimePhone}
-            onChange={(event) => setAirtimePhone(event.target.value.replace(/\D/g, ""))}
-            style={{
-              width: "100%",
-              padding: "15px 16px",
-              borderRadius: 16,
-              border: `1px solid ${T.borderStrong}`,
-              background: T.surface,
-              fontFamily: T.mono,
-              fontSize: 16,
-              boxSizing: "border-box",
-              outline: "none",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
-            Transaction PIN
-          </label>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <input
-              type="password"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={6}
-              value={airtimePin}
-              onChange={(event) => setAirtimePin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+            <button
+              onClick={() => handleAirtimePurchase()}
+              disabled={purchasingAirtime}
               style={{
-                flex: 1,
-                padding: "15px 16px",
-                textAlign: "center",
-                borderRadius: 14,
-                border: `1px solid ${airtimePin ? T.green : T.borderStrong}`,
-                background: airtimePin ? "rgba(22,163,74,0.12)" : T.surface,
-                fontFamily: T.mono,
-                fontSize: 18,
+                width: "100%",
+                border: "none",
+                borderRadius: 16,
+                padding: 16,
+                background: T.green,
+                color: "#fff",
+                fontFamily: T.font,
                 fontWeight: 800,
-                outline: "none",
-                boxSizing: "border-box",
-                letterSpacing: "0.18em",
+                fontSize: 15,
+                cursor: purchasingAirtime ? "not-allowed" : "pointer",
+                opacity: purchasingAirtime ? 0.7 : 1,
               }}
-            />
-            {typeof window !== "undefined" && (window as any).AndroidBridge && localStorage.getItem("biometric_enabled_" + user?.phone) === "true" && (
-              <button
-                onClick={triggerBiometricAirtimePurchase}
-                disabled={purchasingAirtime}
-                style={{
-                  width: 50,
-                  height: 52,
-                  borderRadius: 14,
-                  border: `1px solid ${T.green}`,
-                  background: "rgba(22,163,74,0.12)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
-                <Fingerprint size={24} color={T.green} />
-              </button>
-            )}
-          </div>
-        </div>
+            >
+              {purchasingAirtime ? "Processing..." : "Buy Airtime"}
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase" }}>
+                Choose network
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {NETWORKS.map((network) => (
+                  <NetworkPill
+                    key={network.id}
+                    net={network}
+                    selected={airtimeNetwork === network.id}
+                    onSelect={() => setAirtimeNetwork(network.id)}
+                  />
+                ))}
+              </div>
+            </div>
 
-        <button
-          onClick={() => handleAirtimePurchase()}
-          disabled={purchasingAirtime}
-          style={{
-            width: "100%",
-            border: "none",
-            borderRadius: 16,
-            padding: 16,
-            background: T.green,
-            color: "#fff",
-            fontFamily: T.font,
-            fontWeight: 800,
-            fontSize: 15,
-            cursor: purchasingAirtime ? "not-allowed" : "pointer",
-            opacity: purchasingAirtime ? 0.7 : 1,
-          }}
-        >
-          {purchasingAirtime ? "Processing..." : "Buy Airtime"}
-        </button>
+            <div style={{ marginBottom: 18 }}>
+              <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase" }}>
+                Amount
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                {AIRTIME_AMOUNTS.map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setAirtimeAmount(amount)}
+                    style={{
+                      border: `1px solid ${airtimeAmount === amount ? T.green : T.border}`,
+                      borderRadius: 14,
+                      padding: "12px 10px",
+                      background: airtimeAmount === amount ? "rgba(22,163,74,0.12)" : T.card,
+                      cursor: "pointer",
+                      fontFamily: T.mono,
+                      fontWeight: 800,
+                      color: T.text,
+                    }}
+                  >
+                    ₦{amount}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+                Phone number
+              </label>
+              <input
+                type="tel"
+                maxLength={11}
+                value={airtimePhone}
+                onChange={(event) => setAirtimePhone(event.target.value.replace(/\D/g, ""))}
+                style={{
+                  width: "100%",
+                  padding: "15px 16px",
+                  borderRadius: 16,
+                  border: `1px solid ${T.borderStrong}`,
+                  background: T.surface,
+                  fontFamily: T.mono,
+                  fontSize: 16,
+                  boxSizing: "border-box",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+                Transaction PIN
+              </label>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={airtimePin}
+                  onChange={(event) => setAirtimePin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                  style={{
+                    flex: 1,
+                    padding: "15px 16px",
+                    textAlign: "center",
+                    borderRadius: 14,
+                    border: `1px solid ${airtimePin ? T.green : T.borderStrong}`,
+                    background: airtimePin ? "rgba(22,163,74,0.12)" : T.surface,
+                    fontFamily: T.mono,
+                    fontSize: 18,
+                    fontWeight: 800,
+                    outline: "none",
+                    boxSizing: "border-box",
+                    letterSpacing: "0.18em",
+                  }}
+                />
+                {typeof window !== "undefined" && (window as any).AndroidBridge && localStorage.getItem("biometric_enabled_" + user?.phone) === "true" && (
+                  <button
+                    onClick={triggerBiometricAirtimePurchase}
+                    disabled={purchasingAirtime}
+                    style={{
+                      width: 50,
+                      height: 52,
+                      borderRadius: 14,
+                      border: `1px solid ${T.green}`,
+                      background: "rgba(22,163,74,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    <Fingerprint size={24} color={T.green} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleAirtimePurchase()}
+              disabled={purchasingAirtime}
+              style={{
+                width: "100%",
+                border: "none",
+                borderRadius: 16,
+                padding: 16,
+                background: T.green,
+                color: "#fff",
+                fontFamily: T.font,
+                fontWeight: 800,
+                fontSize: 15,
+                cursor: purchasingAirtime ? "not-allowed" : "pointer",
+                opacity: purchasingAirtime ? 0.7 : 1,
+              }}
+            >
+              {purchasingAirtime ? "Processing..." : "Buy Airtime"}
+            </button>
+          </>
+        )}
       </BottomSheet>
     </>
   );
