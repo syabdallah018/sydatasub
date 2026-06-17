@@ -555,7 +555,7 @@ function LockScreen({
         body: JSON.stringify({ phone, token }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok) {
         onUnlockSuccess();
         toast.success("Unlocked successfully");
       } else {
@@ -586,7 +586,7 @@ function LockScreen({
         body: JSON.stringify({ phone, pin }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok) {
         onUnlockSuccess();
         toast.success("Unlocked successfully");
       } else {
@@ -2597,6 +2597,62 @@ export default function DashboardClient({
       };
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const runAutoBiometricRegister = async () => {
+      const isAndroid = !!(window as any).AndroidBridge;
+      const isBiometricEnabled = localStorage.getItem("biometric_enabled_" + user.phone) === "true";
+      const tempPin = sessionStorage.getItem("temp_auth_pin");
+
+      if (isAndroid && !isBiometricEnabled && tempPin) {
+        // Clear temp PIN immediately to avoid double prompts
+        sessionStorage.removeItem("temp_auth_pin");
+
+        try {
+          const token = (typeof crypto !== "undefined" && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : (Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2));
+
+          const nativeSuccess = await new Promise<boolean>((resolve) => {
+            (window as any).onBiometricRegisterResult = (success: boolean) => {
+              resolve(success);
+              delete (window as any).onBiometricRegisterResult;
+            };
+            (window as any).AndroidBridge.registerBiometrics(user.id, token);
+          });
+
+          if (!nativeSuccess) {
+            throw new Error("Biometric setup was cancelled on the device.");
+          }
+
+          const res = await fetch("/api/auth/biometric-register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, pin: tempPin }),
+          });
+
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || "Failed to link biometrics on server.");
+          }
+
+          localStorage.setItem("biometric_enabled_" + user.phone, "true");
+          toast.success("Biometrics setup successful! You can now sign in and authorize transactions with fingerprint.");
+        } catch (error: any) {
+          console.error("Auto biometric registration error:", error);
+          toast.error(error.message || "Could not register biometrics.");
+        }
+      }
+    };
+
+    const delayT = setTimeout(() => {
+      runAutoBiometricRegister();
+    }, 1000);
+
+    return () => clearTimeout(delayT);
+  }, [user]);
 
   const [buyDataOpen, setBuyDataOpen] = useState(false);
   const [buyDataStep, setBuyDataStep] = useState(1);

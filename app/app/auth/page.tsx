@@ -175,6 +175,7 @@ export default function AuthPage() {
         if (typeof window !== "undefined") {
           localStorage.setItem("saved_phone", phone);
           sessionStorage.setItem("just_logged_in", "true");
+          sessionStorage.setItem("temp_auth_pin", pin);
         }
         toast.success("You are signed in.");
         router.replace("/app");
@@ -293,6 +294,7 @@ export default function AuthPage() {
         if (typeof window !== "undefined") {
           localStorage.setItem("saved_phone", phone);
           sessionStorage.setItem("just_logged_in", "true");
+          sessionStorage.setItem("temp_auth_pin", pin);
         }
         toast.success("Your account is ready.");
         router.replace("/app");
