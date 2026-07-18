@@ -10,12 +10,12 @@ export default async function DashboardPage() {
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
   if (!token) {
-    redirect("/app/auth");
+    redirect("/dashboard/auth");
   }
 
   const session = await verifyToken(token);
   if (!session?.userId) {
-    redirect("/app/auth");
+    redirect("/dashboard/auth");
   }
 
   const compat = await getUserSelectCompat();
