@@ -69,6 +69,13 @@ enum AgentRequestStatus {
   REJECTED
 }
 
+enum DeveloperRequestStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum NoticeSeverity {
   INFO
   WARNING
@@ -103,6 +110,7 @@ model User {
   bankAccounts   UserBankAccount[]
   transactions   Transaction[]
   userRewards    UserReward[]
+  developerProfile DeveloperProfile?
 
   @@index([phone])
   @@index([email])
@@ -264,4 +272,19 @@ model ServiceNotice {
   @@index([isActive, startsAt, endsAt])
   @@index([audience])
   @@map("service_notices")
+}
+
+model DeveloperProfile {
+  id            String                 @id @default(cuid())
+  userId        String                 @unique
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey        String                 @unique
+  apiSecretHash String                 // Bcrypt hash of the developer secret
+  webhookUrl    String?
+  whitelistIps  String[]               @default([]) // For IP restrictions
+  status        DeveloperRequestStatus @default(NONE)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@map("developer_profiles")
 }
