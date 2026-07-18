@@ -43,8 +43,8 @@ export async function middleware(req: NextRequest) {
     response.headers.set("Surrogate-Control", "no-store");
   }
   
-  // App Routes: Minimal cache with forced revalidation
-  if (req.nextUrl.pathname.startsWith("/app/")) {
+  // App/Dashboard Routes: Minimal cache with forced revalidation
+  if (req.nextUrl.pathname.startsWith("/app/") || req.nextUrl.pathname.startsWith("/dashboard")) {
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
@@ -55,6 +55,7 @@ export async function middleware(req: NextRequest) {
   if (
     !req.nextUrl.pathname.startsWith("/api/") &&
     !req.nextUrl.pathname.startsWith("/app/") &&
+    !req.nextUrl.pathname.startsWith("/dashboard") &&
     req.nextUrl.pathname !== "/sw.js" &&
     !req.nextUrl.pathname.startsWith("/_next/")
   ) {
