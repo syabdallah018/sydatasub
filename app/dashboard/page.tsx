@@ -18,79 +18,98 @@ export default async function DashboardPage() {
     redirect("/dashboard/auth");
   }
 
-  const compat = await getUserSelectCompat();
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: {
-      id: true,
-      fullName: true,
-      phone: true,
-      email: true,
-      role: true,
-      tier: true,
-      balance: true,
-      isBanned: true,
-      isActive: true,
-      joinedAt: true,
-      ...withCompatibleUserFields({}, compat),
-    },
-  });
+  let user: any = null;
+  let normalizedUser: any = null;
+  
+  try {
+    const compat = await getUserSelectCompat();
+    user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        role: true,
+        tier: true,
+        balance: true,
+        isBanned: true,
+        isActive: true,
+        joinedAt: true,
+        ...withCompatibleUserFields({}, compat),
+      },
+    });
 
-  if (!user || user.isBanned || !user.isActive) {
-    redirect("/app/auth");
+    if (user) {
+      normalizedUser = normalizeUserCompat({
+        ...user,
+        joinedAt: user.joinedAt?.toISOString(),
+        tier: user.tier,
+      });
+    }
+  } catch (error) {
+    console.error("[DASHBOARD USER FETCH ERROR]", error);
   }
 
-  const normalizedUser = normalizeUserCompat({
-    ...user,
-    joinedAt: user.joinedAt?.toISOString(),
-    tier: user.tier,
-  });
+  if (!normalizedUser || user?.isBanned || !user?.isActive) {
+    redirect("/dashboard/auth");
+  }
 
   // Fetch developer profile if any
-  const devProfile = await prisma.developerProfile.findUnique({
-    where: { userId: session.userId },
-    select: {
-      id: true,
-      apiKey: true,
-      webhookUrl: true,
-      whitelistIps: true,
-      status: true,
-      createdAt: true,
-    },
-  });
+  let devProfile: any = null;
+  try {
+    devProfile = await prisma.developerProfile.findUnique({
+      where: { userId: session.userId },
+      select: {
+        id: true,
+        apiKey: true,
+        webhookUrl: true,
+        whitelistIps: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+  } catch (error) {
+    console.error("[DASHBOARD DEV PROFILE FETCH ERROR]", error);
+  }
 
   // Fetch active plans to pass to documentation / developer section
-  const plans = await prisma.plan.findMany({
-    where: { isActive: true },
-    select: {
-      id: true,
-      name: true,
-      network: true,
-      sizeLabel: true,
-      validity: true,
-      user_price: true,
-      agent_price: true,
-      price: true,
-    },
-    orderBy: [
-      { network: "asc" },
-      { user_price: "asc" },
-    ],
-  });
+  let parsedPlans: any[] = [];
+  try {
+    const plans = await prisma.plan.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        network: true,
+        sizeLabel: true,
+        validity: true,
+        user_price: true,
+        agent_price: true,
+        price: true,
+      },
+      orderBy: [
+        { network: "asc" },
+        { user_price: "asc" },
+      ],
+    });
 
-  const parsedPlans = plans.map(p => ({
-    id: p.id,
-    name: p.name,
-    network: p.network,
-    size: p.sizeLabel,
-    validity: p.validity,
-    user_price: p.user_price || p.price,
-    agent_price: p.agent_price || p.price,
-  }));
+    parsedPlans = plans.map(p => ({
+      id: p.id,
+      name: p.name,
+      network: p.network,
+      size: p.sizeLabel,
+      validity: p.validity,
+      user_price: p.user_price || p.price,
+      agent_price: p.agent_price || p.price,
+    }));
+  } catch (error) {
+    console.error("[DASHBOARD PLANS FETCH ERROR]", error);
+  }
 
   return (
     <DashboardClient
-      initialUser={normalizedUser as any}
+      initialUser={normalizedUser}
       initialDevProfile={devProfile}
       initialPlans={parsedPlans}
     />
