@@ -117,7 +117,15 @@ export default function DashboardClient({
   // Quick purchase states
   const [quickPhone, setQuickPhone] = useState("");
   const [quickPlanId, setQuickPlanId] = useState("");
+  const [quickPin, setQuickPin] = useState("");
   const [quickLoading, setQuickLoading] = useState(false);
+
+  // Airtime purchase states
+  const [airtimePhone, setAirtimePhone] = useState("");
+  const [airtimeAmount, setAirtimeAmount] = useState("");
+  const [airtimeNetwork, setAirtimeNetwork] = useState("");
+  const [airtimePin, setAirtimePin] = useState("");
+  const [airtimeLoading, setAirtimeLoading] = useState(false);
 
   // Transactions state
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -318,6 +326,10 @@ export default function DashboardClient({
   const executeQuickBuyData = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickPlanId || !quickPhone) return;
+    if (!quickPin || quickPin.length !== 6) {
+      toast.error("Enter your 6-digit transaction PIN");
+      return;
+    }
     setQuickLoading(true);
     try {
       const res = await fetch("/api/data/purchase", {
@@ -327,7 +339,7 @@ export default function DashboardClient({
           planId: quickPlanId,
           buyerPhone: user.phone,
           recipientPhone: quickPhone,
-          pin: "000000",
+          pin: quickPin,
           confirmDuplicate: true,
         }),
       });
@@ -335,7 +347,8 @@ export default function DashboardClient({
       if (data.success) {
         toast.success("Data purchase successful!");
         setQuickPhone("");
-        // Reload user info
+        setQuickPin("");
+        setQuickPlanId("");
         const meRes = await fetch("/api/auth/me");
         const meData = await meRes.json();
         if (meData.user) {
@@ -348,6 +361,49 @@ export default function DashboardClient({
       toast.error("Network error making purchase");
     } finally {
       setQuickLoading(false);
+    }
+  };
+
+  const executeAirtimePurchase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!airtimePhone || !airtimeAmount || !airtimeNetwork) return;
+    if (!airtimePin || airtimePin.length !== 6) {
+      toast.error("Enter your 6-digit transaction PIN");
+      return;
+    }
+    setAirtimeLoading(true);
+    try {
+      const res = await fetch("/api/airtime/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          buyerPhone: user.phone,
+          recipientPhone: airtimePhone,
+          amount: Number(airtimeAmount),
+          network: airtimeNetwork,
+          pin: airtimePin,
+          confirmDuplicate: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Airtime purchase successful!");
+        setAirtimePhone("");
+        setAirtimeAmount("");
+        setAirtimePin("");
+        setAirtimeNetwork("");
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+        if (meData.user) {
+          setUser(meData.user);
+        }
+      } else {
+        toast.error(data.error || "Airtime purchase failed");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setAirtimeLoading(false);
     }
   };
 
@@ -561,51 +617,141 @@ export default function DashboardClient({
                 className="grid grid-cols-1 lg:grid-cols-3 gap-8"
               >
                 <div className="lg:col-span-2 space-y-8">
-                  {/* Quick purchase card */}
+                  {/* Quick Data Purchase */}
                   <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                     <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                      <PlusCircle className="text-blue-600" size={20} />
-                      Quick Data Purchase
+                      <Database className="text-blue-600" size={20} />
+                      Buy Data
                     </h3>
-                    <form onSubmit={executeQuickBuyData} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                      <div>
-                        <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Recipient Phone</label>
-                        <input
-                          type="tel"
-                          required
-                          value={quickPhone}
-                          onChange={(e) => setQuickPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                          placeholder="08012345678"
-                          className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"
-                        />
+                    <form onSubmit={executeQuickBuyData} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Recipient Phone</label>
+                          <input
+                            type="tel"
+                            required
+                            value={quickPhone}
+                            onChange={(e) => setQuickPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                            placeholder="08012345678"
+                            className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Select Plan</label>
+                          <select
+                            required
+                            value={quickPlanId}
+                            onChange={(e) => setQuickPlanId(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"
+                          >
+                            <option value="">-- Choose Plan --</option>
+                            {plans.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.network} {p.name} ({p.size}) - ₦{p.user_price}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Select Plan</label>
-                        <select
+                        <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                          <Lock size={12} /> Transaction PIN
+                        </label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
                           required
-                          value={quickPlanId}
-                          onChange={(e) => setQuickPlanId(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"
-                        >
-                          <option value="">-- Choose Plan --</option>
-                          {plans.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.network} {p.name} ({p.size}) - ₦{p.user_price}
-                            </option>
-                          ))}
-                        </select>
+                          maxLength={6}
+                          value={quickPin}
+                          onChange={(e) => setQuickPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="Enter 6-digit PIN"
+                          className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-mono tracking-widest focus:outline-none focus:border-blue-500 transition max-w-xs"
+                        />
                       </div>
                       <button
                         type="submit"
-                        disabled={quickLoading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                        disabled={quickLoading || !quickPhone || !quickPlanId || quickPin.length !== 6}
+                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
                       >
-                        {quickLoading ? <Loader2 className="animate-spin" size={18} /> : "Buy Subscription"}
+                        {quickLoading ? <Loader2 className="animate-spin" size={18} /> : <><Send size={16} /> Buy Data</>}
                       </button>
                     </form>
                   </div>
 
-                  {/* Pricing Overview grid */}
+                  {/* Airtime Purchase */}
+                  <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                      <Send className="text-green-600" size={20} />
+                      Buy Airtime
+                    </h3>
+                    <form onSubmit={executeAirtimePurchase} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Recipient Phone</label>
+                          <input
+                            type="tel"
+                            required
+                            value={airtimePhone}
+                            onChange={(e) => setAirtimePhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                            placeholder="08012345678"
+                            className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Network</label>
+                          <select
+                            required
+                            value={airtimeNetwork}
+                            onChange={(e) => setAirtimeNetwork(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"
+                          >
+                            <option value="">-- Select Network --</option>
+                            <option value="mtn">MTN</option>
+                            <option value="airtel">Airtel</option>
+                            <option value="glo">Glo</option>
+                            <option value="9mobile">9Mobile</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide">Amount (₦)</label>
+                          <input
+                            type="number"
+                            required
+                            min={50}
+                            max={50000}
+                            value={airtimeAmount}
+                            onChange={(e) => setAirtimeAmount(e.target.value)}
+                            placeholder="100"
+                            className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                          <Lock size={12} /> Transaction PIN
+                        </label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          required
+                          maxLength={6}
+                          value={airtimePin}
+                          onChange={(e) => setAirtimePin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="Enter 6-digit PIN"
+                          className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl text-sm font-mono tracking-widest focus:outline-none focus:border-blue-500 transition max-w-xs"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={airtimeLoading || !airtimePhone || !airtimeNetwork || !airtimeAmount || airtimePin.length !== 6}
+                        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-xl transition flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                      >
+                        {airtimeLoading ? <Loader2 className="animate-spin" size={18} /> : <><Send size={16} /> Buy Airtime</>}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Plans Catalog */}
                   <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                     <h3 className="text-lg font-bold text-slate-800 mb-4">Available Data Plans Catalog</h3>
                     <div className="overflow-x-auto">
@@ -637,28 +783,38 @@ export default function DashboardClient({
                   </div>
                 </div>
 
-                {/* Right Column details */}
-                <div className="space-y-8">
-                  <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 rounded-3xl p-6 text-white shadow-xl">
-                    <h4 className="text-xs font-bold text-blue-100 uppercase tracking-widest">Fintech Wallet Card</h4>
-                    <div className="mt-8">
-                      <span className="text-[10px] text-blue-200 font-bold uppercase tracking-wider block">Total Balance</span>
-                      <h3 className="text-3xl font-extrabold mt-1">
-                        ₦{((user.balance + (user.rewardBalance || 0)) / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </h3>
-                    </div>
-                    <div className="mt-8 flex justify-between border-t border-blue-500/30 pt-4 text-xs">
-                      <div>
-                        <span className="text-blue-200 block text-[10px]">Client Name</span>
-                        <span className="font-bold">{user.fullName}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-blue-200 block text-[10px]">Account Tier</span>
-                        <span className="font-bold uppercase tracking-wider bg-blue-500 px-2 py-0.5 rounded text-[10px]">
-                          {user.tier}
+                {/* Right Column — Available Balance + Quick Links */}
+                <div className="space-y-6">
+                  {/* Available Balance */}
+                  <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Available Balance</h4>
+                    <h3 className="text-3xl font-extrabold text-slate-900">
+                      ₦{(user.balance / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </h3>
+                    {user.rewardBalance !== undefined && user.rewardBalance > 0 && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">+ Bonus</span>
+                        <span className="text-sm font-bold text-green-600">
+                          ₦{(user.rewardBalance / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </div>
+                    )}
+                    <div className="mt-5 pt-4 border-t border-slate-100 flex justify-between text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase tracking-wider">Account Name</span>
+                        <span className="font-bold text-slate-700">{user.fullName}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-slate-400 block text-[10px] uppercase tracking-wider">Tier</span>
+                        <span className="font-bold text-slate-700 uppercase">{user.tier}</span>
+                      </div>
                     </div>
+                    <button
+                      onClick={() => setActiveTab("accounts")}
+                      className="mt-4 w-full py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-600 font-bold text-xs hover:bg-blue-100 transition flex items-center justify-center gap-2"
+                    >
+                      <Wallet size={14} /> Fund Wallet
+                    </button>
                   </div>
 
                   {/* Dev settings portal widget */}
