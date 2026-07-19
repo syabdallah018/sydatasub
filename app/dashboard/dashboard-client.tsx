@@ -60,6 +60,7 @@ interface DevProfile {
 
 interface DataPlan {
   id: string;
+  externalPlanId: number;
   name: string;
   network: string;
   size: string;
@@ -1135,7 +1136,7 @@ export default function DashboardClient({
                                   {plans
                                     .filter((p) => NETWORK_CODES[p.network] === sandboxNetworkId)
                                     .map((p) => (
-                                      <option key={p.id} value={p.id}>
+                                      <option key={p.id} value={p.externalPlanId}>
                                         {p.name} ({p.size}) - ₦{p.user_price}
                                       </option>
                                     ))}
@@ -1261,8 +1262,8 @@ export default function DashboardClient({
                         .map((p) => (
                           <tr key={p.id} className="hover:bg-slate-50/50">
                             <td className="px-4 py-3 font-mono text-xs text-slate-900 flex items-center gap-1.5">
-                              {p.id}
-                              <button onClick={() => copyText(String(p.id))} className="text-slate-400 hover:text-blue-500 p-0.5">
+                              {p.externalPlanId}
+                              <button onClick={() => copyText(String(p.externalPlanId))} className="text-slate-400 hover:text-blue-500 p-0.5">
                                 <Copy size={10} />
                               </button>
                             </td>

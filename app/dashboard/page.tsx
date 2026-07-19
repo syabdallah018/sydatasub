@@ -96,7 +96,8 @@ export default async function DashboardPage() {
     });
 
     parsedPlans = plans.map(p => ({
-      id: p.externalPlanId,
+      id: p.id,
+      externalPlanId: p.externalPlanId,
       name: p.name,
       network: p.network,
       size: p.sizeLabel,

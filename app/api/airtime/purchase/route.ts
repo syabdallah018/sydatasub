@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { purchaseAirtime } from "@/lib/alrahuz.mjs";
+import { purchaseAirtime as purchaseAirtimeAlrahuz } from "@/lib/alrahuz.mjs";
+import { purchaseAirtime as purchaseAirtimeSmeplug } from "@/lib/smeplug";
+import { purchaseAirtime as purchaseAirtimeSaiful } from "@/lib/saiful";
 import {
   findRecentDuplicateTransaction,
   normalizeProviderFailureMessage,
@@ -128,6 +130,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Determine configured provider dynamically
+    const alrahuzToken = process.env.ALRAHUZ_API_TOKEN || process.env.ALRAHUZ_TOKEN || process.env.ALRAHUZ_API_KEY;
+    const isSmeplugConfigured = process.env.SMEPLUG_API_KEY && !process.env.SMEPLUG_API_KEY.includes("your-");
+    const isSaifulConfigured = process.env.SAIFUL_API_KEY && !process.env.SAIFUL_API_KEY.includes("your-");
+
+    let apiUsed: "API_A" | "API_B" | "API_C" | "API_D" = "API_C";
+    if (alrahuzToken) {
+      apiUsed = "API_C";
+    } else if (isSmeplugConfigured) {
+      apiUsed = "API_A";
+    } else if (isSaifulConfigured) {
+      apiUsed = "API_B";
+    }
+
     const reference = `AIRTIME-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const lockKey = `airtime:${user.id}:${recipientPhone}:${amount}:${network}`;
 
@@ -188,7 +204,7 @@ export async function POST(req: NextRequest) {
           reference,
           description: `Airtime: N${amount} to ${recipientPhone}`,
           phone: recipientPhone,
-          apiUsed: "API_C",
+          apiUsed,
           balanceBefore: latestUser.balance,
           balanceAfter: latestUser.balance - amountInKobo,
         },
@@ -226,12 +242,28 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const apiResult = await purchaseAirtime({
-        network: networkId,
-        amount,
-        phone: recipientPhone,
-        reference,
-      });
+      let apiResult;
+      if (apiUsed === "API_C") {
+        apiResult = await purchaseAirtimeAlrahuz({
+          network: networkId,
+          amount,
+          phone: recipientPhone,
+          reference,
+        });
+      } else if (apiUsed === "API_A") {
+        apiResult = await purchaseAirtimeSmeplug({
+          networkId,
+          amount,
+          phone: recipientPhone,
+          reference,
+        });
+      } else {
+        apiResult = await purchaseAirtimeSaiful({
+          mobileNumber: recipientPhone,
+          amount,
+          network: networkId,
+        });
+      }
 
       if (!apiResult.success) {
         const errorMessage = normalizeProviderFailureMessage(apiResult.message);
