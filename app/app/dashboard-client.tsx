@@ -2844,6 +2844,7 @@ function ProfileTab({
   user: UserData;
   onLogout: () => void;
 }) {
+  const router = useRouter();
   const [securityOpen, setSecurityOpen] = useState(false);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [darkThemeEnabled, setDarkThemeEnabled] = useState(false);
@@ -2957,7 +2958,7 @@ function ProfileTab({
             {
               label: "Change PIN",
               sub: "Update your transaction PIN",
-              action: () => setSecurityOpen(true),
+              action: () => router.push("/app/dashboard/settings/change-pin"),
               icon: <CreditCard size={16} color={T.blue} />,
             },
             ...(typeof window !== "undefined" && (window as any).AndroidBridge
@@ -3085,7 +3086,6 @@ function ProfileTab({
         </div>
       </motion.div>
 
-      <SecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />
       <BiometricSetupModal
         open={biometricSetupOpen}
         onClose={() => setBiometricSetupOpen(false)}
