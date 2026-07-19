@@ -101,6 +101,9 @@ model User {
   agentRequestStatus AgentRequestStatus @default(NONE)
   isBanned           Boolean            @default(false)
   isActive           Boolean            @default(true)
+  kycLocked          Boolean            @default(false)
+  kycLockReason      String?
+  kycLockedAt        DateTime?
   fcmToken           String?
   biometricTokenHash String?
   joinedAt           DateTime           @default(now())

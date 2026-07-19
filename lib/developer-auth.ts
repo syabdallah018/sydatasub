@@ -48,6 +48,7 @@ export async function verifyDeveloperRequest(req: NextRequest): Promise<Develope
           balance: true,
           isBanned: true,
           isActive: true,
+          kycLocked: true,
         },
       },
     },
@@ -63,10 +64,10 @@ export async function verifyDeveloperRequest(req: NextRequest): Promise<Develope
 
   const { user } = profile;
 
-  if (!user || user.isBanned || !user.isActive) {
+  if (!user || user.isBanned || !user.isActive || user.kycLocked) {
     return {
       success: false,
-      error: "Developer account is suspended or inactive",
+      error: user?.kycLocked ? "Account KYC locked. Please contact support." : "Developer account is suspended or inactive",
       status: 403,
     };
   }

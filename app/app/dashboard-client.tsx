@@ -2104,11 +2104,27 @@ function DataWindow({
   setPhoneNumber: (num: string) => void;
 }) {
   const handlePhoneChange = (val: string) => {
-    const cleaned = val.replace(/\D/g, "");
+    let cleaned = val.replace(/\D/g, "");
+    if (cleaned.startsWith("234")) {
+      cleaned = "0" + cleaned.slice(3);
+    }
+    cleaned = cleaned.slice(0, 11);
     setPhoneNumber(cleaned);
+
     if (cleaned.length >= 4) {
-      const detected = getNetworkFromPhone(cleaned).toLowerCase();
-      if (detected !== "unknown" && ["mtn", "airtel", "glo", "9mobile"].includes(detected)) {
+      const prefix = cleaned.slice(0, 4);
+      const mtn = ["0803", "0806", "0810", "0813", "0814", "0816", "0903", "0906", "0913", "0916", "0703", "0706"];
+      const glo = ["0805", "0807", "0811", "0815", "0905", "0915", "0705"];
+      const airtel = ["0802", "0808", "0812", "0902", "0907", "0901", "0912", "0701", "0708"];
+      const ninemobile = ["0809", "0817", "0818", "0909", "0908"];
+      
+      let detected = "";
+      if (mtn.includes(prefix)) detected = "mtn";
+      else if (glo.includes(prefix)) detected = "glo";
+      else if (airtel.includes(prefix)) detected = "airtel";
+      else if (ninemobile.includes(prefix)) detected = "9mobile";
+
+      if (detected) {
         setSelectedNetwork(detected);
       }
     }
@@ -2287,11 +2303,27 @@ function AirtimeWindow({
   setAmount: (amt: number | null) => void;
 }) {
   const handlePhoneChange = (val: string) => {
-    const cleaned = val.replace(/\D/g, "");
+    let cleaned = val.replace(/\D/g, "");
+    if (cleaned.startsWith("234")) {
+      cleaned = "0" + cleaned.slice(3);
+    }
+    cleaned = cleaned.slice(0, 11);
     setPhoneNumber(cleaned);
+
     if (cleaned.length >= 4) {
-      const detected = getNetworkFromPhone(cleaned).toLowerCase();
-      if (detected !== "unknown" && ["mtn", "airtel", "glo", "9mobile"].includes(detected)) {
+      const prefix = cleaned.slice(0, 4);
+      const mtn = ["0803", "0806", "0810", "0813", "0814", "0816", "0903", "0906", "0913", "0916", "0703", "0706"];
+      const glo = ["0805", "0807", "0811", "0815", "0905", "0915", "0705"];
+      const airtel = ["0802", "0808", "0812", "0902", "0907", "0901", "0912", "0701", "0708"];
+      const ninemobile = ["0809", "0817", "0818", "0909", "0908"];
+      
+      let detected = "";
+      if (mtn.includes(prefix)) detected = "mtn";
+      else if (glo.includes(prefix)) detected = "glo";
+      else if (airtel.includes(prefix)) detected = "airtel";
+      else if (ninemobile.includes(prefix)) detected = "9mobile";
+
+      if (detected) {
         setSelectedNetwork(detected);
       }
     }

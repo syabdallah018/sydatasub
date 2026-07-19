@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Providers } from "@/components/providers";
-import { Loader2, BarChart3, Users, Database, LogOut, Bell, Gift, Receipt, UserCheck, Webhook, Phone, Send, Terminal } from "lucide-react";
+import { Loader2, BarChart3, Users, Database, LogOut, Bell, Gift, Receipt, UserCheck, Webhook, Phone, Send, Terminal, ShieldAlert, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
 const SIDEBAR_ITEMS = [
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/kyc", label: "KYC Review", icon: ShieldAlert },
   { href: "/admin/plans", label: "Data Plans", icon: Database },
   { href: "/admin/pricing", label: "Pricing Tiers", icon: Database },
   { href: "/admin/transactions", label: "Transactions", icon: Receipt },
@@ -210,7 +211,7 @@ export default function AdminLayout({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
+          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-thin scrollbar-thumb-slate-700">
             {SIDEBAR_ITEMS.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href || pathname.startsWith(item.href);
@@ -267,8 +268,18 @@ export default function AdminLayout({
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 overflow-auto p-8">
-            {children}
+          <div className="flex-1 overflow-auto p-8 flex flex-col justify-between">
+            <div className="flex-1">
+              {children}
+            </div>
+            
+            {/* Premium Admin Footer */}
+            <footer className="mt-12 pt-6 border-t border-slate-200/60 text-slate-400 text-xs font-semibold flex flex-col sm:flex-row justify-between items-center gap-3 select-none">
+              <span>© {new Date().getFullYear()} SY DATA SUB. All rights reserved.</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-blue-600 bg-blue-50/70 border border-blue-100 px-3 py-1 rounded-xl uppercase tracking-wider font-bold">
+                <ShieldCheck size={12} /> Secure Admin Session Verified
+              </span>
+            </footer>
           </div>
         </div>
       </div>
