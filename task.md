@@ -1,0 +1,7 @@
+- [ ] Overhaul `app/dashboard/dashboard-client.tsx` documentation tab:
+  - Remove left Table of Contents sidebar completely
+  - Add a sticky horizontal top navigation bar inside the docs tab
+  - Restructure docs view into a single scrollable container (`h-[calc(100vh-140px)] overflow-y-auto`)
+  - Remove all card wrappers, separating content using standard document dividers and clean sections
+  - Spread guides to full width, using a `grid-cols-12` grid (e.g. 7 cols for texts, 5 cols for high-contrast dark code snippets)
+- [ ] Run next build and verify type checking and lints pass successfully

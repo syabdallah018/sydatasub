@@ -1133,92 +1133,48 @@ export default function DashboardClient({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.15 }}
-                className="flex flex-col lg:flex-row gap-8 select-text relative"
+                className="flex flex-col h-[calc(100vh-130px)] -mt-8 -mx-8 -mb-8 select-text bg-white overflow-hidden relative"
               >
-                {/* Sticky Left Table of Contents */}
-                <div className="w-full lg:w-64 shrink-0">
-                  <div className="sticky top-6 bg-white border border-slate-200/60 p-6 rounded-3xl shadow-sm space-y-5 select-none max-h-[calc(100vh-80px)] overflow-y-auto">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Table of Contents</h4>
-                    <nav className="flex flex-col gap-2.5 text-xs font-semibold text-slate-650">
-                      <button
-                        onClick={() => scrollToDocSection("doc-intro")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-intro" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> Introduction
-                      </button>
-                      <button
-                        onClick={() => scrollToDocSection("doc-auth")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-auth" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> Authentication
-                      </button>
-                      <button
-                        onClick={() => scrollToDocSection("doc-balance")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-balance" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> GET /api/balance
-                      </button>
-                      <button
-                        onClick={() => scrollToDocSection("doc-plans")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-plans" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> GET /api/plans
-                      </button>
-                      <button
-                        onClick={() => scrollToDocSection("doc-purchase")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-purchase" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> POST /api/data
-                      </button>
-                      <button
-                        onClick={() => scrollToDocSection("doc-query")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-query" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> GET /api/data/[ref]
-                      </button>
-                      <button
-                        onClick={() => scrollToDocSection("doc-webhooks")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-webhooks" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> Webhooks Setup
-                      </button>
-                      <button
-                        onClick={() => scrollToDocSection("doc-errors")}
-                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
-                          activeDocSection === "doc-errors" ? "text-blue-600 bg-blue-50/50" : ""
-                        }`}
-                      >
-                        <ChevronRight size={12} /> Error Codes
-                      </button>
-                    </nav>
-                  </div>
+                {/* Horizontal Sticky Top Nav Bar */}
+                <div className="sticky top-0 bg-slate-50 border-b border-slate-200/80 px-8 py-3.5 flex gap-2 overflow-x-auto z-20 shrink-0 no-scrollbar select-none">
+                  {[
+                    { id: "doc-intro", label: "Introduction" },
+                    { id: "doc-auth", label: "Authentication" },
+                    { id: "doc-balance", label: "GET /api/balance" },
+                    { id: "doc-plans", label: "GET /api/plans" },
+                    { id: "doc-purchase", label: "POST /api/data" },
+                    { id: "doc-query", label: "GET /api/data/[ref]" },
+                    { id: "doc-webhooks", label: "Webhooks Setup" },
+                    { id: "doc-errors", label: "Error Codes" }
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => scrollToDocSection(item.id)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all text-nowrap whitespace-nowrap ${
+                        activeDocSection === item.id 
+                          ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" 
+                          : "bg-white hover:bg-slate-100 text-slate-650 border border-slate-200/60"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Main Documentation Scrollable Flow */}
-                <div ref={docsContentRef} className="flex-1 space-y-16">
+                {/* Scrolled Content Area */}
+                <div 
+                  ref={docsContentRef} 
+                  className="flex-1 overflow-y-auto px-8 py-10 space-y-16 scroll-smooth"
+                >
                   {/* Topic: Intro */}
-                  <div id="doc-intro" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
-                    <div className="space-y-4">
+                  <section id="doc-intro" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 space-y-4">
                       <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
                         Introduction
                       </h3>
                       <p className="text-xs text-slate-500 leading-relaxed">
-                        Welcome to the SY DATA SUB Developer API documentation! This guide details how to integrate mobile data bundle sales into your platform programmatically.
+                        Welcome to the SY DATA SUB Developer API documentation! This guide details how to integrate mobile data bundle sales programmatically.
                       </p>
                       <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4 flex gap-3 text-blue-800 text-[11px] font-semibold leading-relaxed">
                         <Info className="shrink-0 text-blue-600 mt-0.5" size={16} />
@@ -1231,20 +1187,22 @@ export default function DashboardClient({
                       </div>
                     </div>
                     
-                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                    <div className="lg:col-span-5 bg-slate-955 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
                       <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">API Base URL</span>
                       <div className="flex items-center justify-between text-sky-400 font-bold select-all bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
                         <span>https://sydatasub.com</span>
-                        <button onClick={() => copyText("https://sydatasub.com")} className="text-slate-550 hover:text-slate-350">
+                        <button onClick={() => copyText("https://sydatasub.com")} className="text-slate-550 hover:text-slate-355">
                           <Copy size={12} />
                         </button>
                       </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <hr className="border-slate-200/60" />
 
                   {/* Topic: Auth */}
-                  <div id="doc-auth" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
-                    <div className="space-y-4">
+                  <section id="doc-auth" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 space-y-4">
                       <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
                         Authentication
@@ -1263,18 +1221,20 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                    <div className="lg:col-span-5 bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
                       <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Required Headers</span>
                       <div className="space-y-1.5 p-3 bg-slate-900/60 rounded-lg border border-slate-800/80">
                         <p><span className="text-slate-400">Content-Type:</span> <span className="text-emerald-400">"application/json"</span></p>
                         <p><span className="text-slate-400">X-API-Key:</span> <span className="text-sky-300">"sy_live_c8588b0e..."</span></p>
                       </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <hr className="border-slate-200/60" />
 
                   {/* Topic: GET Balance */}
-                  <div id="doc-balance" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
-                    <div className="space-y-4">
+                  <section id="doc-balance" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 space-y-4">
                       <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
                         Check Wallet Balance
@@ -1288,7 +1248,7 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                    <div className="lg:col-span-5 bg-slate-955 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
                       <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Response (200 OK)</span>
                       <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
 {`{
@@ -1299,62 +1259,66 @@ export default function DashboardClient({
 }`}
                       </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <hr className="border-slate-200/60" />
 
                   {/* Topic: GET Plans */}
-                  <div id="doc-plans" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
-                    <div className="space-y-4 col-span-1 xl:col-span-2">
-                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                        1. Retrieve Active Plans
-                      </h3>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Retrieve all active mobile data subscription plans, containing prices adjusted to your customer tier (Retail vs. Agent). Note that the returned plan ID is an **Integer** (not a long database string).
-                      </p>
-                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-xs">
-                        <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">GET</span>
-                        <code className="text-xs font-mono font-bold text-slate-850">/api/plans</code>
+                  <section id="doc-plans" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 space-y-6">
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                          1. Retrieve Active Plans
+                        </h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Retrieve all active mobile data subscription plans, containing prices adjusted to your customer tier (Retail vs. Agent). Note that the returned plan ID is an **Integer** (not a long database string).
+                        </p>
+                        <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-xs">
+                          <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">GET</span>
+                          <code className="text-xs font-mono font-bold text-slate-850">/api/plans</code>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider">Plan Attributes</h4>
+                        <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                          <table className="w-full text-left text-[11px] text-slate-500">
+                            <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[9px] border-b border-slate-100">
+                              <tr>
+                                <th className="px-4 py-2.5">Field</th>
+                                <th className="px-4 py-2.5">Type</th>
+                                <th className="px-4 py-2.5">Description</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-655">
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">id</td>
+                                <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                                <td className="px-4 py-2.5">The unique Plan ID. Use this integer key in purchase requests.</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">name</td>
+                                <td className="px-4 py-2.5 text-slate-405">String</td>
+                                <td className="px-4 py-2.5">Display name of the data plan.</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">network</td>
+                                <td className="px-4 py-2.5 text-slate-405">String</td>
+                                <td className="px-4 py-2.5">MTN, GLO, AIRTEL, or 9MOBILE.</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">price</td>
+                                <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                                <td className="px-4 py-2.5">Cost of the plan in Naira.</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider">Plan Attributes</h4>
-                      <div className="overflow-x-auto border border-slate-100 rounded-2xl">
-                        <table className="w-full text-left text-[11px] text-slate-500">
-                          <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[9px] border-b border-slate-100">
-                            <tr>
-                              <th className="px-4 py-2.5">Field</th>
-                              <th className="px-4 py-2.5">Type</th>
-                              <th className="px-4 py-2.5">Description</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 font-semibold text-slate-655">
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">id</td>
-                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
-                              <td className="px-4 py-2.5">The unique Plan ID. Use this integer key in purchase requests.</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">name</td>
-                              <td className="px-4 py-2.5 text-slate-405">String</td>
-                              <td className="px-4 py-2.5">Display name of the data plan.</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">network</td>
-                              <td className="px-4 py-2.5 text-slate-405">String</td>
-                              <td className="px-4 py-2.5">MTN, GLO, AIRTEL, or 9MOBILE.</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">price</td>
-                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
-                              <td className="px-4 py-2.5">Cost of the plan in Naira.</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                    <div className="lg:col-span-5 bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
                       <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Response (200 OK)</span>
                       <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
 {`{
@@ -1373,68 +1337,72 @@ export default function DashboardClient({
 }`}
                       </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <hr className="border-slate-200/60" />
 
                   {/* Topic: POST Purchase */}
-                  <div id="doc-purchase" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
-                    <div className="space-y-4 col-span-1 xl:col-span-2">
-                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                        2. Buy Data Subscription
-                      </h3>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Submit a data purchase transaction. The reference identifier must be unique globally across your transactions history logs. Pass the integer `planId` key retrieved from `/api/plans`.
-                      </p>
-                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-xs">
-                        <span className="px-2.5 py-0.5 bg-green-650 text-white font-bold rounded text-[10px]">POST</span>
-                        <code className="text-xs font-mono font-bold text-slate-850">/api/data</code>
+                  <section id="doc-purchase" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 space-y-6">
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                          2. Buy Data Subscription
+                        </h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Submit a data purchase transaction. The reference identifier must be unique globally across your transactions history logs. Pass the integer `planId` key retrieved from `/api/plans`.
+                        </p>
+                        <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-xs">
+                          <span className="px-2.5 py-0.5 bg-green-650 text-white font-bold rounded text-[10px]">POST</span>
+                          <code className="text-xs font-mono font-bold text-slate-850">/api/data</code>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="font-bold text-slate-855 text-xs uppercase tracking-wider">Request Parameters (JSON)</h4>
+                        <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                          <table className="w-full text-left text-[11px] text-slate-500">
+                            <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[9px] border-b border-slate-100">
+                              <tr>
+                                <th className="px-4 py-2.5">Field</th>
+                                <th className="px-4 py-2.5">Type</th>
+                                <th className="px-4 py-2.5">Required</th>
+                                <th className="px-4 py-2.5">Description</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-semibold text-slate-655">
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">phone</td>
+                                <td className="px-4 py-2.5 text-slate-405">String</td>
+                                <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                                <td className="px-4 py-2.5">Recipient's 11-digit phone number (e.g. 08164135836)</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">networkId</td>
+                                <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                                <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                                <td className="px-4 py-2.5">Provider key: 1=MTN, 2=Glo, 3=9mobile, 4=Airtel</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">planId</td>
+                                <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                                <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                                <td className="px-4 py-2.5">The integer Plan ID retrieved from `/api/plans`</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-2.5 font-mono text-blue-600">reference</td>
+                                <td className="px-4 py-2.5 text-slate-405">String</td>
+                                <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                                <td className="px-4 py-2.5">A unique client-side transaction trace key (alphanumeric, no spaces)</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <h4 className="font-bold text-slate-855 text-xs uppercase tracking-wider">Request Parameters (JSON)</h4>
-                      <div className="overflow-x-auto border border-slate-100 rounded-2xl">
-                        <table className="w-full text-left text-[11px] text-slate-500">
-                          <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[9px] border-b border-slate-100">
-                            <tr>
-                              <th className="px-4 py-2.5">Field</th>
-                              <th className="px-4 py-2.5">Type</th>
-                              <th className="px-4 py-2.5">Required</th>
-                              <th className="px-4 py-2.5">Description</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 font-semibold text-slate-655">
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">phone</td>
-                              <td className="px-4 py-2.5 text-slate-405">String</td>
-                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
-                              <td className="px-4 py-2.5">Recipient's 11-digit phone number (e.g. 08164135836)</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">networkId</td>
-                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
-                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
-                              <td className="px-4 py-2.5">Provider key: 1=MTN, 2=Glo, 3=9mobile, 4=Airtel</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">planId</td>
-                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
-                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
-                              <td className="px-4 py-2.5">The integer Plan ID retrieved from `/api/plans`</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2.5 font-mono text-blue-600">reference</td>
-                              <td className="px-4 py-2.5 text-slate-405">String</td>
-                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
-                              <td className="px-4 py-2.5">A unique client-side transaction trace key (alphanumeric, no spaces)</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                    <div className="lg:col-span-5 space-y-4">
+                      <div className="bg-slate-955 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
                         <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Request Payload</span>
                         <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
 {`{
@@ -1458,11 +1426,13 @@ export default function DashboardClient({
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <hr className="border-slate-200/60" />
 
                   {/* Topic: GET Single Ref */}
-                  <div id="doc-query" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
-                    <div className="space-y-4">
+                  <section id="doc-query" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 space-y-4">
                       <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
                         3. Retrieve Transaction Details
@@ -1476,7 +1446,7 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                    <div className="lg:col-span-5 bg-slate-955 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
                       <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Response (200 OK)</span>
                       <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
 {`{
@@ -1496,11 +1466,13 @@ export default function DashboardClient({
 }`}
                       </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <hr className="border-slate-200/60" />
 
                   {/* Topic: Webhooks */}
-                  <div id="doc-webhooks" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
-                    <div className="space-y-4">
+                  <section id="doc-webhooks" className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <div className="lg:col-span-7 space-y-4">
                       <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
                         Webhooks Setup
@@ -1510,8 +1482,8 @@ export default function DashboardClient({
                       </p>
                       <div className="space-y-1.5 p-3 bg-slate-50 border border-slate-100 rounded-xl font-semibold text-[11px] text-slate-705">
                         <p><span className="text-slate-400 uppercase tracking-wider text-[9px] font-bold block">Webhook Event Headers</span></p>
-                        <p><span className="text-slate-500">X-SYDATA-Event:</span> <span className="font-mono text-slate-900 font-bold">transaction.updated</span></p>
-                        <p><span className="text-slate-500">X-SYDATA-Signature:</span> <span className="font-mono text-slate-900 font-bold text-blue-600">hex_hmac_sha256_hash</span></p>
+                        <p><span className="text-slate-550">X-SYDATA-Event:</span> <span className="font-mono text-slate-900 font-bold">transaction.updated</span></p>
+                        <p><span className="text-slate-550">X-SYDATA-Signature:</span> <span className="font-mono text-slate-900 font-bold text-blue-600">hex_hmac_sha256_hash</span></p>
                       </div>
 
                       <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4 flex gap-3 text-blue-800 text-[11px] font-semibold leading-relaxed">
@@ -1525,7 +1497,7 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-4">
+                    <div className="lg:col-span-5 bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-4">
                       <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Node.js Verification Example</span>
                       <pre className="text-sky-300 p-3 bg-slate-900/60 rounded-lg border border-slate-800/80 whitespace-pre overflow-x-auto text-[10px]">
 {`const crypto = require("crypto");
@@ -1540,10 +1512,12 @@ function verifyWebhook(reqBody, headerSignature, apiKey) {
 }`}
                       </pre>
                     </div>
-                  </div>
+                  </section>
+
+                  <hr className="border-slate-200/60" />
 
                   {/* Topic: Errors */}
-                  <div id="doc-errors" className="bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm space-y-4">
+                  <section id="doc-errors" className="space-y-4 pb-16">
                     <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
                       HTTP Error Codes
@@ -1589,7 +1563,7 @@ function verifyWebhook(reqBody, headerSignature, apiKey) {
                         </tbody>
                       </table>
                     </div>
-                  </div>
+                  </section>
                 </div>
               </motion.div>
             )}
