@@ -33,10 +33,8 @@ export default function TransactionsPage() {
       setLoading(true);
       setError(null);
       const res = await fetch('/api/transactions');
-      console.log('[TRANSACTIONS PAGE] Response status:', res.status);
       if (!res.ok) throw new Error(`Failed to fetch transactions: ${res.statusText}`);
       const data = await res.json();
-      console.log('[TRANSACTIONS PAGE] Data:', data);
       if (data.success) {
         setTransactions(data.transactions || []);
       } else {
@@ -45,7 +43,6 @@ export default function TransactionsPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load transactions';
       setError(message);
-      console.error('[TRANSACTIONS PAGE] Error:', message);
     } finally {
       setLoading(false);
     }
