@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (originError) return originError;
 
     // Strict rate limiting: max 1 reset code per minute per IP/Session
-    const rateLimitError = enforceRateLimit(req, "forgot-pin", "send-code");
+    const rateLimitError = enforceRateLimit(req, "login", "forgot-pin-send");
     if (rateLimitError) return rateLimitError;
 
     const sessionUser = await getSessionUser(req);

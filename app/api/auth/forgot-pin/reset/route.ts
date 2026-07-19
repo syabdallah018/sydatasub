@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const originError = rejectCrossSiteMutation(req, { requireOrigin: true });
     if (originError) return originError;
 
-    const rateLimitError = enforceRateLimit(req, "forgot-pin", "reset-action");
+    const rateLimitError = enforceRateLimit(req, "login", "forgot-pin-reset");
     if (rateLimitError) return rateLimitError;
 
     const sessionUser = await getSessionUser(req);
