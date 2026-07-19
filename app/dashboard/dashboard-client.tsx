@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -29,7 +29,13 @@ import {
   AlertTriangle,
   Loader2,
   RefreshCw,
-  Search
+  Search,
+  BookMarked,
+  Info,
+  HelpCircle,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -68,8 +74,7 @@ interface DashboardClientProps {
   initialPlans: DataPlan[];
 }
 
-type TabType = "overview" | "transactions" | "accounts" | "developer" | "settings";
-type DocTopic = "intro" | "auth" | "plans" | "purchase" | "query" | "webhooks";
+type TabType = "overview" | "transactions" | "accounts" | "developer" | "plans" | "docs" | "settings";
 
 const NETWORK_CODES: Record<string, number> = {
   MTN: 1,
@@ -97,15 +102,11 @@ export default function DashboardClient({
   const [generatedCreds, setGeneratedCreds] = useState<{ apiKey: string; clientSecret: string } | null>(null);
   const [regenerating, setRegenerating] = useState(false);
 
-  // Documentation states
-  const [docTopic, setDocTopic] = useState<DocTopic>("intro");
-  const [docExpanded, setDocExpanded] = useState({
-    gettingStarted: true,
-    endpoints: true,
-    webhooks: true,
-  });
+  // Search filter states
+  const [searchPlan, setSearchPlan] = useState("");
+  const [filterNetwork, setFilterNetwork] = useState("");
 
-  // Purchase Sandbox states
+  // Sandbox purchase playground states
   const [sandboxPhone, setSandboxPhone] = useState("");
   const [sandboxPlanId, setSandboxPlanId] = useState("");
   const [sandboxNetworkId, setSandboxNetworkId] = useState(1);
@@ -113,12 +114,12 @@ export default function DashboardClient({
   const [sandboxLoading, setSandboxLoading] = useState(false);
   const [sandboxResponse, setSandboxResponse] = useState<any>(null);
 
-  // Quick purchase states for standard portal
+  // Quick purchase states
   const [quickPhone, setQuickPhone] = useState("");
   const [quickPlanId, setQuickPlanId] = useState("");
   const [quickLoading, setQuickLoading] = useState(false);
 
-  // Transaction state
+  // Transactions state
   const [transactions, setTransactions] = useState<any[]>([]);
   const [txLoading, setTxLoading] = useState(false);
   const [searchTx, setSearchTx] = useState("");
@@ -126,6 +127,17 @@ export default function DashboardClient({
   // Virtual bank accounts
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [bankLoading, setBankLoading] = useState(false);
+
+  // Change PIN states
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmNewPin, setConfirmNewPin] = useState("");
+  const [showPinFields, setShowPinFields] = useState(false);
+  const [pinChangeLoading, setPinChangeLoading] = useState(false);
+
+  // Documentation scroll / topic highlights
+  const docsContentRef = useRef<HTMLDivElement>(null);
+  const [activeDocSection, setActiveDocSection] = useState("doc-intro");
 
   const fetchTransactions = async () => {
     setTxLoading(true);
@@ -169,7 +181,7 @@ export default function DashboardClient({
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       toast.success("Logged out successfully");
-      router.push("/app/auth");
+      router.push("/dashboard/auth");
     } catch {
       toast.error("Logout failed");
     }
@@ -185,12 +197,12 @@ export default function DashboardClient({
       const data = await res.json();
       if (data.success) {
         setDevProfile(data.profile);
-        toast.success("Developer application submitted for admin review!");
+        toast.success("Developer access request submitted successfully.");
       } else {
-        toast.error(data.error || "Application submission failed");
+        toast.error(data.error || "Submission failed.");
       }
     } catch {
-      toast.error("Network error submitting request");
+      toast.error("Network error submitting request.");
     } finally {
       setRequestingAccess(false);
     }
@@ -216,19 +228,19 @@ export default function DashboardClient({
       const data = await res.json();
       if (data.success) {
         setDevProfile(data.profile);
-        toast.success("Developer settings updated successfully!");
+        toast.success("API settings saved successfully!");
       } else {
-        toast.error(data.error || "Update failed");
+        toast.error(data.error || "Settings save failed.");
       }
     } catch {
-      toast.error("Network error updating developer configurations");
+      toast.error("Network error saving configurations.");
     } finally {
       setUpdatingProfile(false);
     }
   };
 
   const handleRegenerateKeys = async () => {
-    if (!confirm("Are you sure? This will instantly revoke your old API key and secret!")) return;
+    if (!confirm("Caution: This will immediately revoke your old developer API credentials! Proceed?")) return;
     setRegenerating(true);
     try {
       const res = await fetch("/api/developer/profile/regenerate", {
@@ -241,12 +253,12 @@ export default function DashboardClient({
           clientSecret: data.clientSecret,
         });
         setDevProfile((prev: any) => ({ ...prev, apiKey: data.apiKey }));
-        toast.success("API credentials regenerated successfully!");
+        toast.success("New API credentials generated!");
       } else {
-        toast.error(data.error || "Regeneration failed");
+        toast.error(data.error || "Regeneration failed.");
       }
     } catch {
-      toast.error("Network error regenerating credentials");
+      toast.error("Network error regenerating credentials.");
     } finally {
       setRegenerating(false);
     }
@@ -255,7 +267,7 @@ export default function DashboardClient({
   const executeSandboxPurchase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!devProfile || devProfile.status !== "APPROVED") {
-      toast.error("API is only active for approved developer accounts.");
+      toast.error("Sandbox API is only available for approved developers.");
       return;
     }
     setSandboxLoading(true);
@@ -284,24 +296,22 @@ export default function DashboardClient({
         body: data,
       });
 
-      // Refresh balance and transactions if successful
       if (data.success) {
-        toast.success("Sandbox API call completed successfully!");
-        // Refresh balance
+        toast.success("Sandbox request processed successfully!");
         fetch("/api/auth/me")
           .then((r) => r.json())
           .then((d) => {
             if (d.user) setUser((prev) => ({ ...prev, balance: d.user.balance }));
           });
       } else {
-        toast.error(data.error || "Sandbox API call failed");
+        toast.error(data.error || "Sandbox API purchase failed");
       }
     } catch (err: any) {
       setSandboxResponse({
         status: 500,
         body: { success: false, error: err.message },
       });
-      toast.error("API sandbox connection error");
+      toast.error("Connection error running Sandbox playground.");
     } finally {
       setSandboxLoading(false);
       setSandboxRef(`ref-${Date.now()}`);
@@ -320,7 +330,7 @@ export default function DashboardClient({
           planId: quickPlanId,
           buyerPhone: user.phone,
           recipientPhone: quickPhone,
-          pin: "000000", // placeholder pin or prompt user
+          pin: "000000",
           confirmDuplicate: true,
         }),
       });
@@ -335,7 +345,7 @@ export default function DashboardClient({
           setUser(meData.user);
         }
       } else {
-        toast.error(data.error || "Data purchase failed");
+        toast.error(data.error || "Purchase failed");
       }
     } catch {
       toast.error("Network error making purchase");
@@ -344,17 +354,63 @@ export default function DashboardClient({
     }
   };
 
+  const handleChangePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPin.length !== 6 || confirmNewPin.length !== 6) {
+      toast.error("PIN must be exactly 6 digits.");
+      return;
+    }
+    if (newPin !== confirmNewPin) {
+      toast.error("New PIN entries do not match.");
+      return;
+    }
+
+    setPinChangeLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPin,
+          newPin,
+          confirmNewPin,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("PIN changed successfully!");
+        setCurrentPin("");
+        setNewPin("");
+        setConfirmNewPin("");
+      } else {
+        toast.error(data.error || "Failed to update PIN");
+      }
+    } catch {
+      toast.error("Connection issue changing transaction PIN.");
+    } finally {
+      setPinChangeLoading(false);
+    }
+  };
+
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success("Copied to clipboard");
   };
 
+  const scrollToDocSection = (id: string) => {
+    setActiveDocSection(id);
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-[#fbfbfd]">
-      {/* Sidebar navigation */}
+      {/* Sidebar Navigation */}
       <div className="w-72 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800 shrink-0">
         <div>
-          {/* Logo */}
+          {/* Brand Header */}
           <div className="p-6 border-b border-slate-800 flex items-center gap-3">
             <img src="/logo.jpeg" alt="SY DATA" className="h-10 w-10 rounded-xl object-cover" />
             <div>
@@ -392,6 +448,11 @@ export default function DashboardClient({
               <Building size={18} />
               Virtual Accounts
             </button>
+            
+            <div className="pt-4 pb-2 px-4">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Developer Center</span>
+            </div>
+
             <button
               onClick={() => setActiveTab("developer")}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${
@@ -399,12 +460,44 @@ export default function DashboardClient({
               }`}
             >
               <Terminal size={18} />
-              Developer API
+              Developer keys & settings
+            </button>
+            <button
+              onClick={() => setActiveTab("plans")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${
+                activeTab === "plans" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <Database size={18} />
+              Data Plans Catalog
+            </button>
+            <button
+              onClick={() => setActiveTab("docs")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${
+                activeTab === "docs" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <BookOpen size={18} />
+              API Documentation
+            </button>
+
+            <div className="pt-4 pb-2 px-4">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Account Settings</span>
+            </div>
+
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition ${
+                activeTab === "settings" ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <Settings size={18} />
+              Profile & Security
             </button>
           </div>
         </div>
 
-        {/* User profile section at the bottom */}
+        {/* User Profile at the bottom */}
         <div className="p-4 border-t border-slate-800 space-y-3">
           <div className="flex items-center gap-3 px-2">
             <div className="h-10 w-10 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center font-bold">
@@ -425,10 +518,12 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {/* Main portal layout */}
+      {/* Main Content Layout */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 shadow-sm select-none">
-          <h2 className="text-xl font-bold text-slate-800 capitalize">{activeTab}</h2>
+          <h2 className="text-xl font-bold text-slate-800 capitalize">
+            {activeTab === "developer" ? "Developer keys & settings" : activeTab}
+          </h2>
           <div className="flex items-center gap-6">
             <div className="bg-blue-50/70 border border-blue-100 px-4 py-2 rounded-xl flex items-center gap-3">
               <Wallet className="text-blue-600" size={18} />
@@ -454,10 +549,11 @@ export default function DashboardClient({
           </div>
         </header>
 
-        {/* Dynamic portal content tabs */}
+        {/* Dynamic Tab Rendering */}
         <main className="p-8 flex-1">
           <AnimatePresence mode="wait">
-            {/* Overview Tab */}
+            
+            {/* 1. Overview Tab */}
             {activeTab === "overview" && (
               <motion.div
                 key="overview"
@@ -467,9 +563,8 @@ export default function DashboardClient({
                 transition={{ duration: 0.15 }}
                 className="grid grid-cols-1 lg:grid-cols-3 gap-8"
               >
-                {/* Left Columns - Quick Operations */}
                 <div className="lg:col-span-2 space-y-8">
-                  {/* Quick buy portal widget */}
+                  {/* Quick purchase card */}
                   <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                     <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                       <PlusCircle className="text-blue-600" size={20} />
@@ -545,7 +640,7 @@ export default function DashboardClient({
                   </div>
                 </div>
 
-                {/* Right Column - User Stats & Wallet Details */}
+                {/* Right Column details */}
                 <div className="space-y-8">
                   <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 rounded-3xl p-6 text-white shadow-xl">
                     <h4 className="text-xs font-bold text-blue-100 uppercase tracking-widest">Fintech Wallet Card</h4>
@@ -569,23 +664,23 @@ export default function DashboardClient({
                     </div>
                   </div>
 
-                  {/* Dev access quick trigger */}
+                  {/* Dev settings portal widget */}
                   <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm text-center">
                     <Terminal size={32} className="mx-auto text-blue-600 mb-3" />
                     <h4 className="font-bold text-slate-800">Developer Integrations</h4>
-                    <p className="text-xs text-slate-500 mt-1">Implement programmatic sales using our endpoints.</p>
+                    <p className="text-xs text-slate-500 mt-1">Automate bundle distribution using API endpoints.</p>
                     <button
                       onClick={() => setActiveTab("developer")}
                       className="mt-4 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition inline-flex items-center gap-2"
                     >
-                      Configure Keys <ArrowRight size={12} />
+                      Manage API Keys <ArrowRight size={12} />
                     </button>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Transactions Tab */}
+            {/* 2. Transactions Tab */}
             {activeTab === "transactions" && (
               <motion.div
                 key="transactions"
@@ -669,7 +764,7 @@ export default function DashboardClient({
               </motion.div>
             )}
 
-            {/* Virtual Accounts Tab */}
+            {/* 3. Virtual Accounts Tab */}
             {activeTab === "accounts" && (
               <motion.div
                 key="accounts"
@@ -720,7 +815,7 @@ export default function DashboardClient({
               </motion.div>
             )}
 
-            {/* Developer Tab */}
+            {/* 4. Developer Keys & Settings Tab */}
             {activeTab === "developer" && (
               <motion.div
                 key="developer"
@@ -730,7 +825,6 @@ export default function DashboardClient({
                 transition={{ duration: 0.15 }}
                 className="space-y-8"
               >
-                {/* 1. If not registered developer profile */}
                 {!devProfile && (
                   <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm text-center max-w-2xl mx-auto">
                     <Terminal size={48} className="mx-auto text-blue-600 mb-4 animate-pulse" />
@@ -748,7 +842,6 @@ export default function DashboardClient({
                   </div>
                 )}
 
-                {/* 2. If Developer access is pending */}
                 {devProfile && devProfile.status === "PENDING" && (
                   <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm text-center max-w-2xl mx-auto">
                     <Loader2 size={48} className="mx-auto text-amber-500 mb-4 animate-spin" />
@@ -762,7 +855,6 @@ export default function DashboardClient({
                   </div>
                 )}
 
-                {/* 3. If Developer access is rejected */}
                 {devProfile && devProfile.status === "REJECTED" && (
                   <div className="bg-white rounded-3xl border border-rose-100 p-8 shadow-sm text-center max-w-2xl mx-auto">
                     <AlertTriangle size={48} className="mx-auto text-rose-500 mb-4" />
@@ -773,19 +865,16 @@ export default function DashboardClient({
                   </div>
                 )}
 
-                {/* 4. If approved developer client */}
                 {devProfile && devProfile.status === "APPROVED" && (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column: API Settings & Credentials */}
-                    <div className="space-y-8 lg:col-span-1">
-                      {/* API Keys Credentials panel */}
+                    {/* Credentials & Webhook configs */}
+                    <div className="lg:col-span-1 space-y-8">
                       <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-6">
                         <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                           <Key className="text-blue-600" size={18} />
                           API Sandbox Access
                         </h3>
 
-                        {/* API Key box */}
                         <div className="space-y-2">
                           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">API Client Key</span>
                           <div className="flex bg-slate-50 border border-slate-200 rounded-xl p-3 items-center justify-between font-mono text-xs">
@@ -796,7 +885,6 @@ export default function DashboardClient({
                           </div>
                         </div>
 
-                        {/* Regenerated Secret Box if any */}
                         {generatedCreds ? (
                           <div className="space-y-2 bg-red-50/50 border border-red-200 rounded-xl p-4">
                             <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider block">
@@ -813,13 +901,12 @@ export default function DashboardClient({
                             </p>
                           </div>
                         ) : (
-                          <div className="bg-slate-50 border border-slate-250 p-4 rounded-xl text-center">
+                          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
                             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Client Secret</span>
-                            <span className="text-[11px] text-slate-400 block mt-2 italic">Hashed in database (hidden)</span>
+                            <span className="text-[11px] text-slate-400 block mt-2 italic font-semibold">Hashed in database (hidden)</span>
                           </div>
                         )}
 
-                        {/* Regenerate Action button */}
                         <button
                           onClick={handleRegenerateKeys}
                           disabled={regenerating}
@@ -830,7 +917,6 @@ export default function DashboardClient({
                         </button>
                       </div>
 
-                      {/* Developer Endpoints Configuration form */}
                       <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                         <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-4">
                           <Globe className="text-blue-600" size={18} />
@@ -857,7 +943,7 @@ export default function DashboardClient({
                               placeholder="127.0.0.1, 192.168.1.1"
                               className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 font-mono"
                             />
-                            <span className="text-[9px] text-slate-400 mt-1 block">Leave empty to allow calls from any IP address.</span>
+                            <span className="text-[9px] text-slate-400 mt-1 block font-semibold">Leave empty to allow calls from any IP address.</span>
                           </div>
 
                           <button
@@ -871,255 +957,14 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    {/* Right Columns: API Docs & Interactive Sandbox */}
+                    {/* Interactive Sandbox purchase playground */}
                     <div className="lg:col-span-2 space-y-8">
-                      {/* API Documentation Tree and Guides */}
-                      <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-6 min-h-[500px]">
-                        {/* Documentation Left Tree Navigation */}
-                        <div className="border-r border-slate-100 pr-4 space-y-4 text-sm font-semibold select-none">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">API Documentation</h4>
-                          
-                          {/* Folder: Getting Started */}
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setDocExpanded((prev) => ({ ...prev, gettingStarted: !prev.gettingStarted }))}
-                              className="w-full flex items-center justify-between text-slate-700 hover:text-slate-900 py-1"
-                            >
-                              <span className="flex items-center gap-1.5"><BookOpen size={16} className="text-slate-400" /> Get Started</span>
-                              {docExpanded.gettingStarted ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                            
-                            {docExpanded.gettingStarted && (
-                              <div className="pl-6 border-l border-slate-100 space-y-1 mt-1 text-xs">
-                                <button
-                                  onClick={() => setDocTopic("intro")}
-                                  className={`w-full text-left py-1 block ${docTopic === "intro" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"}`}
-                                >
-                                  Introduction
-                                </button>
-                                <button
-                                  onClick={() => setDocTopic("auth")}
-                                  className={`w-full text-left py-1 block ${docTopic === "auth" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"}`}
-                                >
-                                  Authentication
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Folder: Endpoints */}
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setDocExpanded((prev) => ({ ...prev, endpoints: !prev.endpoints }))}
-                              className="w-full flex items-center justify-between text-slate-700 hover:text-slate-900 py-1"
-                            >
-                              <span className="flex items-center gap-1.5"><FileCode size={16} className="text-slate-400" /> Endpoints</span>
-                              {docExpanded.endpoints ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                            
-                            {docExpanded.endpoints && (
-                              <div className="pl-6 border-l border-slate-100 space-y-1 mt-1 text-xs">
-                                <button
-                                  onClick={() => setDocTopic("plans")}
-                                  className={`w-full text-left py-1 block ${docTopic === "plans" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"}`}
-                                >
-                                  GET /api/plans
-                                </button>
-                                <button
-                                  onClick={() => setDocTopic("purchase")}
-                                  className={`w-full text-left py-1 block ${docTopic === "purchase" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"}`}
-                                >
-                                  POST /api/data
-                                </button>
-                                <button
-                                  onClick={() => setDocTopic("query")}
-                                  className={`w-full text-left py-1 block ${docTopic === "query" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"}`}
-                                >
-                                  GET /api/data/[ref]
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Folder: Webhooks */}
-                          <div className="space-y-1">
-                            <button
-                              onClick={() => setDocExpanded((prev) => ({ ...prev, webhooks: !prev.webhooks }))}
-                              className="w-full flex items-center justify-between text-slate-700 hover:text-slate-900 py-1"
-                            >
-                              <span className="flex items-center gap-1.5"><Globe size={16} className="text-slate-400" /> Webhooks</span>
-                              {docExpanded.webhooks ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                            
-                            {docExpanded.webhooks && (
-                              <div className="pl-6 border-l border-slate-100 space-y-1 mt-1 text-xs">
-                                <button
-                                  onClick={() => setDocTopic("webhooks")}
-                                  className={`w-full text-left py-1 block ${docTopic === "webhooks" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"}`}
-                                >
-                                  Signature Verification
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Documentation Right Panel Description */}
-                        <div className="md:col-span-2 space-y-4">
-                          {docTopic === "intro" && (
-                            <div className="space-y-3">
-                              <h4 className="text-base font-bold text-slate-800">Introduction</h4>
-                              <p className="text-xs leading-relaxed text-slate-600">
-                                The SY DATA Developer API allows you to automate mobile data bundle distributions programmatically. You can trigger data gifts, check balances, and fetch plan prices dynamically.
-                              </p>
-                              <div className="bg-slate-900 text-slate-200 rounded-xl p-3 font-mono text-[10px] space-y-1">
-                                <p className="text-slate-500">// API Base URL</p>
-                                <p>https://sydatasub.com</p>
-                              </div>
-                              <h5 className="font-bold text-xs text-slate-700">Headers Required</h5>
-                              <p className="text-xs text-slate-500">Every developer API request expects parameters encoded as JSON with appropriate Content-Type.</p>
-                              <div className="bg-slate-550 border border-slate-200 rounded-xl p-3 font-mono text-[10px] space-y-1">
-                                <p>Content-Type: application/json</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {docTopic === "auth" && (
-                            <div className="space-y-3">
-                              <h4 className="text-base font-bold text-slate-800">API Authentication</h4>
-                              <p className="text-xs leading-relaxed text-slate-600">
-                                Connect to our system securely by passing your API Key and Secret in the HTTP request headers.
-                              </p>
-                              <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[10px] space-y-2">
-                                <p className="text-slate-500"># Pass these headers in every API call</p>
-                                <p><span className="text-indigo-400">X-API-Key</span>: sy_live_xxxxxxxxxxxxxxxxxxxxxxxx</p>
-                                <p><span className="text-indigo-400">X-API-Secret</span>: sys_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</p>
-                              </div>
-                            </div>
-                          )}
-
-                          {docTopic === "plans" && (
-                            <div className="space-y-3">
-                              <h4 className="text-base font-bold text-slate-800">1. Retrieve Active Plans</h4>
-                              <p className="text-xs leading-relaxed text-slate-600">
-                                Fetch a list of active plans from our database along with their unique identifiers and your custom pricing.
-                              </p>
-                              <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded text-[10px]">GET /api/plans</span>
-                              
-                              <h5 className="font-bold text-xs text-slate-700 mt-4">Sample Response (200 OK)</h5>
-                              <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[10px] max-h-56 overflow-y-auto">
-                                <pre>{JSON.stringify({
-                                  success: true,
-                                  plans: [
-                                    {
-                                      id: "cm1234567890",
-                                      name: "MTN SME 1GB",
-                                      network: "MTN",
-                                      networkId: 1,
-                                      size: "1GB",
-                                      validity: "30 Days",
-                                      price: 240
-                                    }
-                                  ]
-                                }, null, 2)}</pre>
-                              </div>
-                            </div>
-                          )}
-
-                          {docTopic === "purchase" && (
-                            <div className="space-y-3">
-                              <h4 className="text-base font-bold text-slate-800">2. Purchase Data Subscription</h4>
-                              <p className="text-xs leading-relaxed text-slate-600">
-                                Debit your main balance and gift mobile data directly to any recipient phone.
-                              </p>
-                              <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 font-bold rounded text-[10px]">POST /api/data</span>
-                              
-                              <h5 className="font-bold text-xs text-slate-700 mt-2">Request Body Payload</h5>
-                              <div className="bg-slate-900 text-slate-200 rounded-xl p-3 font-mono text-[10px]">
-                                <pre>{JSON.stringify({
-                                  phone: "08164135836",
-                                  networkId: 1,
-                                  planId: "cm1234567890",
-                                  reference: "your-unique-ref-9892"
-                                }, null, 2)}</pre>
-                              </div>
-
-                              <h5 className="font-bold text-xs text-slate-700 mt-2">Network ID Mapping:</h5>
-                              <ul className="text-xs space-y-1 list-disc pl-4 text-slate-600 font-semibold">
-                                <li>MTN: <code className="bg-slate-100 px-1 py-0.2 rounded text-slate-800">1</code></li>
-                                <li>Glo: <code className="bg-slate-100 px-1 py-0.2 rounded text-slate-800">2</code></li>
-                                <li>9mobile: <code className="bg-slate-100 px-1 py-0.2 rounded text-slate-800">3</code></li>
-                                <li>Airtel: <code className="bg-slate-100 px-1 py-0.2 rounded text-slate-800">4</code></li>
-                              </ul>
-
-                              <h5 className="font-bold text-xs text-slate-700 mt-2">Sample Response (200 OK)</h5>
-                              <div className="bg-slate-900 text-slate-200 rounded-xl p-3 font-mono text-[10px]">
-                                <pre>{JSON.stringify({
-                                  success: true,
-                                  reference: "your-unique-ref-9892",
-                                  externalReference: "FLW-128491823",
-                                  status: "SUCCESS"
-                                }, null, 2)}</pre>
-                              </div>
-                            </div>
-                          )}
-
-                          {docTopic === "query" && (
-                            <div className="space-y-3">
-                              <h4 className="text-base font-bold text-slate-800">3. Retrieve Transaction Details</h4>
-                              <p className="text-xs leading-relaxed text-slate-600">
-                                Verify the delivery state of a transaction by querying its unique developer reference.
-                              </p>
-                              <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 font-bold rounded text-[10px]">GET /api/data/{"{reference}"}</span>
-
-                              <h5 className="font-bold text-xs text-slate-700 mt-4">Sample Response (200 OK)</h5>
-                              <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-[10px]">
-                                <pre>{JSON.stringify({
-                                  success: true,
-                                  transaction: {
-                                    id: "tx_cuid_abc",
-                                    reference: "your-unique-ref-9892",
-                                    externalReference: "FLW-128491823",
-                                    type: "DATA_PURCHASE",
-                                    status: "SUCCESS",
-                                    amount: 240,
-                                    recipient: "08164135836",
-                                    description: "MTN SME 1GB -> 08164135836",
-                                    createdAt: "2026-07-19T00:00:00.000Z",
-                                    updatedAt: "2026-07-19T00:00:02.000Z"
-                                  }
-                                }, null, 2)}</pre>
-                              </div>
-                            </div>
-                          )}
-
-                          {docTopic === "webhooks" && (
-                            <div className="space-y-3">
-                              <h4 className="text-base font-bold text-slate-800">Webhook Signature Verification</h4>
-                              <p className="text-xs leading-relaxed text-slate-600">
-                                When a transaction completes or fails, we fire a POST callback to your Webhook URL. We sign payloads using your Client Secret hash as the secret.
-                              </p>
-                              <p className="text-xs font-semibold text-slate-700">Headers sent:</p>
-                              <div className="bg-slate-900 text-slate-200 rounded-xl p-3.5 font-mono text-[10px] space-y-1">
-                                <p><span className="text-indigo-400">X-SYDATA-Event</span>: transaction.updated</p>
-                                <p><span className="text-indigo-400">X-SYDATA-Signature</span>: hex_hmac_sha256_hash</p>
-                              </div>
-                              <p className="text-xs text-slate-600">
-                                To verify signatures: Compute the SHA256 HMAC of the raw request body string using your Client Secret (Bcrypt Hash format stored in dashboard) as the secret key.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Interactive Sandbox purchase playground */}
                       <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
                         <h3 className="text-base font-bold text-slate-800 flex items-center gap-2 mb-4">
                           <Settings className="text-blue-600" size={18} />
                           API Sandbox Playground
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          {/* Sandbox Form */}
                           <form onSubmit={executeSandboxPurchase} className="space-y-4">
                             <div>
                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Recipient Number</label>
@@ -1187,7 +1032,7 @@ export default function DashboardClient({
                             </button>
                           </form>
 
-                          {/* Sandbox Console Output */}
+                          {/* Console output display */}
                           <div className="flex flex-col border border-slate-100 rounded-2xl overflow-hidden bg-slate-900 text-slate-200 p-4 font-mono text-[10px] min-h-[220px]">
                             <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider border-b border-slate-800 pb-2 mb-3">API Console Output</span>
                             {sandboxResponse ? (
@@ -1206,7 +1051,7 @@ export default function DashboardClient({
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex-1 flex items-center justify-center text-slate-500 italic">
+                              <div className="flex-1 flex items-center justify-center text-slate-500 italic font-semibold">
                                 Waiting to execute sandbox API call...
                               </div>
                             )}
@@ -1218,6 +1063,542 @@ export default function DashboardClient({
                 )}
               </motion.div>
             )}
+
+            {/* 5. Data Plans Catalog Tab */}
+            {activeTab === "plans" && (
+              <motion.div
+                key="plans"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.15 }}
+                className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-6"
+              >
+                <div className="flex flex-wrap justify-between items-center gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">System Data Plans Catalog</h3>
+                    <p className="text-slate-500 text-sm mt-1">Use these Plan IDs in your `/api/data` purchase requests.</p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <select
+                      value={filterNetwork}
+                      onChange={(e) => setFilterNetwork(e.target.value)}
+                      className="bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl text-sm font-semibold focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">All Networks</option>
+                      <option value="MTN">MTN</option>
+                      <option value="GLO">Glo</option>
+                      <option value="AIRTEL">Airtel</option>
+                      <option value="NINEMOBILE">9mobile</option>
+                    </select>
+
+                    <div className="relative w-64">
+                      <input
+                        type="text"
+                        placeholder="Search plans name..."
+                        value={searchPlan}
+                        onChange={(e) => setSearchPlan(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:border-blue-500"
+                      />
+                      <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-500">
+                    <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs text-nowrap">
+                      <tr>
+                        <th className="px-4 py-3">Plan Database ID</th>
+                        <th className="px-4 py-3">Plan Name</th>
+                        <th className="px-4 py-3">Network</th>
+                        <th className="px-4 py-3">Network ID</th>
+                        <th className="px-4 py-3">Data Size</th>
+                        <th className="px-4 py-3">Validity</th>
+                        <th className="px-4 py-3">Retail Price</th>
+                        <th className="px-4 py-3">Agent Price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      {plans
+                        .filter(
+                          (p) =>
+                            p.name.toLowerCase().includes(searchPlan.toLowerCase()) &&
+                            (filterNetwork === "" || p.network === filterNetwork)
+                        )
+                        .map((p) => (
+                          <tr key={p.id} className="hover:bg-slate-50/50">
+                            <td className="px-4 py-3 font-mono text-xs text-slate-900 flex items-center gap-1.5">
+                              {p.id}
+                              <button onClick={() => copyText(p.id)} className="text-slate-400 hover:text-blue-500 p-0.5">
+                                <Copy size={10} />
+                              </button>
+                            </td>
+                            <td className="px-4 py-3 text-slate-900">{p.name}</td>
+                            <td className="px-4 py-3">{p.network}</td>
+                            <td className="px-4 py-3 font-mono text-xs">{NETWORK_CODES[p.network]}</td>
+                            <td className="px-4 py-3">{p.size}</td>
+                            <td className="px-4 py-3">{p.validity}</td>
+                            <td className="px-4 py-3 text-blue-600 font-bold">₦{p.user_price}</td>
+                            <td className="px-4 py-3 text-green-600 font-bold">₦{p.agent_price}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 6. Fully Structured API Documentation Tab */}
+            {activeTab === "docs" && (
+              <motion.div
+                key="docs"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.15 }}
+                className="grid grid-cols-1 lg:grid-cols-4 gap-8 select-text"
+              >
+                {/* Fixed position-like outline column on the left */}
+                <div className="lg:col-span-1 space-y-6 sticky top-24 self-start bg-white border border-slate-100 p-6 rounded-3xl shadow-sm select-none">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Table of Contents</h4>
+                  <nav className="flex flex-col gap-3 text-xs font-bold text-slate-600">
+                    <button
+                      onClick={() => scrollToDocSection("doc-intro")}
+                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
+                        activeDocSection === "doc-intro" ? "text-blue-600" : ""
+                      }`}
+                    >
+                      <ChevronRight size={12} /> Introduction
+                    </button>
+                    <button
+                      onClick={() => scrollToDocSection("doc-auth")}
+                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
+                        activeDocSection === "doc-auth" ? "text-blue-600" : ""
+                      }`}
+                    >
+                      <ChevronRight size={12} /> Authentication
+                    </button>
+                    <button
+                      onClick={() => scrollToDocSection("doc-plans")}
+                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
+                        activeDocSection === "doc-plans" ? "text-blue-600" : ""
+                      }`}
+                    >
+                      <ChevronRight size={12} /> GET /api/plans
+                    </button>
+                    <button
+                      onClick={() => scrollToDocSection("doc-purchase")}
+                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
+                        activeDocSection === "doc-purchase" ? "text-blue-600" : ""
+                      }`}
+                    >
+                      <ChevronRight size={12} /> POST /api/data
+                    </button>
+                    <button
+                      onClick={() => scrollToDocSection("doc-query")}
+                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
+                        activeDocSection === "doc-query" ? "text-blue-600" : ""
+                      }`}
+                    >
+                      <ChevronRight size={12} /> GET /api/data/[ref]
+                    </button>
+                    <button
+                      onClick={() => scrollToDocSection("doc-webhooks")}
+                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
+                        activeDocSection === "doc-webhooks" ? "text-blue-600" : ""
+                      }`}
+                    >
+                      <ChevronRight size={12} /> Webhooks Setup
+                    </button>
+                    <button
+                      onClick={() => scrollToDocSection("doc-errors")}
+                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
+                        activeDocSection === "doc-errors" ? "text-blue-600" : ""
+                      }`}
+                    >
+                      <ChevronRight size={12} /> Error Codes
+                    </button>
+                  </nav>
+                </div>
+
+                {/* Scrolled Content Area */}
+                <div ref={docsContentRef} className="lg:col-span-3 space-y-12 pb-16 bg-white border border-slate-100 p-8 rounded-3xl shadow-sm">
+                  {/* Topic: Intro */}
+                  <section id="doc-intro" className="space-y-4">
+                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Introduction</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Welcome to the SY DATA SUB Developer API documentation! This guide details how to integrate mobile data bundle sales into your platform programmatically.
+                    </p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-amber-800 text-xs">
+                      <Info className="shrink-0 text-amber-600 mt-0.5" size={16} />
+                      <div>
+                        <span className="font-bold">Important Notice</span>
+                        <p className="mt-1">
+                          All requests must be made over <span className="font-semibold">HTTPS</span>. Re-validate your balances before execution, as data orders automatically trigger wallet debits.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs">
+                      <p className="text-slate-500">// Production API Base URL</p>
+                      <p>https://sydatasub.com</p>
+                    </div>
+                  </section>
+
+                  <hr className="border-slate-100" />
+
+                  {/* Topic: Auth */}
+                  <section id="doc-auth" className="space-y-4">
+                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Authentication</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Access to our developer API endpoints is validated using custom HTTP header parameters. Secure your Client API Key and Secret; secrets are cryptographically hashed and cannot be retrieved after creation.
+                    </p>
+                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs space-y-2">
+                      <p className="text-slate-500"># Required Header Keys</p>
+                      <p><span className="text-indigo-400">Content-Type</span>: application/json</p>
+                      <p><span className="text-indigo-400">X-API-Key</span>: sy_live_xxxxxxxxxxxxxxxxxxxxxxxx</p>
+                      <p><span className="text-indigo-400">X-API-Secret</span>: sys_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</p>
+                    </div>
+                  </section>
+
+                  <hr className="border-slate-100" />
+
+                  {/* Topic: GET Plans */}
+                  <section id="doc-plans" className="space-y-4">
+                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">1. Retrieve Active Plans</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Retrieve all active mobile data subscription plans, containing prices adjusted to your customer tier (Retail vs. Agent).
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold border border-blue-200 rounded-lg text-xs">GET</span>
+                      <code className="text-sm font-mono font-bold text-slate-800">/api/plans</code>
+                    </div>
+
+                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Response (200 OK)</h4>
+                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto">
+                      <pre>{JSON.stringify({
+                        success: true,
+                        plans: [
+                          {
+                            id: "cm1234567890",
+                            name: "MTN SME 1GB",
+                            network: "MTN",
+                            networkId: 1,
+                            size: "1GB",
+                            validity: "30 Days",
+                            price: 240
+                          }
+                        ]
+                      }, null, 2)}</pre>
+                    </div>
+                  </section>
+
+                  <hr className="border-slate-100" />
+
+                  {/* Topic: POST Purchase */}
+                  <section id="doc-purchase" className="space-y-4">
+                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">2. Buy Data Subscription</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Submit a data purchase transaction. The reference identifier must be unique globally across your logs.
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 bg-green-50 text-green-700 font-bold border border-green-200 rounded-lg text-xs">POST</span>
+                      <code className="text-sm font-mono font-bold text-slate-800">/api/data</code>
+                    </div>
+
+                    <h4 className="font-bold text-slate-800 text-sm pt-2">Request Parameters (JSON)</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border border-slate-100 rounded-xl overflow-hidden">
+                        <thead className="bg-slate-50 text-slate-700 uppercase font-bold">
+                          <tr>
+                            <th className="px-4 py-2.5">Field</th>
+                            <th className="px-4 py-2.5">Type</th>
+                            <th className="px-4 py-2.5">Required</th>
+                            <th className="px-4 py-2.5">Description</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-150 font-medium text-slate-600">
+                          <tr>
+                            <td className="px-4 py-2.5 font-mono text-slate-950">phone</td>
+                            <td className="px-4 py-2.5">String</td>
+                            <td className="px-4 py-2.5 text-red-500">Yes</td>
+                            <td className="px-4 py-2.5">Recipient's 11-digit phone number (e.g. 08164135836)</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 font-mono text-slate-950">networkId</td>
+                            <td className="px-4 py-2.5">Integer</td>
+                            <td className="px-4 py-2.5 text-red-500">Yes</td>
+                            <td className="px-4 py-2.5">Integer key: 1=MTN, 2=Glo, 3=9mobile, 4=Airtel</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 font-mono text-slate-950">planId</td>
+                            <td className="px-4 py-2.5">String</td>
+                            <td className="px-4 py-2.5 text-red-500">Yes</td>
+                            <td className="px-4 py-2.5">Database Plan CUID key fetched from `/api/plans`</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 font-mono text-slate-950">reference</td>
+                            <td className="px-4 py-2.5">String</td>
+                            <td className="px-4 py-2.5 text-red-500">Yes</td>
+                            <td className="px-4 py-2.5">Unique transaction client-side trace key</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Request Payload</h4>
+                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs">
+                      <pre>{JSON.stringify({
+                        phone: "08164135836",
+                        networkId: 1,
+                        planId: "cm1234567890",
+                        reference: "tx-unique-trace-983"
+                      }, null, 2)}</pre>
+                    </div>
+
+                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Success Response (200 OK)</h4>
+                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto">
+                      <pre>{JSON.stringify({
+                        success: true,
+                        reference: "tx-unique-trace-983",
+                        externalReference: "API-C-7289139",
+                        status: "SUCCESS"
+                      }, null, 2)}</pre>
+                    </div>
+                  </section>
+
+                  <hr className="border-slate-100" />
+
+                  {/* Topic: GET Single Ref */}
+                  <section id="doc-query" className="space-y-4">
+                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">3. Retrieve Transaction Details</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Verify the resolution, delivery notes, and timestamp metadata of a previous transaction by querying its reference.
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold border border-blue-200 rounded-lg text-xs">GET</span>
+                      <code className="text-sm font-mono font-bold text-slate-800">/api/data/[reference]</code>
+                    </div>
+
+                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Response (200 OK)</h4>
+                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto">
+                      <pre>{JSON.stringify({
+                        success: true,
+                        transaction: {
+                          id: "tx_cuid_key_abc",
+                          reference: "tx-unique-trace-983",
+                          externalReference: "API-C-7289139",
+                          type: "DATA_PURCHASE",
+                          status: "SUCCESS",
+                          amount: 240,
+                          recipient: "08164135836",
+                          description: "Developer API: MTN SME 1GB -> 08164135836",
+                          createdAt: "2026-07-19T00:00:00.000Z",
+                          updatedAt: "2026-07-19T00:00:02.000Z"
+                        }
+                      }, null, 2)}</pre>
+                    </div>
+                  </section>
+
+                  <hr className="border-slate-100" />
+
+                  {/* Topic: Webhooks */}
+                  <section id="doc-webhooks" className="space-y-4">
+                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Webhooks Verification</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Configure your webhook endpoint to receive asynchronous updates when transactions complete. We push payload events via POST and sign the payload.
+                    </p>
+                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs space-y-1">
+                      <p><span className="text-indigo-400">X-SYDATA-Event</span>: transaction.updated</p>
+                      <p><span className="text-indigo-400">X-SYDATA-Signature</span>: hex_hmac_sha256_hash</p>
+                    </div>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3 text-blue-800 text-xs">
+                      <Info className="shrink-0 text-blue-600 mt-0.5" size={16} />
+                      <div>
+                        <span className="font-bold">Signature Validation</span>
+                        <p className="mt-1 leading-relaxed">
+                          Compute a SHA256 HMAC of the raw request payload body. Use your developer <span className="font-semibold">Client Secret Hash</span> (stored in settings) as the hashing key. Compare the computed signature hex against the value in header key <code className="bg-white/60 px-1 py-0.2 rounded font-semibold text-blue-900">X-SYDATA-Signature</code>.
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <hr className="border-slate-100" />
+
+                  {/* Topic: Errors */}
+                  <section id="doc-errors" className="space-y-4">
+                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">HTTP Error Codes</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Summary table of API response error codes and their context:
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border border-slate-100 rounded-xl overflow-hidden">
+                        <thead className="bg-slate-50 text-slate-700 uppercase font-bold">
+                          <tr>
+                            <th className="px-4 py-2.5">HTTP Code</th>
+                            <th className="px-4 py-2.5">Error Message</th>
+                            <th className="px-4 py-2.5">Cause / Resolution</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-150 font-medium text-slate-600">
+                          <tr>
+                            <td className="px-4 py-2.5 text-slate-900 font-bold">400 Bad Request</td>
+                            <td className="px-4 py-2.5 font-mono">Invalid phone number</td>
+                            <td className="px-4 py-2.5">Recipient's phone format is incorrect (must be 11 digits starting with 0).</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 text-slate-900 font-bold">400 Bad Request</td>
+                            <td className="px-4 py-2.5 font-mono">Insufficient wallet balance</td>
+                            <td className="px-4 py-2.5">Your main wallet balance does not cover the price of the requested plan.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 text-slate-900 font-bold">401 Unauthorized</td>
+                            <td className="px-4 py-2.5 font-mono">Invalid API credentials</td>
+                            <td className="px-4 py-2.5">The provided `X-API-Key` or `X-API-Secret` headers are incorrect.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 text-slate-900 font-bold">403 Forbidden</td>
+                            <td className="px-4 py-2.5 font-mono">IP address not whitelisted</td>
+                            <td className="px-4 py-2.5">Your request server IP does not match the configured whitelist array in settings.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-2.5 text-slate-900 font-bold">409 Conflict</td>
+                            <td className="px-4 py-2.5 font-mono">Duplicate reference detected</td>
+                            <td className="px-4 py-2.5">A transaction with that exact reference has already been executed. Use a new trace key.</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 7. Profile & Security Tab */}
+            {activeTab === "settings" && (
+              <motion.div
+                key="settings"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.15 }}
+                className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+              >
+                {/* Profile Information */}
+                <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-6 lg:col-span-2">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <User className="text-blue-600" size={20} />
+                    Profile Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Full Name</span>
+                      <span className="text-sm font-semibold text-slate-800 block mt-1">{user.fullName}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Phone Number</span>
+                      <span className="text-sm font-semibold text-slate-800 block mt-1">{user.phone}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Email Address</span>
+                      <span className="text-sm font-semibold text-slate-800 block mt-1">{user.email || "No email connected"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Joined Date</span>
+                      <span className="text-sm font-semibold text-slate-800 block mt-1">
+                        {user.joinedAt ? new Date(user.joinedAt).toLocaleDateString() : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Change Transaction PIN Card */}
+                <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-6 lg:col-span-1">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <Lock className="text-blue-600" size={20} />
+                    Transaction PIN Settings
+                  </h3>
+                  
+                  {!showPinFields ? (
+                    <div className="space-y-3">
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Update your 6-digit transaction PIN used to authenticate mobile app and API sandbox transactions.
+                      </p>
+                      <button
+                        onClick={() => setShowPinFields(true)}
+                        className="w-full py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl transition"
+                      >
+                        Change Transaction PIN
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleChangePin} className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Current PIN</label>
+                        <input
+                          type="password"
+                          required
+                          maxLength={6}
+                          value={currentPin}
+                          onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="••••••"
+                          className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 font-mono tracking-[0.2em]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">New PIN</label>
+                        <input
+                          type="password"
+                          required
+                          maxLength={6}
+                          value={newPin}
+                          onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="••••••"
+                          className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 font-mono tracking-[0.2em]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Confirm New PIN</label>
+                        <input
+                          type="password"
+                          required
+                          maxLength={6}
+                          value={confirmNewPin}
+                          onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="••••••"
+                          className="w-full bg-slate-50 border border-slate-200 px-3.5 py-2.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 font-mono tracking-[0.2em]"
+                        />
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPinFields(false);
+                            setCurrentPin("");
+                            setNewPin("");
+                            setConfirmNewPin("");
+                          }}
+                          className="w-1/2 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 font-bold text-xs rounded-xl transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={pinChangeLoading}
+                          className="w-1/2 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {pinChangeLoading ? <Loader2 className="animate-spin" size={14} /> : "Update PIN"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
           </AnimatePresence>
         </main>
       </div>
