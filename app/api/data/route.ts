@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     const plan = await prisma.plan.findFirst({
       where: {
         externalPlanId: planId,
-        network: expectedNetwork,
+        network: expectedNetwork as any,
         isActive: true,
       },
     });
