@@ -1724,9 +1724,15 @@ function AirtimeToCashTab() {
         </label>
         <input
           type="tel"
-          maxLength={11}
+          maxLength={30}
           value={phone}
-          onChange={(event) => setPhone(event.target.value.replace(/\D/g, ""))}
+          onChange={(event) => {
+            let cleaned = event.target.value.replace(/\D/g, "");
+            if (cleaned.startsWith("234")) {
+              cleaned = "0" + cleaned.slice(3);
+            }
+            setPhone(cleaned.slice(0, 11));
+          }}
           style={{
             width: "100%",
             padding: "14px 14px",
@@ -2162,7 +2168,7 @@ function DataWindow({
           <Phone size={16} color={T.textDim} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }} />
           <input
             type="tel"
-            maxLength={11}
+            maxLength={30}
             value={phoneNumber}
             placeholder="08012345678"
             onChange={(e) => handlePhoneChange(e.target.value)}
@@ -3942,9 +3948,15 @@ export default function DashboardClient({
               </label>
               <input
                 type="tel"
-                maxLength={11}
+                maxLength={30}
                 value={phoneNumber}
-                onChange={(event) => setPhoneNumber(event.target.value.replace(/\D/g, ""))}
+                onChange={(event) => {
+                  let cleaned = event.target.value.replace(/\D/g, "");
+                  if (cleaned.startsWith("234")) {
+                    cleaned = "0" + cleaned.slice(3);
+                  }
+                  setPhoneNumber(cleaned.slice(0, 11));
+                }}
                 style={{
                   width: "100%",
                   padding: "15px 16px",
