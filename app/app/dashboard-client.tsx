@@ -26,6 +26,8 @@ import {
   Wallet,
   X,
   Fingerprint,
+  Mail,
+  RotateCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandEntryScreen } from "@/components/app/BrandEntry";
@@ -1105,6 +1107,36 @@ function SecurityModal({
   const [confirmPin, setConfirmPin] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Forgot PIN Flow states
+  const [isForgotMode, setIsForgotMode] = useState(false);
+  const [forgotStep, setForgotStep] = useState(1); // 1 = OTP verify, 2 = Choose/Confirm new PIN
+  const [otpCode, setOtpCode] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+
+  // Resend Countdown
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendTimer]);
+
+  // Clean states on open/close
+  useEffect(() => {
+    if (!open) {
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+      setIsForgotMode(false);
+      setForgotStep(1);
+      setOtpCode("");
+      setMaskedEmail("");
+      setResendTimer(0);
+    }
+  }, [open]);
+
+  // Flow 1: Change PIN
   const submit = async () => {
     if (currentPin.length !== 6 || newPin.length !== 6 || confirmPin.length !== 6) {
       toast.error("Each PIN entry must be 6 digits.");
@@ -1131,9 +1163,6 @@ function SecurityModal({
       }
 
       toast.success("Your PIN has been updated.");
-      setCurrentPin("");
-      setNewPin("");
-      setConfirmPin("");
       onClose();
     } catch {
       toast.error("We could not change your PIN right now.");
@@ -1142,59 +1171,358 @@ function SecurityModal({
     }
   };
 
+  // Flow 2: Send OTP
+  const handleSendResetCode = async (isResend = false) => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/forgot-pin/send", { method: "POST" });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        toast.error(getFriendlyMessage(payload.error, "Failed to send reset code."));
+        return;
+      }
+
+      setMaskedEmail(payload.email);
+      setIsForgotMode(true);
+      setForgotStep(1);
+      setResendTimer(60);
+      toast.success(isResend ? "New verification code sent!" : "Verification code sent to your email!");
+    } catch {
+      toast.error("Failed to send reset code.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Flow 2: Verify OTP
+  const handleVerifyResetOtp = async () => {
+    if (otpCode.length !== 6) {
+      toast.error("Please enter the 6-digit verification code.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/forgot-pin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otpCode }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        toast.error(getFriendlyMessage(payload.error, "Invalid or expired verification code."));
+        return;
+      }
+
+      setForgotStep(2);
+      setNewPin("");
+      setConfirmPin("");
+      toast.success("Code verified successfully.");
+    } catch {
+      toast.error("Network verification error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Flow 2: Reset PIN with OTP Code
+  const handleResetPin = async () => {
+    if (newPin.length !== 6 || confirmPin.length !== 6) {
+      toast.error("Each PIN entry must be 6 digits.");
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      toast.error("Your new PIN entries do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/forgot-pin/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otpCode, newPin, confirmPin }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        toast.error(getFriendlyMessage(payload.error, "Failed to reset PIN."));
+        return;
+      }
+
+      toast.success("PIN reset successfully!");
+      onClose();
+    } catch {
+      toast.error("Network reset error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <BottomSheet open={open} onClose={onClose} title="Change PIN" accentColor={T.blue}>
-      {[
-        ["Current PIN", currentPin, setCurrentPin],
-        ["New PIN", newPin, setNewPin],
-        ["Confirm PIN", confirmPin, setConfirmPin],
-      ].map(([label, value, setter]) => (
-        <div key={label as string} style={{ marginBottom: 14 }}>
-          <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
-            {label as string}
-          </label>
-          <input
-            type="password"
-            maxLength={6}
-            value={value as string}
-            onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/\D/g, "").slice(0, 6))}
+    <BottomSheet open={open} onClose={onClose} title={isForgotMode ? "Reset PIN" : "Change PIN"} accentColor={T.blue}>
+      {/* 1. Standard PIN Change View */}
+      {!isForgotMode && (
+        <>
+          {[
+            ["Current PIN", currentPin, setCurrentPin],
+            ["New PIN", newPin, setNewPin],
+            ["Confirm PIN", confirmPin, setConfirmPin],
+          ].map(([label, value, setter]) => (
+            <div key={label as string} style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+                {label as string}
+              </label>
+              <input
+                type="password"
+                maxLength={6}
+                value={value as string}
+                onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                style={{
+                  width: "100%",
+                  padding: "15px 16px",
+                  borderRadius: 14,
+                  border: `1px solid ${T.borderStrong}`,
+                  background: T.surface,
+                  fontFamily: T.mono,
+                  fontSize: 18,
+                  letterSpacing: "0.25em",
+                  boxSizing: "border-box",
+                  outline: "none",
+                  textAlign: "center",
+                }}
+              />
+            </div>
+          ))}
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={submit}
+            disabled={loading}
             style={{
               width: "100%",
-              padding: "15px 16px",
-              borderRadius: 14,
-              border: `1px solid ${T.borderStrong}`,
-              background: T.surface,
-              fontFamily: T.mono,
-              fontSize: 18,
-              letterSpacing: "0.25em",
-              boxSizing: "border-box",
-              outline: "none",
-              textAlign: "center",
+              border: "none",
+              borderRadius: 16,
+              padding: 16,
+              background: T.blue,
+              color: "#fff",
+              fontFamily: T.font,
+              fontWeight: 800,
+              fontSize: 15,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1,
+              marginTop: 10,
             }}
-          />
-        </div>
-      ))}
+          >
+            {loading ? "Updating PIN..." : "Update PIN"}
+          </motion.button>
 
-      <motion.button
-        whileTap={{ scale: 0.98 }}
-        onClick={submit}
-        disabled={loading}
-        style={{
-          width: "100%",
-          border: "none",
-          borderRadius: 16,
-          padding: 16,
-          background: T.blue,
-          color: "#fff",
-          fontFamily: T.font,
-          fontWeight: 800,
-          fontSize: 15,
-          cursor: loading ? "not-allowed" : "pointer",
-          opacity: loading ? 0.7 : 1,
-        }}
-      >
-        {loading ? "Updating PIN..." : "Update PIN"}
-      </motion.button>
+          <button
+            onClick={() => handleSendResetCode(false)}
+            disabled={loading}
+            style={{
+              display: "block",
+              width: "100%",
+              background: "none",
+              border: "none",
+              color: T.blue,
+              fontFamily: T.font,
+              fontSize: 13,
+              fontWeight: 700,
+              textAlign: "center",
+              marginTop: 16,
+              cursor: "pointer",
+              textDecoration: "underline",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            Forgot PIN?
+          </button>
+        </>
+      )}
+
+      {/* 2. Forgot PIN OTP Verification View */}
+      {isForgotMode && forgotStep === 1 && (
+        <div style={{ textAlign: "center", padding: "10px 0" }}>
+          <div style={{ display: "inline-flex", padding: 12, background: `${T.blue}10`, borderRadius: 99, color: T.blue, marginBottom: 14 }}>
+            <Mail size={24} />
+          </div>
+          <h4 style={{ fontFamily: T.font, fontSize: 16, fontWeight: 800, color: T.text, margin: "0 0 6px 0" }}>
+            Verification Code
+          </h4>
+          <p style={{ fontFamily: T.font, fontSize: 13, color: T.textMid, margin: "0 0 20px 0", lineHeight: "1.4" }}>
+            We've sent a 6-digit reset code to <span style={{ fontWeight: 700, color: T.text }}>{maskedEmail}</span>
+          </p>
+
+          <div style={{ marginBottom: 20 }}>
+            <input
+              type="text"
+              placeholder="000000"
+              maxLength={6}
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              style={{
+                width: "100%",
+                padding: "15px 16px",
+                borderRadius: 14,
+                border: `1px solid ${T.borderStrong}`,
+                background: T.surface,
+                fontFamily: T.mono,
+                fontSize: 18,
+                letterSpacing: "0.25em",
+                boxSizing: "border-box",
+                outline: "none",
+                textAlign: "center",
+              }}
+            />
+          </div>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={handleVerifyResetOtp}
+            disabled={loading || otpCode.length !== 6}
+            style={{
+              width: "100%",
+              border: "none",
+              borderRadius: 16,
+              padding: 16,
+              background: T.blue,
+              color: "#fff",
+              fontFamily: T.font,
+              fontWeight: 800,
+              fontSize: 15,
+              cursor: loading || otpCode.length !== 6 ? "not-allowed" : "pointer",
+              opacity: loading || otpCode.length !== 6 ? 0.7 : 1,
+            }}
+          >
+            {loading ? "Verifying..." : "Verify Code"}
+          </motion.button>
+
+          <div style={{ marginTop: 18, fontSize: 13, fontFamily: T.font }}>
+            {resendTimer > 0 ? (
+              <span style={{ color: T.textDim }}>
+                Resend code in <strong style={{ color: T.textMid }}>{resendTimer}s</strong>
+              </span>
+            ) : (
+              <button
+                onClick={() => handleSendResetCode(true)}
+                disabled={loading}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: T.blue,
+                  fontFamily: T.font,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <RotateCw size={12} /> Resend Code
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => setIsForgotMode(false)}
+            disabled={loading}
+            style={{
+              background: "none",
+              border: "none",
+              color: T.textMid,
+              fontFamily: T.font,
+              fontSize: 13,
+              fontWeight: 700,
+              marginTop: 18,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {/* 3. Forgot PIN Choose New PIN View */}
+      {isForgotMode && forgotStep === 2 && (
+        <>
+          {[
+            ["New PIN", newPin, setNewPin],
+            ["Confirm PIN", confirmPin, setConfirmPin],
+          ].map(([label, value, setter]) => (
+            <div key={label as string} style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textDim, marginBottom: 8, textTransform: "uppercase" }}>
+                {label as string}
+              </label>
+              <input
+                type="password"
+                maxLength={6}
+                value={value as string}
+                onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                style={{
+                  width: "100%",
+                  padding: "15px 16px",
+                  borderRadius: 14,
+                  border: `1px solid ${T.borderStrong}`,
+                  background: T.surface,
+                  fontFamily: T.mono,
+                  fontSize: 18,
+                  letterSpacing: "0.25em",
+                  boxSizing: "border-box",
+                  outline: "none",
+                  textAlign: "center",
+                }}
+              />
+            </div>
+          ))}
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={handleResetPin}
+            disabled={loading}
+            style={{
+              width: "100%",
+              border: "none",
+              borderRadius: 16,
+              padding: 16,
+              background: T.blue,
+              color: "#fff",
+              fontFamily: T.font,
+              fontWeight: 800,
+              fontSize: 15,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1,
+              marginTop: 10,
+            }}
+          >
+            {loading ? "Resetting PIN..." : "Reset PIN"}
+          </motion.button>
+
+          <button
+            onClick={() => setForgotStep(1)}
+            disabled={loading}
+            style={{
+              display: "block",
+              width: "100%",
+              background: "none",
+              border: "none",
+              color: T.textMid,
+              fontFamily: T.font,
+              fontSize: 13,
+              fontWeight: 700,
+              textAlign: "center",
+              marginTop: 18,
+              cursor: "pointer",
+            }}
+          >
+            Back
+          </button>
+        </>
+      )}
     </BottomSheet>
   );
 }
