@@ -291,3 +291,15 @@ model DeveloperProfile {
 
   @@map("developer_profiles")
 }
+
+model OtpToken {
+  id        String   @id @default(cuid())
+  email     String
+  otp       String
+  purpose   String   // e.g. "RESET_PIN"
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, otp])
+  @@map("otp_tokens")
+}
