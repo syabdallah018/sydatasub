@@ -2,30 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, Check, AlertCircle, Mail, RotateCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, AlertCircle, Mail, RotateCw, Lock, KeyRound, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ChangePinPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Standard Change Flow States
-  const [currentPin, setCurrentPin] = useState(["", "", "", "", "", ""]);
-  const [newPin, setNewPin] = useState(["", "", "", "", "", ""]);
-  const [confirmPin, setConfirmPin] = useState(["", "", "", "", "", ""]);
+  // Standard Change Flow
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
 
-  // Forgot / Reset Flow States
+  // Forgot / Reset Flow
   const [isForgotMode, setIsForgotMode] = useState(false);
-  const [forgotStep, setForgotStep] = useState(1); // 1 = send code, 2 = verify code, 3 = input new PIN, 4 = confirm new PIN
-  const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
+  const [forgotStep, setForgotStep] = useState<"otp" | "reset">("otp");
+  const [otpCode, setOtpCode] = useState("");
   const [maskedEmail, setMaskedEmail] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
+  const [resetNewPin, setResetNewPin] = useState("");
+  const [resetConfirmPin, setResetConfirmPin] = useState("");
 
-  // Resend OTP Countdown Timer Hook
   useEffect(() => {
     if (resendTimer > 0) {
       const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
@@ -33,85 +31,17 @@ export default function ChangePinPage() {
     }
   }, [resendTimer]);
 
-  const handlePinChange = (
-    pinArray: string[],
-    setPinArray: (arr: string[]) => void,
-    index: number,
-    value: string,
-    prefixId: string
-  ) => {
-    if (value.length > 1) return;
-    const newArray = [...pinArray];
-    newArray[index] = value;
-    setPinArray(newArray);
-
-    // Auto-focus next input
-    if (value && index < 5) {
-      const nextInput = document.getElementById(`${prefixId}-${index + 1}`);
-      nextInput?.focus();
-    }
-  };
-
-  const handlePinKeyDown = (
-    pinArray: string[],
-    index: number,
-    prefixId: string,
-    e: React.KeyboardEvent
-  ) => {
-    if (e.key === "Backspace" && !pinArray[index] && index > 0) {
-      const prevInput = document.getElementById(`${prefixId}-${index - 1}`);
-      prevInput?.focus();
-    }
-  };
-
-  // Flow 1: Verify Current PIN
-  const handleVerifyCurrentPin = async () => {
-    const pinValue = currentPin.join("");
-    if (pinValue.length !== 6) {
-      setError("Please enter a 6-digit PIN");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const res = await fetch("/api/auth/verify-pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: pinValue }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.valid) {
-        setStep(2);
-        toast.success("PIN verified");
-      } else {
-        setError("Current PIN is incorrect");
-        document.getElementById("pin-inputs-verify")?.classList.add("shake");
-        setTimeout(() => {
-          document.getElementById("pin-inputs-verify")?.classList.remove("shake");
-        }, 500);
-      }
-    } catch (err) {
-      setError("Network error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Flow 1: Change PIN with Current PIN
+  // ─── CHANGE PIN (with current PIN) ───
   const handleChangePin = async () => {
-    const newPinValue = newPin.join("");
-    const confirmPinValue = confirmPin.join("");
-
-    if (newPinValue.length !== 6 || confirmPinValue.length !== 6) {
-      setError("Please confirm your new PIN");
+    if (currentPin.length !== 6) {
+      setError("Current PIN must be 6 digits");
       return;
     }
-
-    if (newPinValue !== confirmPinValue) {
+    if (newPin.length !== 6) {
+      setError("New PIN must be 6 digits");
+      return;
+    }
+    if (newPin !== confirmPin) {
       setError("New PIN and confirmation do not match");
       return;
     }
@@ -124,9 +54,9 @@ export default function ChangePinPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentPin: currentPin.join(""),
-          newPin: newPinValue,
-          confirmPin: confirmPinValue,
+          currentPin,
+          newPin,
+          confirmPin,
         }),
       });
 
@@ -134,18 +64,18 @@ export default function ChangePinPage() {
 
       if (res.ok) {
         toast.success("PIN changed successfully!");
-        setTimeout(() => router.back(), 1000);
+        setTimeout(() => router.back(), 800);
       } else {
         setError(data.error || "Failed to change PIN");
       }
-    } catch (err) {
-      setError("Network error");
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Flow 2: Trigger Resend Reset Code
+  // ─── FORGOT PIN: Send OTP ───
   const handleSendResetCode = async (isResend = false) => {
     setIsLoading(true);
     setError("");
@@ -157,24 +87,23 @@ export default function ChangePinPage() {
       if (res.ok) {
         setMaskedEmail(data.email);
         setIsForgotMode(true);
-        setForgotStep(2); // Go to verification code input screen
-        setResendTimer(60); // Set resend cooldown to 60 seconds
-        toast.success(isResend ? "New verification code sent!" : "Verification code sent!");
+        setForgotStep("otp");
+        setResendTimer(60);
+        toast.success(isResend ? "New code sent!" : "Verification code sent!");
       } else {
         setError(data.error || "Failed to send reset code");
       }
-    } catch (err) {
+    } catch {
       setError("Network error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Flow 2: Verify Verification Code (OTP)
-  const handleVerifyResetOtp = async () => {
-    const otpValue = otpCode.join("");
-    if (otpValue.length !== 6) {
-      setError("Please enter the 6-digit code");
+  // ─── FORGOT PIN: Verify OTP ───
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) {
+      setError("Enter the 6-digit code");
       return;
     }
 
@@ -185,40 +114,32 @@ export default function ChangePinPage() {
       const res = await fetch("/api/auth/forgot-pin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otpCode: otpValue }),
+        body: JSON.stringify({ otpCode }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        setForgotStep(3); // Go to input new PIN screen
-        toast.success("Code verified successfully");
+        setForgotStep("reset");
+        toast.success("Code verified!");
       } else {
-        setError(data.error || "Invalid or expired verification code");
-        document.getElementById("pin-inputs-otp")?.classList.add("shake");
-        setTimeout(() => {
-          document.getElementById("pin-inputs-otp")?.classList.remove("shake");
-        }, 500);
+        setError(data.error || "Invalid or expired code");
       }
-    } catch (err) {
+    } catch {
       setError("Network error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Flow 2: Reset PIN with OTP Code
+  // ─── FORGOT PIN: Reset PIN ───
   const handleResetPin = async () => {
-    const newPinValue = newPin.join("");
-    const confirmPinValue = confirmPin.join("");
-
-    if (newPinValue.length !== 6 || confirmPinValue.length !== 6) {
-      setError("Please confirm your new PIN");
+    if (resetNewPin.length !== 6) {
+      setError("New PIN must be 6 digits");
       return;
     }
-
-    if (newPinValue !== confirmPinValue) {
-      setError("New PIN and confirmation do not match");
+    if (resetNewPin !== resetConfirmPin) {
+      setError("PINs do not match");
       return;
     }
 
@@ -230,501 +151,413 @@ export default function ChangePinPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          otpCode: otpCode.join(""),
-          newPin: newPinValue,
-          confirmPin: confirmPinValue,
+          otpCode,
+          newPin: resetNewPin,
+          confirmPin: resetConfirmPin,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("PIN reset completed successfully!");
-        setTimeout(() => router.back(), 1000);
+        toast.success("PIN reset successfully!");
+        setTimeout(() => router.back(), 800);
       } else {
         setError(data.error || "Failed to reset PIN");
       }
-    } catch (err) {
+    } catch {
       setError("Network error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Back trigger handling both flows
-  const handleBack = () => {
-    if (isForgotMode) {
-      if (forgotStep === 2) {
-        setIsForgotMode(false);
-        setForgotStep(1);
-        setError("");
-      } else if (forgotStep === 3) {
-        setForgotStep(2);
-        setError("");
-      } else if (forgotStep === 4) {
-        setForgotStep(3);
-        setError("");
-      }
-    } else {
-      if (step === 1) {
-        router.back();
-      } else {
-        setStep(step - 1);
-        setError("");
-      }
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-[var(--app-bg,#0A0F0E)] text-white">
-      {/* Header */}
-      <div className="sticky top-0 z-50 backdrop-blur-sm bg-[var(--app-bg,#0A0F0E)]/80 border-b border-white/10 p-4">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleBack}
-            className="text-white"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-bold">{isForgotMode ? "Reset PIN" : "Change PIN"}</h1>
-        </div>
+    <div className="min-h-screen" style={{ backgroundColor: "#0A0F0E" }}>
+      {/* ── Header ── */}
+      <div
+        className="sticky top-0 z-50 px-4 py-3.5 flex items-center gap-3 border-b"
+        style={{ backgroundColor: "#0A0F0E", borderColor: "rgba(255,255,255,0.08)" }}
+      >
+        <button
+          onClick={() => {
+            if (isForgotMode && forgotStep === "reset") {
+              setForgotStep("otp");
+              setError("");
+            } else if (isForgotMode) {
+              setIsForgotMode(false);
+              setError("");
+            } else {
+              router.back();
+            }
+          }}
+          className="p-1.5 rounded-lg"
+          style={{ color: "#94a3b8" }}
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <h1 className="text-base font-bold" style={{ color: "#e2e8f0" }}>
+          {isForgotMode ? "Reset PIN" : "Change PIN"}
+        </h1>
       </div>
 
-      {/* Content */}
-      <div className="p-4 flex flex-col items-center justify-center min-h-[calc(100vh-80px)]">
-        {/* Progress Indicator */}
-        <div className="flex gap-2 mb-12">
-          {isForgotMode ? (
-            [2, 3, 4].map((s) => (
+      {/* ── Content ── */}
+      <div className="px-5 py-6 max-w-md mx-auto">
+        {/* ═══════════════════════════════════════════ */}
+        {/* STANDARD CHANGE PIN — Single Screen Flow   */}
+        {/* ═══════════════════════════════════════════ */}
+        {!isForgotMode && (
+          <div>
+            {/* Title */}
+            <div className="text-center mb-8">
               <div
-                key={s}
-                className={`h-2 w-12 rounded-full transition-all ${
-                  s <= forgotStep ? "bg-teal-500" : "bg-white/10"
-                }`}
-              />
-            ))
-          ) : (
-            [1, 2, 3].map((s) => (
-              <div
-                key={s}
-                className={`h-2 w-12 rounded-full transition-all ${
-                  s <= step ? "bg-teal-500" : "bg-white/10"
-                }`}
-              />
-            ))
-          )}
-        </div>
-
-        <AnimatePresence mode="wait">
-          {/* ================================================================= */}
-          {/* FLOW 1: STANDARD CHANGE PIN FLOW                                 */}
-          {/* ================================================================= */}
-          {!isForgotMode && step === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm text-center"
-            >
-              <h2 className="text-2xl font-bold mb-2">Verify Your PIN</h2>
-              <p className="text-white/60 mb-8">
-                Enter your current 6-digit PIN to proceed
-              </p>
-
-              <div id="pin-inputs-verify" className="flex gap-2 justify-center mb-8">
-                {currentPin.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`pin-current-${index}`}
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) =>
-                      handlePinChange(currentPin, setCurrentPin, index, e.target.value, "pin-current")
-                    }
-                    onKeyDown={(e) => handlePinKeyDown(currentPin, index, "pin-current", e)}
-                    className="w-12 h-12 md:w-14 md:h-14 text-center bg-slate-800/50 border border-slate-600 rounded-lg text-white text-2xl font-mono focus:border-teal-400 focus:outline-none transition"
-                  />
-                ))}
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-left"
-                >
-                  <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-200">{error}</p>
-                </motion.div>
-              )}
-
-              <Button
-                onClick={handleVerifyCurrentPin}
-                disabled={isLoading || currentPin.some((d) => !d)}
-                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold h-11"
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ backgroundColor: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.2)" }}
               >
-                {isLoading ? "Verifying..." : "Verify PIN"}
-              </Button>
+                <KeyRound size={24} style={{ color: "#14b8a6" }} />
+              </div>
+              <h2 className="text-xl font-bold mb-1" style={{ color: "#f1f5f9" }}>
+                Change Your PIN
+              </h2>
+              <p className="text-sm" style={{ color: "#64748b" }}>
+                Enter your current PIN and choose a new one
+              </p>
+            </div>
 
+            {/* Current PIN */}
+            <div className="mb-5">
+              <label className="flex items-center gap-2 text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94a3b8" }}>
+                <Lock size={13} style={{ color: "#14b8a6" }} />
+                Current PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={currentPin}
+                onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Enter your current 6-digit PIN"
+                className="w-full px-4 py-3.5 rounded-xl text-sm font-mono tracking-[0.3em] text-center outline-none transition"
+                style={{
+                  backgroundColor: "rgba(30,41,59,0.5)",
+                  border: "1px solid rgba(100,116,139,0.3)",
+                  color: "#e2e8f0",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#14b8a6")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(100,116,139,0.3)")}
+              />
+            </div>
+
+            {/* Connector line */}
+            <div className="flex justify-center my-1">
+              <div className="w-px h-5" style={{ backgroundColor: "rgba(100,116,139,0.3)" }} />
+            </div>
+
+            {/* New PIN */}
+            <div className="mb-5">
+              <label className="flex items-center gap-2 text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94a3b8" }}>
+                <ShieldCheck size={13} style={{ color: "#14b8a6" }} />
+                New PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Enter your new 6-digit PIN"
+                className="w-full px-4 py-3.5 rounded-xl text-sm font-mono tracking-[0.3em] text-center outline-none transition"
+                style={{
+                  backgroundColor: "rgba(30,41,59,0.5)",
+                  border: "1px solid rgba(100,116,139,0.3)",
+                  color: "#e2e8f0",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#14b8a6")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(100,116,139,0.3)")}
+              />
+            </div>
+
+            {/* Connector line */}
+            <div className="flex justify-center my-1">
+              <div className="w-px h-5" style={{ backgroundColor: "rgba(100,116,139,0.3)" }} />
+            </div>
+
+            {/* Confirm PIN */}
+            <div className="mb-6">
+              <label className="flex items-center gap-2 text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94a3b8" }}>
+                <ShieldCheck size={13} style={{ color: "#14b8a6" }} />
+                Confirm New PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={confirmPin}
+                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Confirm your new 6-digit PIN"
+                className="w-full px-4 py-3.5 rounded-xl text-sm font-mono tracking-[0.3em] text-center outline-none transition"
+                style={{
+                  backgroundColor: "rgba(30,41,59,0.5)",
+                  border: "1px solid rgba(100,116,139,0.3)",
+                  color: "#e2e8f0",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#14b8a6")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(100,116,139,0.3)")}
+              />
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div
+                className="flex items-center gap-2.5 mb-5 p-3 rounded-xl text-left"
+                style={{
+                  backgroundColor: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.25)",
+                }}
+              >
+                <AlertCircle size={16} style={{ color: "#f87171" }} className="shrink-0" />
+                <p className="text-sm" style={{ color: "#fca5a5" }}>
+                  {error}
+                </p>
+              </div>
+            )}
+
+            {/* Change PIN Button */}
+            <button
+              onClick={handleChangePin}
+              disabled={isLoading || !currentPin || !newPin || !confirmPin}
+              className="w-full py-3.5 rounded-xl text-sm font-bold transition disabled:opacity-40"
+              style={{
+                backgroundColor: "#14b8a6",
+                color: "#fff",
+              }}
+            >
+              {isLoading ? "Changing PIN..." : "Change PIN"}
+            </button>
+
+            {/* Forgot PIN underlined link */}
+            <div className="text-center mt-5">
               <button
                 onClick={() => handleSendResetCode(false)}
                 disabled={isLoading}
-                className="mt-6 text-sm text-teal-400 hover:text-teal-300 font-bold transition block mx-auto underline cursor-pointer disabled:opacity-50"
+                className="text-sm font-bold transition disabled:opacity-40"
+                style={{
+                  color: "#14b8a6",
+                  textDecoration: "underline",
+                  textUnderlineOffset: "3px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
               >
                 Forgot PIN?
               </button>
-            </motion.div>
-          )}
+            </div>
+          </div>
+        )}
 
-          {!isForgotMode && step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm text-center"
-            >
-              <h2 className="text-2xl font-bold mb-2">New PIN</h2>
-              <p className="text-white/60 mb-8">Enter your new 6-digit PIN</p>
-
-              <div className="flex gap-2 justify-center mb-8">
-                {newPin.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`pin-new-${index}`}
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) =>
-                      handlePinChange(newPin, setNewPin, index, e.target.value, "pin-new")
-                    }
-                    onKeyDown={(e) => handlePinKeyDown(newPin, index, "pin-new", e)}
-                    className="w-12 h-12 md:w-14 md:h-14 text-center bg-slate-800/50 border border-slate-600 rounded-lg text-white text-2xl font-mono focus:border-teal-400 focus:outline-none transition"
-                  />
-                ))}
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-left"
-                >
-                  <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-200">{error}</p>
-                </motion.div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleBack}
-                  variant="outline"
-                  className="flex-1 border-white/20 text-white hover:bg-white/10 font-bold h-11"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (newPin.some((d) => !d)) {
-                      setError("Please fill in the PIN fields");
-                    } else {
-                      setError("");
-                      setStep(3);
-                    }
-                  }}
-                  disabled={newPin.some((d) => !d)}
-                  className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold h-11"
-                >
-                  Next
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {!isForgotMode && step === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm text-center"
-            >
-              <h2 className="text-2xl font-bold mb-2">Confirm PIN</h2>
-              <p className="text-white/60 mb-8">Confirm your new 6-digit PIN</p>
-
-              <div className="flex gap-2 justify-center mb-8">
-                {confirmPin.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`pin-confirm-${index}`}
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) =>
-                      handlePinChange(confirmPin, setConfirmPin, index, e.target.value, "pin-confirm")
-                    }
-                    onKeyDown={(e) => handlePinKeyDown(confirmPin, index, "pin-confirm", e)}
-                    className="w-12 h-12 md:w-14 md:h-14 text-center bg-slate-800/50 border border-slate-600 rounded-lg text-white text-2xl font-mono focus:border-teal-400 focus:outline-none transition"
-                  />
-                ))}
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-left"
-                >
-                  <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-200">{error}</p>
-                </motion.div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleBack}
-                  variant="outline"
-                  className="flex-1 border-white/20 text-white hover:bg-white/10 font-bold h-11"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={handleChangePin}
-                  disabled={isLoading || confirmPin.some((d) => !d)}
-                  className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold h-11"
-                >
-                  {isLoading ? "Changing..." : "Change PIN"}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ================================================================= */}
-          {/* FLOW 2: FORGOT PIN RESET OTP FLOW                                */}
-          {/* ================================================================= */}
-          {isForgotMode && forgotStep === 2 && (
-            <motion.div
-              key="forgot2"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm text-center"
-            >
-              <div className="flex justify-center mb-4">
-                <div className="p-3.5 bg-teal-500/10 border border-teal-500/20 rounded-full text-teal-400">
-                  <Mail className="h-6 w-6 animate-pulse" />
-                </div>
-              </div>
-              <h2 className="text-2xl font-bold mb-2">Verification Code</h2>
-              <p className="text-white/60 mb-8 text-sm leading-relaxed">
-                Enter the 6-digit verification code dispatched to <span className="text-teal-400 font-semibold">{maskedEmail}</span>
-              </p>
-
-              <div id="pin-inputs-otp" className="flex gap-2 justify-center mb-8">
-                {otpCode.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`pin-otp-${index}`}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) =>
-                      handlePinChange(otpCode, setOtpCode, index, e.target.value, "pin-otp")
-                    }
-                    onKeyDown={(e) => handlePinKeyDown(otpCode, index, "pin-otp", e)}
-                    className="w-12 h-12 md:w-14 md:h-14 text-center bg-slate-800/50 border border-slate-600 rounded-lg text-white text-2xl font-mono focus:border-teal-400 focus:outline-none transition font-bold"
-                  />
-                ))}
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-left"
-                >
-                  <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-200">{error}</p>
-                </motion.div>
-              )}
-
-              <Button
-                onClick={handleVerifyResetOtp}
-                disabled={isLoading || otpCode.some((d) => !d)}
-                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold h-11 mb-6"
+        {/* ═══════════════════════════════════════════ */}
+        {/* FORGOT PIN — OTP Verification              */}
+        {/* ═══════════════════════════════════════════ */}
+        {isForgotMode && forgotStep === "otp" && (
+          <div>
+            <div className="text-center mb-8">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ backgroundColor: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.2)" }}
               >
-                {isLoading ? "Verifying Code..." : "Verify Code"}
-              </Button>
-
-              <div className="flex justify-center text-xs">
-                {resendTimer > 0 ? (
-                  <p className="text-white/40">
-                    Resend code in <span className="text-teal-400 font-semibold">{resendTimer}s</span>
-                  </p>
-                ) : (
-                  <button
-                    onClick={() => handleSendResetCode(true)}
-                    disabled={isLoading}
-                    className="text-teal-400 hover:text-teal-300 font-bold transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <RotateCw className="w-3 h-3" /> Resend Code
-                  </button>
-                )}
+                <Mail size={24} style={{ color: "#14b8a6" }} />
               </div>
-            </motion.div>
-          )}
+              <h2 className="text-xl font-bold mb-1" style={{ color: "#f1f5f9" }}>
+                Verification Code
+              </h2>
+              <p className="text-sm leading-relaxed" style={{ color: "#64748b" }}>
+                Enter the 6-digit code sent to{" "}
+                <span className="font-semibold" style={{ color: "#14b8a6" }}>
+                  {maskedEmail}
+                </span>
+              </p>
+            </div>
 
-          {isForgotMode && forgotStep === 3 && (
-            <motion.div
-              key="forgot3"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm text-center"
+            {/* OTP Input */}
+            <div className="mb-5">
+              <label className="flex items-center gap-2 text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94a3b8" }}>
+                Verification Code
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Enter 6-digit code"
+                className="w-full px-4 py-3.5 rounded-xl text-sm font-mono tracking-[0.5em] text-center outline-none transition"
+                style={{
+                  backgroundColor: "rgba(30,41,59,0.5)",
+                  border: "1px solid rgba(100,116,139,0.3)",
+                  color: "#e2e8f0",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#14b8a6")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(100,116,139,0.3)")}
+              />
+            </div>
+
+            {error && (
+              <div
+                className="flex items-center gap-2.5 mb-5 p-3 rounded-xl text-left"
+                style={{
+                  backgroundColor: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.25)",
+                }}
+              >
+                <AlertCircle size={16} style={{ color: "#f87171" }} className="shrink-0" />
+                <p className="text-sm" style={{ color: "#fca5a5" }}>
+                  {error}
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={handleVerifyOtp}
+              disabled={isLoading || otpCode.length !== 6}
+              className="w-full py-3.5 rounded-xl text-sm font-bold transition disabled:opacity-40"
+              style={{ backgroundColor: "#14b8a6", color: "#fff" }}
             >
-              <h2 className="text-2xl font-bold mb-2">Choose New PIN</h2>
-              <p className="text-white/60 mb-8">Enter your new 6-digit transaction PIN</p>
+              {isLoading ? "Verifying..." : "Verify Code"}
+            </button>
 
-              <div className="flex gap-2 justify-center mb-8">
-                {newPin.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`pin-newforgot-${index}`}
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) =>
-                      handlePinChange(newPin, setNewPin, index, e.target.value, "pin-newforgot")
-                    }
-                    onKeyDown={(e) => handlePinKeyDown(newPin, index, "pin-newforgot", e)}
-                    className="w-12 h-12 md:w-14 md:h-14 text-center bg-slate-800/50 border border-slate-600 rounded-lg text-white text-2xl font-mono focus:border-teal-400 focus:outline-none transition"
-                  />
-                ))}
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-left"
-                >
-                  <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-200">{error}</p>
-                </motion.div>
-              )}
-
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleBack}
-                  variant="outline"
-                  className="flex-1 border-white/20 text-white hover:bg-white/10 font-bold h-11"
-                >
-                  Back
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (newPin.some((d) => !d)) {
-                      setError("Please fill in the PIN fields");
-                    } else {
-                      setError("");
-                      setForgotStep(4);
-                    }
+            <div className="text-center mt-5">
+              {resendTimer > 0 ? (
+                <p className="text-xs" style={{ color: "#64748b" }}>
+                  Resend code in{" "}
+                  <span className="font-semibold" style={{ color: "#14b8a6" }}>
+                    {resendTimer}s
+                  </span>
+                </p>
+              ) : (
+                <button
+                  onClick={() => handleSendResetCode(true)}
+                  disabled={isLoading}
+                  className="text-xs font-bold flex items-center gap-1.5 mx-auto transition disabled:opacity-40"
+                  style={{
+                    color: "#14b8a6",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
                   }}
-                  disabled={newPin.some((d) => !d)}
-                  className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold h-11"
                 >
-                  Next
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {isForgotMode && forgotStep === 4 && (
-            <motion.div
-              key="forgot4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm text-center"
-            >
-              <h2 className="text-2xl font-bold mb-2">Confirm New PIN</h2>
-              <p className="text-white/60 mb-8">Verify the matching digits of your new PIN</p>
-
-              <div className="flex gap-2 justify-center mb-8">
-                {confirmPin.map((digit, index) => (
-                  <input
-                    key={index}
-                    id={`pin-confirmforgot-${index}`}
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) =>
-                      handlePinChange(confirmPin, setConfirmPin, index, e.target.value, "pin-confirmforgot")
-                    }
-                    onKeyDown={(e) => handlePinKeyDown(confirmPin, index, "pin-confirmforgot", e)}
-                    className="w-12 h-12 md:w-14 md:h-14 text-center bg-slate-800/50 border border-slate-600 rounded-lg text-white text-2xl font-mono focus:border-teal-400 focus:outline-none transition"
-                  />
-                ))}
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-left"
-                >
-                  <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                  <p className="text-sm text-red-200">{error}</p>
-                </motion.div>
+                  <RotateCw size={12} /> Resend Code
+                </button>
               )}
+            </div>
+          </div>
+        )}
 
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleBack}
-                  variant="outline"
-                  className="flex-1 border-white/20 text-white hover:bg-white/10 font-bold h-11"
-                >
-                  Back
-                </Button>
-                 <Button
-                  onClick={handleResetPin}
-                  disabled={isLoading || confirmPin.some((d) => !d)}
-                  className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold h-11"
-                >
-                  {isLoading ? "Resetting..." : "Reset PIN"}
-                </Button>
+        {/* ═══════════════════════════════════════════ */}
+        {/* FORGOT PIN — Set New PIN                    */}
+        {/* ═══════════════════════════════════════════ */}
+        {isForgotMode && forgotStep === "reset" && (
+          <div>
+            <div className="text-center mb-8">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ backgroundColor: "rgba(20,184,166,0.1)", border: "1px solid rgba(20,184,166,0.2)" }}
+              >
+                <KeyRound size={24} style={{ color: "#14b8a6" }} />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+              <h2 className="text-xl font-bold mb-1" style={{ color: "#f1f5f9" }}>
+                Set New PIN
+              </h2>
+              <p className="text-sm" style={{ color: "#64748b" }}>
+                Choose a new 6-digit transaction PIN
+              </p>
+            </div>
 
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-10px); }
-          75% { transform: translateX(10px); }
-        }
-        .shake {
-          animation: shake 0.3s ease-in-out;
-        }
-      `}</style>
+            {/* New PIN */}
+            <div className="mb-5">
+              <label className="flex items-center gap-2 text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94a3b8" }}>
+                <ShieldCheck size={13} style={{ color: "#14b8a6" }} />
+                New PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={resetNewPin}
+                onChange={(e) => setResetNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Enter your new 6-digit PIN"
+                className="w-full px-4 py-3.5 rounded-xl text-sm font-mono tracking-[0.3em] text-center outline-none transition"
+                style={{
+                  backgroundColor: "rgba(30,41,59,0.5)",
+                  border: "1px solid rgba(100,116,139,0.3)",
+                  color: "#e2e8f0",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#14b8a6")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(100,116,139,0.3)")}
+              />
+            </div>
+
+            {/* Connector line */}
+            <div className="flex justify-center my-1">
+              <div className="w-px h-5" style={{ backgroundColor: "rgba(100,116,139,0.3)" }} />
+            </div>
+
+            {/* Confirm PIN */}
+            <div className="mb-6">
+              <label className="flex items-center gap-2 text-xs font-bold mb-2 uppercase tracking-wider" style={{ color: "#94a3b8" }}>
+                <ShieldCheck size={13} style={{ color: "#14b8a6" }} />
+                Confirm New PIN
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={resetConfirmPin}
+                onChange={(e) => setResetConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="Confirm your new 6-digit PIN"
+                className="w-full px-4 py-3.5 rounded-xl text-sm font-mono tracking-[0.3em] text-center outline-none transition"
+                style={{
+                  backgroundColor: "rgba(30,41,59,0.5)",
+                  border: "1px solid rgba(100,116,139,0.3)",
+                  color: "#e2e8f0",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#14b8a6")}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(100,116,139,0.3)")}
+              />
+            </div>
+
+            {error && (
+              <div
+                className="flex items-center gap-2.5 mb-5 p-3 rounded-xl text-left"
+                style={{
+                  backgroundColor: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.25)",
+                }}
+              >
+                <AlertCircle size={16} style={{ color: "#f87171" }} className="shrink-0" />
+                <p className="text-sm" style={{ color: "#fca5a5" }}>
+                  {error}
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={handleResetPin}
+              disabled={isLoading || !resetNewPin || !resetConfirmPin}
+              className="w-full py-3.5 rounded-xl text-sm font-bold transition disabled:opacity-40"
+              style={{ backgroundColor: "#14b8a6", color: "#fff" }}
+            >
+              {isLoading ? "Resetting..." : "Reset PIN"}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
