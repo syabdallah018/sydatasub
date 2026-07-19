@@ -14,6 +14,17 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  if (req.nextUrl.pathname.startsWith("/app")) {
+    const userAgent = (req.headers.get("user-agent") || "").toLowerCase();
+    const isAndroidWebView = userAgent.includes("wv") || userAgent.includes("webview");
+    const isIosWebView = (userAgent.includes("ipad") || userAgent.includes("iphone")) && !userAgent.includes("safari");
+    const isRequestedWithWebView = req.headers.get("x-requested-with") !== null;
+
+    if (!isAndroidWebView && !isIosWebView && !isRequestedWithWebView) {
+      return NextResponse.redirect(new URL("/?install=true", req.url));
+    }
+  }
+
   if (req.nextUrl.pathname.startsWith("/admin/")) {
     const hasAdminSession = Boolean(req.cookies.get("sy_admin_session")?.value);
     if (!hasAdminSession) {
