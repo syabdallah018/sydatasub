@@ -87,7 +87,7 @@ export default function LandingPage() {
       url: "/api/data",
       desc: "Submit a data purchase order for any Nigerian phone number. The platform validates the request, deducts from your developer wallet, and delivers the bundle to the recipient in real time.",
       body: `{
-  "phone": "08164135836",
+  "phone": "08012345678",
   "networkId": 1,
   "planId": 125,
   "reference": "tx-unique-trace-983"
@@ -97,7 +97,7 @@ export default function LandingPage() {
   "reference": "tx-unique-trace-983",
   "externalReference": "API-C-7289139",
   "status": "SUCCESS",
-  "message": "You have successfully transferred MTN SME 1GB to 08164135836"
+  "message": "You have successfully transferred MTN SME 1GB to 08012345678"
 }`
     },
     balance: {
