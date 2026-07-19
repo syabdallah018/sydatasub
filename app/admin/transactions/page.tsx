@@ -51,6 +51,7 @@ export default function TransactionsPage() {
   const [type, setType] = useState("ALL");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [search, setSearch] = useState("");
 
   const fetchTransactions = async (page = 1) => {
     try {
@@ -62,6 +63,7 @@ export default function TransactionsPage() {
         limit: "20",
         ...(startDate && { startDate }),
         ...(endDate && { endDate }),
+        ...(search && { search }),
       });
 
       const response = await fetch(`/api/admin/transactions?${params}`);
@@ -79,7 +81,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     fetchTransactions(1);
-  }, [status, type, startDate, endDate]);
+  }, [status, type, startDate, endDate, search]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -108,7 +110,17 @@ export default function TransactionsPage() {
       {/* Filters */}
       <Card className="p-6">
         <h3 className="font-semibold text-slate-900 mb-4">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div>
+            <Label className="text-sm mb-2">Search User/Phone/Ref</Label>
+            <Input
+              type="text"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
           <div>
             <Label className="text-sm mb-2">Status</Label>
             <Select value={status} onValueChange={setStatus}>
@@ -165,6 +177,7 @@ export default function TransactionsPage() {
                 setType("ALL");
                 setStartDate("");
                 setEndDate("");
+                setSearch("");
               }}
               className="w-full"
             >

@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get("type");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const search = searchParams.get("search");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
@@ -40,6 +41,23 @@ export async function GET(req: NextRequest) {
       if (endDate) {
         where.createdAt.lte = new Date(endDate);
       }
+    }
+
+    if (search) {
+      where.OR = [
+        { phone: { contains: search, mode: "insensitive" } },
+        { reference: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        {
+          user: {
+            OR: [
+              { fullName: { contains: search, mode: "insensitive" } },
+              { phone: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ]
+          }
+        }
+      ];
     }
 
     // Get total count

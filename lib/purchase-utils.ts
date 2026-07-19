@@ -32,30 +32,42 @@ const PROVIDER_TECHNICAL_FAILURE_PATTERNS = [
 
 export const PLAN_UNAVAILABLE_MESSAGE = "plan not available now, choose other plans!";
 export const DATA_INSUFFICIENT_FUNDS_MESSAGE = "Aahh! insufficient fund";
-export const PROVIDER_TECHNICAL_FAILURE_MESSAGE = "unable to send data, try again later";
+export const PROVIDER_TECHNICAL_FAILURE_MESSAGE = "Network error";
 export const DATA_PURCHASE_SUCCESS_MESSAGE = "Data purchase completed successfully";
 export const AIRTIME_PURCHASE_SUCCESS_MESSAGE = "Airtime purchase completed successfully";
-export const PURCHASE_FAILED_GENERIC_MESSAGE = "Purchase failed. Please try again later.";
+export const PURCHASE_FAILED_GENERIC_MESSAGE = "Network error";
 
 export function normalizeProviderFailureMessage(message?: string | null) {
   const normalizedMessage = (message || "").toLowerCase();
 
-  if (PLAN_UNAVAILABLE_PATTERNS.some((pattern) => normalizedMessage.includes(pattern))) {
-    return PLAN_UNAVAILABLE_MESSAGE;
-  }
-
-  if (PROVIDER_TECHNICAL_FAILURE_PATTERNS.some((pattern) => normalizedMessage.includes(pattern))) {
-    return PROVIDER_TECHNICAL_FAILURE_MESSAGE;
-  }
-
-  // Map third-party gateway balance exhaustion or wallet errors to network error
+  // Handle subscriber eligibility errors
   if (
+    normalizedMessage.includes("eligible") ||
+    normalizedMessage.includes("dear customer") ||
+    normalizedMessage.includes("watch out for other") ||
+    normalizedMessage.includes("offers from mtn")
+  ) {
+    return "Phone number is not eligible for this plan.";
+  }
+
+  // Handle third-party vendor balance/technical connection/SIM issues -> return clean network error
+  if (
+    normalizedMessage.includes("active sim") ||
+    normalizedMessage.includes("sim to dispense") ||
+    normalizedMessage.includes("active_sim") ||
+    normalizedMessage.includes("smeplug") ||
     normalizedMessage.includes("balance") ||
     normalizedMessage.includes("insufficient") ||
     normalizedMessage.includes("fund") ||
-    normalizedMessage.includes("wallet")
+    normalizedMessage.includes("wallet") ||
+    normalizedMessage.includes("network") ||
+    normalizedMessage.includes("gateway") ||
+    normalizedMessage.includes("timeout") ||
+    normalizedMessage.includes("not available") ||
+    PROVIDER_TECHNICAL_FAILURE_PATTERNS.some((pattern) => normalizedMessage.includes(pattern)) ||
+    PLAN_UNAVAILABLE_PATTERNS.some((pattern) => normalizedMessage.includes(pattern))
   ) {
-    return "Network error, please try again later";
+    return "Network error";
   }
 
   return PURCHASE_FAILED_GENERIC_MESSAGE;

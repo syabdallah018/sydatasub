@@ -298,6 +298,7 @@ export async function POST(req: NextRequest) {
           reference,
           externalReference: updatedTx.externalReference,
           status: "SUCCESS",
+          message: `You have successfully transferred ${plan.name} to ${phone}`,
         },
         { status: 200 }
       );
