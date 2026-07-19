@@ -265,6 +265,14 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      console.log("[AIRTIME PURCHASE PROVIDER RESPONSE]", {
+        apiUsed,
+        reference,
+        success: apiResult.success,
+        message: apiResult.message,
+        externalReference: apiResult.externalReference || null,
+      });
+
       if (!apiResult.success) {
         const errorMessage = normalizeProviderFailureMessage(apiResult.message);
 
