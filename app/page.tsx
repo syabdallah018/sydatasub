@@ -34,8 +34,9 @@ interface Plan {
   id: string;
   name: string;
   network: string;
-  size: string;
+  sizeLabel: string;
   validity: string;
+  price: number;
   user_price: number;
   agent_price: number;
 }
@@ -61,7 +62,7 @@ export default function LandingPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/plans");
+        const res = await fetch("/api/data/plans");
         if (!res.ok) return;
         const data = await res.json();
         if (data.plans) setPlans(data.plans);
@@ -91,7 +92,7 @@ export default function LandingPage() {
       url: "/api/plans",
       desc: "Fetch the full list of currently active mobile data plans across all supported networks.",
       response: JSON.stringify(
-        { success: true, plans: plans.slice(0, 2).map((p) => ({ id: p.id, name: p.name, network: p.network, size: p.size, price: p.user_price })) },
+        { success: true, plans: plans.slice(0, 2).map((p) => ({ id: p.id, name: p.name, network: p.network, size: p.sizeLabel, price: p.price })) },
         null,
         2
       ),
@@ -407,7 +408,7 @@ export default function LandingPage() {
                             <div className="text-[11px] text-gray-400 font-medium mt-0.5">{p.validity}</div>
                           </div>
                           <div className="text-right">
-                            <div className="font-extrabold text-[15px] text-gray-900">₦{p.user_price?.toLocaleString()}</div>
+                            <div className="font-extrabold text-[15px] text-gray-900">₦{p.price?.toLocaleString()}</div>
                           </div>
                         </div>
                       ))}
