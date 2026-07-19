@@ -61,7 +61,10 @@ export default function LandingPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const sandboxPayloads = {
+  const sandboxPayloads: Record<
+    "plans" | "purchase" | "balance",
+    { method: string; url: string; desc: string; body?: string; response: string }
+  > = {
     plans: {
       method: "GET",
       url: "/api/plans",
