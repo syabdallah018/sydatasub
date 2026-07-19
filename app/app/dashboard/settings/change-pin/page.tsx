@@ -702,8 +702,8 @@ export default function ChangePinPage() {
                 >
                   Back
                 </Button>
-                <Button
-                  onClick={handleForgotResetPin}
+                 <Button
+                  onClick={handleResetPin}
                   disabled={isLoading || confirmPin.some((d) => !d)}
                   className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-bold h-11"
                 >
