@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const mappedPlans = plans.map((plan) => {
       const price = getPlanPriceForUser(plan, user);
       return {
-        id: plan.id,
+        id: plan.externalPlanId,
         name: plan.name,
         network: plan.network,
         networkId: NETWORK_IDS[plan.network] || 0,

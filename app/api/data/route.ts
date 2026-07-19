@@ -16,7 +16,7 @@ import { z } from "zod";
 const purchaseSchema = z.object({
   phone: z.string().regex(/^0[0-9]{10}$/, "Invalid phone number"),
   networkId: z.number().int().min(1).max(4, "Invalid network ID"),
-  planId: z.string().min(1, "Plan ID is required"),
+  planId: z.union([z.number().int(), z.string().regex(/^\d+$/).transform(val => parseInt(val, 10))]),
   reference: z.string().min(1, "Unique transaction reference is required"),
 });
 
@@ -108,23 +108,26 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    // Fetch Plan
-    const plan = await prisma.plan.findUnique({
-      where: { id: planId },
-    });
-    if (!plan || !plan.isActive) {
+    const expectedNetwork = NETWORK_NAMES[networkId];
+    if (!expectedNetwork) {
       return NextResponse.json(
-        { success: false, error: "Plan not found or inactive" },
-        { status: 404 }
+        { success: false, error: "Invalid network ID" },
+        { status: 400 }
       );
     }
 
-    // Validate network mapping
-    const expectedNetwork = NETWORK_NAMES[networkId];
-    if (plan.network !== expectedNetwork) {
+    // Fetch Plan by externalPlanId and network mapping
+    const plan = await prisma.plan.findFirst({
+      where: {
+        externalPlanId: planId,
+        network: expectedNetwork,
+        isActive: true,
+      },
+    });
+    if (!plan) {
       return NextResponse.json(
-        { success: false, error: `Plan network mismatch. Expected network: ${plan.network}` },
-        { status: 400 }
+        { success: false, error: "Plan not found or inactive" },
+        { status: 404 }
       );
     }
 
@@ -191,7 +194,7 @@ export async function POST(req: NextRequest) {
           reference,
           description: `Developer API: ${plan.name} (${plan.sizeLabel}) -> ${phone}`,
           phone,
-          planId,
+          planId: plan.id,
           apiUsed: plan.apiSource,
           balanceBefore: latestUser.balance,
           balanceAfter: latestUser.balance - walletDebit,

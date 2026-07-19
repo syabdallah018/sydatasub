@@ -80,6 +80,7 @@ export default async function DashboardPage() {
       where: { isActive: true },
       select: {
         id: true,
+        externalPlanId: true,
         name: true,
         network: true,
         sizeLabel: true,
@@ -95,7 +96,7 @@ export default async function DashboardPage() {
     });
 
     parsedPlans = plans.map(p => ({
-      id: p.id,
+      id: p.externalPlanId,
       name: p.name,
       network: p.network,
       size: p.sizeLabel,

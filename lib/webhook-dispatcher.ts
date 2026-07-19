@@ -42,9 +42,9 @@ export async function dispatchDeveloperWebhook(userId: string, txData: any) {
     };
 
     const bodyString = JSON.stringify(payload);
-    // Generate signature using client secret hash as key
+    // Generate signature using API Key as key
     const signature = crypto
-      .createHmac("sha256", profile.apiSecretHash)
+      .createHmac("sha256", profile.apiKey)
       .update(bodyString)
       .digest("hex");
 

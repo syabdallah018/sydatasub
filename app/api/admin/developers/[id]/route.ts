@@ -50,7 +50,6 @@ export async function POST(
     return NextResponse.json({
       success: true,
       profile: updatedProfile,
-      rawSecret: rawSecret || null, // returned only on first approval
     }, { status: 200 });
   } catch (error) {
     console.error("[ADMIN DEV ACTION ERROR]", error);

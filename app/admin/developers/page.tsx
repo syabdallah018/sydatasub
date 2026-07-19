@@ -88,11 +88,11 @@ export default function AdminDevelopersPage() {
         toast.success(`Application ${status.toLowerCase()} successfully`);
         fetchDevelopers();
 
-        if (status === "APPROVED" && data.rawSecret) {
+        if (status === "APPROVED") {
           setCredModal({
             open: true,
             apiKey: data.profile.apiKey,
-            clientSecret: data.rawSecret,
+            clientSecret: "",
             devName: name,
           });
         }
@@ -283,37 +283,22 @@ export default function AdminDevelopersPage() {
           <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl p-8 border border-slate-100 relative animate-in fade-in zoom-in-95 duration-200">
             <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="text-green-500" size={28} />
-              Developer Credentials Generated
+              Developer Access Approved
             </h2>
-            <p className="text-slate-500 mt-2">
+            <p className="text-slate-500 mt-2 text-sm">
               Developer access for <strong className="text-slate-800">{credModal.devName}</strong> is approved.
-              Please copy these API credentials and share them with the developer.
+              Please copy the API key below and share it with the developer.
             </p>
 
             <div className="mt-6 space-y-4">
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 relative">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">API Key</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1">API Key</span>
                 <code className="text-sm font-mono text-slate-800 break-all select-all block pr-8">
                   {credModal.apiKey}
                 </code>
                 <button
                   onClick={() => copyToClipboard(credModal.apiKey)}
                   className="absolute top-4 right-4 text-slate-400 hover:text-blue-500"
-                >
-                  <Copy size={16} />
-                </button>
-              </div>
-
-              <div className="bg-red-50/50 border border-red-200 rounded-2xl p-4 relative">
-                <span className="text-xs font-bold text-red-500 uppercase tracking-wider block mb-1">
-                  Client Secret (Warning: Displayed Only Once!)
-                </span>
-                <code className="text-sm font-mono text-slate-800 break-all select-all block pr-8">
-                  {credModal.clientSecret}
-                </code>
-                <button
-                  onClick={() => copyToClipboard(credModal.clientSecret)}
-                  className="absolute top-4 right-4 text-slate-400 hover:text-red-500"
                 >
                   <Copy size={16} />
                 </button>

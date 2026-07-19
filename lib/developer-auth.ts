@@ -24,12 +24,11 @@ function getClientIp(req: NextRequest): string {
 
 export async function verifyDeveloperRequest(req: NextRequest): Promise<DeveloperAuthResult> {
   const apiKey = req.headers.get("x-api-key") || req.headers.get("X-API-Key");
-  const apiSecret = req.headers.get("x-api-secret") || req.headers.get("X-API-Secret");
 
-  if (!apiKey || !apiSecret) {
+  if (!apiKey) {
     return {
       success: false,
-      error: "Authentication credentials required (x-api-key and x-api-secret headers)",
+      error: "Authentication credentials required (x-api-key header)",
       status: 401,
     };
   }
@@ -69,16 +68,6 @@ export async function verifyDeveloperRequest(req: NextRequest): Promise<Develope
       success: false,
       error: user?.kycLocked ? "Account KYC locked. Please contact support." : "Developer account is suspended or inactive",
       status: 403,
-    };
-  }
-
-  // Validate Secret key
-  const isSecretValid = await bcryptjs.compare(apiSecret, profile.apiSecretHash);
-  if (!isSecretValid) {
-    return {
-      success: false,
-      error: "Invalid API credentials",
-      status: 401,
     };
   }
 

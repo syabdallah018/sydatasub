@@ -273,20 +273,17 @@ export default function DashboardClient({
     setSandboxLoading(true);
     setSandboxResponse(null);
 
-    const secretToken = generatedCreds?.clientSecret || "sys_your_secret_hash_here_from_keys";
-
     try {
       const res = await fetch("/api/data", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-API-Key": devProfile.apiKey,
-          "X-API-Secret": secretToken,
         },
         body: JSON.stringify({
           phone: sandboxPhone,
           networkId: Number(sandboxNetworkId),
-          planId: sandboxPlanId,
+          planId: Number(sandboxPlanId),
           reference: sandboxRef,
         }),
       });
@@ -408,7 +405,7 @@ export default function DashboardClient({
   return (
     <div className="flex min-h-screen bg-[#fbfbfd]">
       {/* Sidebar Navigation */}
-      <div className="w-72 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800 shrink-0">
+      <div className="w-72 bg-slate-900 text-white flex flex-col justify-between border-r border-slate-800 shrink-0 h-screen sticky top-0">
         <div>
           {/* Brand Header */}
           <div className="p-6 border-b border-slate-800 flex items-center gap-3">
@@ -885,35 +882,13 @@ export default function DashboardClient({
                           </div>
                         </div>
 
-                        {generatedCreds ? (
-                          <div className="space-y-2 bg-red-50/50 border border-red-200 rounded-xl p-4">
-                            <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider block">
-                              Client Secret (Save Immediately!)
-                            </span>
-                            <div className="flex items-center justify-between font-mono text-xs bg-white border border-red-100 p-2.5 rounded-lg">
-                              <span className="break-all text-slate-800 pr-2 select-all">{generatedCreds.clientSecret}</span>
-                              <button onClick={() => copyText(generatedCreds.clientSecret)} className="text-slate-400 hover:text-red-500 shrink-0">
-                                <Copy size={14} />
-                              </button>
-                            </div>
-                            <p className="text-[10px] text-red-600">
-                              This secret is stored hashed and will never be shown again! Copy it now.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-center">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Client Secret</span>
-                            <span className="text-[11px] text-slate-400 block mt-2 italic font-semibold">Hashed in database (hidden)</span>
-                          </div>
-                        )}
-
                         <button
                           onClick={handleRegenerateKeys}
                           disabled={regenerating}
                           className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-sm transition disabled:opacity-50"
                         >
                           <RefreshCw className={regenerating ? "animate-spin" : ""} size={14} />
-                          Generate New API Credentials
+                          Generate New API Key
                         </button>
                       </div>
 
@@ -1110,7 +1085,7 @@ export default function DashboardClient({
                   <table className="w-full text-left text-sm text-slate-500">
                     <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs text-nowrap">
                       <tr>
-                        <th className="px-4 py-3">Plan Database ID</th>
+                        <th className="px-4 py-3">Plan ID</th>
                         <th className="px-4 py-3">Plan Name</th>
                         <th className="px-4 py-3">Network</th>
                         <th className="px-4 py-3">Network ID</th>
@@ -1131,7 +1106,7 @@ export default function DashboardClient({
                           <tr key={p.id} className="hover:bg-slate-50/50">
                             <td className="px-4 py-3 font-mono text-xs text-slate-900 flex items-center gap-1.5">
                               {p.id}
-                              <button onClick={() => copyText(p.id)} className="text-slate-400 hover:text-blue-500 p-0.5">
+                              <button onClick={() => copyText(String(p.id))} className="text-slate-400 hover:text-blue-500 p-0.5">
                                 <Copy size={10} />
                               </button>
                             </td>
@@ -1158,320 +1133,463 @@ export default function DashboardClient({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.15 }}
-                className="grid grid-cols-1 lg:grid-cols-4 gap-8 select-text"
+                className="flex flex-col lg:flex-row gap-8 select-text relative"
               >
-                {/* Fixed position-like outline column on the left */}
-                <div className="lg:col-span-1 space-y-6 sticky top-24 self-start bg-white border border-slate-100 p-6 rounded-3xl shadow-sm select-none">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Table of Contents</h4>
-                  <nav className="flex flex-col gap-3 text-xs font-bold text-slate-600">
-                    <button
-                      onClick={() => scrollToDocSection("doc-intro")}
-                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
-                        activeDocSection === "doc-intro" ? "text-blue-600" : ""
-                      }`}
-                    >
-                      <ChevronRight size={12} /> Introduction
-                    </button>
-                    <button
-                      onClick={() => scrollToDocSection("doc-auth")}
-                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
-                        activeDocSection === "doc-auth" ? "text-blue-600" : ""
-                      }`}
-                    >
-                      <ChevronRight size={12} /> Authentication
-                    </button>
-                    <button
-                      onClick={() => scrollToDocSection("doc-plans")}
-                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
-                        activeDocSection === "doc-plans" ? "text-blue-600" : ""
-                      }`}
-                    >
-                      <ChevronRight size={12} /> GET /api/plans
-                    </button>
-                    <button
-                      onClick={() => scrollToDocSection("doc-purchase")}
-                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
-                        activeDocSection === "doc-purchase" ? "text-blue-600" : ""
-                      }`}
-                    >
-                      <ChevronRight size={12} /> POST /api/data
-                    </button>
-                    <button
-                      onClick={() => scrollToDocSection("doc-query")}
-                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
-                        activeDocSection === "doc-query" ? "text-blue-600" : ""
-                      }`}
-                    >
-                      <ChevronRight size={12} /> GET /api/data/[ref]
-                    </button>
-                    <button
-                      onClick={() => scrollToDocSection("doc-webhooks")}
-                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
-                        activeDocSection === "doc-webhooks" ? "text-blue-600" : ""
-                      }`}
-                    >
-                      <ChevronRight size={12} /> Webhooks Setup
-                    </button>
-                    <button
-                      onClick={() => scrollToDocSection("doc-errors")}
-                      className={`text-left hover:text-blue-600 flex items-center gap-1.5 ${
-                        activeDocSection === "doc-errors" ? "text-blue-600" : ""
-                      }`}
-                    >
-                      <ChevronRight size={12} /> Error Codes
-                    </button>
-                  </nav>
+                {/* Sticky Left Table of Contents */}
+                <div className="w-full lg:w-64 shrink-0">
+                  <div className="sticky top-6 bg-white border border-slate-200/60 p-6 rounded-3xl shadow-sm space-y-5 select-none max-h-[calc(100vh-80px)] overflow-y-auto">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Table of Contents</h4>
+                    <nav className="flex flex-col gap-2.5 text-xs font-semibold text-slate-650">
+                      <button
+                        onClick={() => scrollToDocSection("doc-intro")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-intro" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> Introduction
+                      </button>
+                      <button
+                        onClick={() => scrollToDocSection("doc-auth")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-auth" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> Authentication
+                      </button>
+                      <button
+                        onClick={() => scrollToDocSection("doc-balance")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-balance" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> GET /api/balance
+                      </button>
+                      <button
+                        onClick={() => scrollToDocSection("doc-plans")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-plans" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> GET /api/plans
+                      </button>
+                      <button
+                        onClick={() => scrollToDocSection("doc-purchase")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-purchase" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> POST /api/data
+                      </button>
+                      <button
+                        onClick={() => scrollToDocSection("doc-query")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-query" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> GET /api/data/[ref]
+                      </button>
+                      <button
+                        onClick={() => scrollToDocSection("doc-webhooks")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-webhooks" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> Webhooks Setup
+                      </button>
+                      <button
+                        onClick={() => scrollToDocSection("doc-errors")}
+                        className={`text-left hover:text-blue-600 flex items-center gap-2 py-1.5 px-2 rounded-lg transition-colors ${
+                          activeDocSection === "doc-errors" ? "text-blue-600 bg-blue-50/50" : ""
+                        }`}
+                      >
+                        <ChevronRight size={12} /> Error Codes
+                      </button>
+                    </nav>
+                  </div>
                 </div>
 
-                {/* Scrolled Content Area */}
-                <div ref={docsContentRef} className="lg:col-span-3 space-y-12 pb-16 bg-white border border-slate-100 p-8 rounded-3xl shadow-sm">
+                {/* Main Documentation Scrollable Flow */}
+                <div ref={docsContentRef} className="flex-1 space-y-16">
                   {/* Topic: Intro */}
-                  <section id="doc-intro" className="space-y-4">
-                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Introduction</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Welcome to the SY DATA SUB Developer API documentation! This guide details how to integrate mobile data bundle sales into your platform programmatically.
-                    </p>
-                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-amber-800 text-xs">
-                      <Info className="shrink-0 text-amber-600 mt-0.5" size={16} />
-                      <div>
-                        <span className="font-bold">Important Notice</span>
-                        <p className="mt-1">
-                          All requests must be made over <span className="font-semibold">HTTPS</span>. Re-validate your balances before execution, as data orders automatically trigger wallet debits.
-                        </p>
+                  <div id="doc-intro" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                        Introduction
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Welcome to the SY DATA SUB Developer API documentation! This guide details how to integrate mobile data bundle sales into your platform programmatically.
+                      </p>
+                      <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4 flex gap-3 text-blue-800 text-[11px] font-semibold leading-relaxed">
+                        <Info className="shrink-0 text-blue-600 mt-0.5" size={16} />
+                        <div>
+                          <span className="font-bold">Protocol Requirement</span>
+                          <p className="mt-1">
+                            All requests must be made over <span className="font-semibold text-blue-900">HTTPS</span>. Re-validate your balances before execution, as data orders automatically trigger wallet debits.
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs">
-                      <p className="text-slate-500">// Production API Base URL</p>
-                      <p>https://sydatasub.com</p>
-                    </div>
-                  </section>
-
-                  <hr className="border-slate-100" />
-
-                  {/* Topic: Auth */}
-                  <section id="doc-auth" className="space-y-4">
-                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Authentication</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Access to our developer API endpoints is validated using custom HTTP header parameters. Secure your Client API Key and Secret; secrets are cryptographically hashed and cannot be retrieved after creation.
-                    </p>
-                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs space-y-2">
-                      <p className="text-slate-500"># Required Header Keys</p>
-                      <p><span className="text-indigo-400">Content-Type</span>: application/json</p>
-                      <p><span className="text-indigo-400">X-API-Key</span>: sy_live_xxxxxxxxxxxxxxxxxxxxxxxx</p>
-                      <p><span className="text-indigo-400">X-API-Secret</span>: sys_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</p>
-                    </div>
-                  </section>
-
-                  <hr className="border-slate-100" />
-
-                  {/* Topic: GET Plans */}
-                  <section id="doc-plans" className="space-y-4">
-                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">1. Retrieve Active Plans</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Retrieve all active mobile data subscription plans, containing prices adjusted to your customer tier (Retail vs. Agent).
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold border border-blue-200 rounded-lg text-xs">GET</span>
-                      <code className="text-sm font-mono font-bold text-slate-800">/api/plans</code>
-                    </div>
-
-                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Response (200 OK)</h4>
-                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto">
-                      <pre>{JSON.stringify({
-                        success: true,
-                        plans: [
-                          {
-                            id: "cm1234567890",
-                            name: "MTN SME 1GB",
-                            network: "MTN",
-                            networkId: 1,
-                            size: "1GB",
-                            validity: "30 Days",
-                            price: 240
-                          }
-                        ]
-                      }, null, 2)}</pre>
-                    </div>
-                  </section>
-
-                  <hr className="border-slate-100" />
-
-                  {/* Topic: POST Purchase */}
-                  <section id="doc-purchase" className="space-y-4">
-                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">2. Buy Data Subscription</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Submit a data purchase transaction. The reference identifier must be unique globally across your logs.
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 bg-green-50 text-green-700 font-bold border border-green-200 rounded-lg text-xs">POST</span>
-                      <code className="text-sm font-mono font-bold text-slate-800">/api/data</code>
-                    </div>
-
-                    <h4 className="font-bold text-slate-800 text-sm pt-2">Request Parameters (JSON)</h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border border-slate-100 rounded-xl overflow-hidden">
-                        <thead className="bg-slate-50 text-slate-700 uppercase font-bold">
-                          <tr>
-                            <th className="px-4 py-2.5">Field</th>
-                            <th className="px-4 py-2.5">Type</th>
-                            <th className="px-4 py-2.5">Required</th>
-                            <th className="px-4 py-2.5">Description</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-150 font-medium text-slate-600">
-                          <tr>
-                            <td className="px-4 py-2.5 font-mono text-slate-950">phone</td>
-                            <td className="px-4 py-2.5">String</td>
-                            <td className="px-4 py-2.5 text-red-500">Yes</td>
-                            <td className="px-4 py-2.5">Recipient's 11-digit phone number (e.g. 08164135836)</td>
-                          </tr>
-                          <tr>
-                            <td className="px-4 py-2.5 font-mono text-slate-950">networkId</td>
-                            <td className="px-4 py-2.5">Integer</td>
-                            <td className="px-4 py-2.5 text-red-500">Yes</td>
-                            <td className="px-4 py-2.5">Integer key: 1=MTN, 2=Glo, 3=9mobile, 4=Airtel</td>
-                          </tr>
-                          <tr>
-                            <td className="px-4 py-2.5 font-mono text-slate-950">planId</td>
-                            <td className="px-4 py-2.5">String</td>
-                            <td className="px-4 py-2.5 text-red-500">Yes</td>
-                            <td className="px-4 py-2.5">Database Plan CUID key fetched from `/api/plans`</td>
-                          </tr>
-                          <tr>
-                            <td className="px-4 py-2.5 font-mono text-slate-950">reference</td>
-                            <td className="px-4 py-2.5">String</td>
-                            <td className="px-4 py-2.5 text-red-500">Yes</td>
-                            <td className="px-4 py-2.5">Unique transaction client-side trace key</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Request Payload</h4>
-                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs">
-                      <pre>{JSON.stringify({
-                        phone: "08164135836",
-                        networkId: 1,
-                        planId: "cm1234567890",
-                        reference: "tx-unique-trace-983"
-                      }, null, 2)}</pre>
-                    </div>
-
-                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Success Response (200 OK)</h4>
-                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto">
-                      <pre>{JSON.stringify({
-                        success: true,
-                        reference: "tx-unique-trace-983",
-                        externalReference: "API-C-7289139",
-                        status: "SUCCESS"
-                      }, null, 2)}</pre>
-                    </div>
-                  </section>
-
-                  <hr className="border-slate-100" />
-
-                  {/* Topic: GET Single Ref */}
-                  <section id="doc-query" className="space-y-4">
-                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">3. Retrieve Transaction Details</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Verify the resolution, delivery notes, and timestamp metadata of a previous transaction by querying its reference.
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <span className="px-2.5 py-1 bg-blue-50 text-blue-700 font-bold border border-blue-200 rounded-lg text-xs">GET</span>
-                      <code className="text-sm font-mono font-bold text-slate-800">/api/data/[reference]</code>
-                    </div>
-
-                    <h4 className="font-bold text-slate-800 text-sm pt-2">Sample Response (200 OK)</h4>
-                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto">
-                      <pre>{JSON.stringify({
-                        success: true,
-                        transaction: {
-                          id: "tx_cuid_key_abc",
-                          reference: "tx-unique-trace-983",
-                          externalReference: "API-C-7289139",
-                          type: "DATA_PURCHASE",
-                          status: "SUCCESS",
-                          amount: 240,
-                          recipient: "08164135836",
-                          description: "Developer API: MTN SME 1GB -> 08164135836",
-                          createdAt: "2026-07-19T00:00:00.000Z",
-                          updatedAt: "2026-07-19T00:00:02.000Z"
-                        }
-                      }, null, 2)}</pre>
-                    </div>
-                  </section>
-
-                  <hr className="border-slate-100" />
-
-                  {/* Topic: Webhooks */}
-                  <section id="doc-webhooks" className="space-y-4">
-                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">Webhooks Verification</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Configure your webhook endpoint to receive asynchronous updates when transactions complete. We push payload events via POST and sign the payload.
-                    </p>
-                    <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs space-y-1">
-                      <p><span className="text-indigo-400">X-SYDATA-Event</span>: transaction.updated</p>
-                      <p><span className="text-indigo-400">X-SYDATA-Signature</span>: hex_hmac_sha256_hash</p>
                     </div>
                     
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex gap-3 text-blue-800 text-xs">
-                      <Info className="shrink-0 text-blue-600 mt-0.5" size={16} />
-                      <div>
-                        <span className="font-bold">Signature Validation</span>
-                        <p className="mt-1 leading-relaxed">
-                          Compute a SHA256 HMAC of the raw request payload body. Use your developer <span className="font-semibold">Client Secret Hash</span> (stored in settings) as the hashing key. Compare the computed signature hex against the value in header key <code className="bg-white/60 px-1 py-0.2 rounded font-semibold text-blue-900">X-SYDATA-Signature</code>.
-                        </p>
+                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">API Base URL</span>
+                      <div className="flex items-center justify-between text-sky-400 font-bold select-all bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                        <span>https://sydatasub.com</span>
+                        <button onClick={() => copyText("https://sydatasub.com")} className="text-slate-550 hover:text-slate-350">
+                          <Copy size={12} />
+                        </button>
                       </div>
                     </div>
-                  </section>
+                  </div>
 
-                  <hr className="border-slate-100" />
+                  {/* Topic: Auth */}
+                  <div id="doc-auth" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                        Authentication
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Access to our developer API endpoints is validated using custom HTTP header parameters. Authentication is simple: pass your raw API Key inside the <code className="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-bold">X-API-Key</code> header of all requests.
+                      </p>
+                      <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex gap-3 text-amber-800 text-[11px] font-semibold leading-relaxed">
+                        <AlertTriangle className="shrink-0 text-amber-600 mt-0.5" size={16} />
+                        <div>
+                          <span className="font-bold">Credential Confidentiality</span>
+                          <p className="mt-1">
+                            Your API Key acts as your credential to debit your account. Never commit it to version control systems or client-facing application code.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Required Headers</span>
+                      <div className="space-y-1.5 p-3 bg-slate-900/60 rounded-lg border border-slate-800/80">
+                        <p><span className="text-slate-400">Content-Type:</span> <span className="text-emerald-400">"application/json"</span></p>
+                        <p><span className="text-slate-400">X-API-Key:</span> <span className="text-sky-300">"sy_live_c8588b0e..."</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Topic: GET Balance */}
+                  <div id="doc-balance" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                        Check Wallet Balance
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Query your current wallet balance in both Naira and Kobo formats. Useful for pre-purchase balance assertions.
+                      </p>
+                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-xs">
+                        <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">GET</span>
+                        <code className="text-xs font-mono font-bold text-slate-850">/api/balance</code>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Response (200 OK)</span>
+                      <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
+{`{
+  "`}<span className="text-sky-300 font-bold">success</span>{`": `}<span className="text-purple-400">true</span>{`,
+  "`}<span className="text-sky-300 font-bold">balance</span>{`": `}<span className="text-amber-400">12540.50</span>{`, // In Naira
+  "`}<span className="text-sky-300 font-bold">balanceKobo</span>{`": `}<span className="text-amber-400">1254050</span>{`, // In Kobo
+  "`}<span className="text-sky-300 font-bold">currency</span>{`": `}<span className="text-emerald-400">"NGN"</span>{`
+}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Topic: GET Plans */}
+                  <div id="doc-plans" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
+                    <div className="space-y-4 col-span-1 xl:col-span-2">
+                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                        1. Retrieve Active Plans
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Retrieve all active mobile data subscription plans, containing prices adjusted to your customer tier (Retail vs. Agent). Note that the returned plan ID is an **Integer** (not a long database string).
+                      </p>
+                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-xs">
+                        <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">GET</span>
+                        <code className="text-xs font-mono font-bold text-slate-850">/api/plans</code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="font-bold text-slate-850 text-xs uppercase tracking-wider">Plan Attributes</h4>
+                      <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                        <table className="w-full text-left text-[11px] text-slate-500">
+                          <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[9px] border-b border-slate-100">
+                            <tr>
+                              <th className="px-4 py-2.5">Field</th>
+                              <th className="px-4 py-2.5">Type</th>
+                              <th className="px-4 py-2.5">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-semibold text-slate-655">
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">id</td>
+                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                              <td className="px-4 py-2.5">The unique Plan ID. Use this integer key in purchase requests.</td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">name</td>
+                              <td className="px-4 py-2.5 text-slate-405">String</td>
+                              <td className="px-4 py-2.5">Display name of the data plan.</td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">network</td>
+                              <td className="px-4 py-2.5 text-slate-405">String</td>
+                              <td className="px-4 py-2.5">MTN, GLO, AIRTEL, or 9MOBILE.</td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">price</td>
+                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                              <td className="px-4 py-2.5">Cost of the plan in Naira.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Response (200 OK)</span>
+                      <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
+{`{
+  "`}<span className="text-sky-300 font-bold">success</span>{`": `}<span className="text-purple-400">true</span>{`,
+  "`}<span className="text-sky-300 font-bold">plans</span>{`": [
+    {
+      "`}<span className="text-sky-300 font-bold">id</span>{`": `}<span className="text-amber-400">125</span>{`, // Integer ID
+      "`}<span className="text-sky-300 font-bold">name</span>{`": `}<span className="text-emerald-400">"MTN SME 1GB"</span>{`,
+      "`}<span className="text-sky-300 font-bold">network</span>{`": `}<span className="text-emerald-400">"MTN"</span>{`,
+      "`}<span className="text-sky-300 font-bold">networkId</span>{`": `}<span className="text-amber-400">1</span>{`,
+      "`}<span className="text-sky-300 font-bold">size</span>{`": `}<span className="text-emerald-400">"1GB"</span>{`,
+      "`}<span className="text-sky-300 font-bold">validity</span>{`": `}<span className="text-emerald-400">"30 Days"</span>{`,
+      "`}<span className="text-sky-300 font-bold">price</span>{`": `}<span className="text-amber-400">240</span>{`
+    }
+  ]
+}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Topic: POST Purchase */}
+                  <div id="doc-purchase" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
+                    <div className="space-y-4 col-span-1 xl:col-span-2">
+                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                        2. Buy Data Subscription
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Submit a data purchase transaction. The reference identifier must be unique globally across your transactions history logs. Pass the integer `planId` key retrieved from `/api/plans`.
+                      </p>
+                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-xs">
+                        <span className="px-2.5 py-0.5 bg-green-650 text-white font-bold rounded text-[10px]">POST</span>
+                        <code className="text-xs font-mono font-bold text-slate-850">/api/data</code>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="font-bold text-slate-855 text-xs uppercase tracking-wider">Request Parameters (JSON)</h4>
+                      <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                        <table className="w-full text-left text-[11px] text-slate-500">
+                          <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[9px] border-b border-slate-100">
+                            <tr>
+                              <th className="px-4 py-2.5">Field</th>
+                              <th className="px-4 py-2.5">Type</th>
+                              <th className="px-4 py-2.5">Required</th>
+                              <th className="px-4 py-2.5">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-semibold text-slate-655">
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">phone</td>
+                              <td className="px-4 py-2.5 text-slate-405">String</td>
+                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                              <td className="px-4 py-2.5">Recipient's 11-digit phone number (e.g. 08164135836)</td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">networkId</td>
+                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                              <td className="px-4 py-2.5">Provider key: 1=MTN, 2=Glo, 3=9mobile, 4=Airtel</td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">planId</td>
+                              <td className="px-4 py-2.5 text-slate-405">Integer</td>
+                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                              <td className="px-4 py-2.5">The integer Plan ID retrieved from `/api/plans`</td>
+                            </tr>
+                            <tr>
+                              <td className="px-4 py-2.5 font-mono text-blue-600">reference</td>
+                              <td className="px-4 py-2.5 text-slate-405">String</td>
+                              <td className="px-4 py-2.5 text-red-500 font-bold">Yes</td>
+                              <td className="px-4 py-2.5">A unique client-side transaction trace key (alphanumeric, no spaces)</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                        <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Request Payload</span>
+                        <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
+{`{
+  "`}<span className="text-sky-300 font-bold">phone</span>{`": `}<span className="text-emerald-400">"08164135836"</span>{`,
+  "`}<span className="text-sky-300 font-bold">networkId</span>{`": `}<span className="text-amber-400">1</span>{`,
+  "`}<span className="text-sky-300 font-bold">planId</span>{`": `}<span className="text-amber-400">125</span>{`, // Integer ID
+  "`}<span className="text-sky-300 font-bold">reference</span>{`": `}<span className="text-emerald-400">"tx-unique-trace-983"</span>{`
+}`}
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-955 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                        <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Success Response (200 OK)</span>
+                        <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
+{`{
+  "`}<span className="text-sky-300 font-bold">success</span>{`": `}<span className="text-purple-400">true</span>{`,
+  "`}<span className="text-sky-300 font-bold">reference</span>{`": `}<span className="text-emerald-400">"tx-unique-trace-983"</span>{`,
+  "`}<span className="text-sky-300 font-bold">externalReference</span>{`": `}<span className="text-emerald-400">"API-C-7289139"</span>{`,
+  "`}<span className="text-sky-300 font-bold">status</span>{`": `}<span className="text-emerald-400">"SUCCESS"</span>{`
+}`}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Topic: GET Single Ref */}
+                  <div id="doc-query" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                        3. Retrieve Transaction Details
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Verify the resolution, delivery notes, and timestamp metadata of a previous transaction by querying its reference.
+                      </p>
+                      <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">GET</span>
+                        <code className="text-xs font-mono font-bold text-slate-850">/api/data/[reference]</code>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-3">
+                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Sample Response (200 OK)</span>
+                      <div className="bg-slate-900/60 p-3 rounded-lg border border-slate-800/80 text-sky-300 whitespace-pre-wrap select-all">
+{`{
+  "`}<span className="text-sky-300 font-bold">success</span>{`": `}<span className="text-purple-400">true</span>{`,
+  "`}<span className="text-sky-300 font-bold">transaction</span>{`": {
+    "`}<span className="text-sky-300 font-bold">id</span>{`": `}<span className="text-emerald-400">"tx_cuid_key_abc"</span>{`,
+    "`}<span className="text-sky-300 font-bold">reference</span>{`": `}<span className="text-emerald-400">"tx-unique-trace-983"</span>{`,
+    "`}<span className="text-sky-300 font-bold">externalReference</span>{`": `}<span className="text-emerald-400">"API-C-7289139"</span>{`,
+    "`}<span className="text-sky-300 font-bold">type</span>{`": `}<span className="text-emerald-400">"DATA_PURCHASE"</span>{`,
+    "`}<span className="text-sky-300 font-bold">status</span>{`": `}<span className="text-emerald-400">"SUCCESS"</span>{`,
+    "`}<span className="text-sky-300 font-bold">amount</span>{`": `}<span className="text-amber-400">240</span>{`,
+    "`}<span className="text-sky-300 font-bold">recipient</span>{`": `}<span className="text-emerald-400">"08164135836"</span>{`,
+    "`}<span className="text-sky-300 font-bold">description</span>{`": `}<span className="text-emerald-400">"Developer API: MTN SME 1GB -&gt; 08164135836"</span>{`,
+    "`}<span className="text-sky-300 font-bold">createdAt</span>{`": `}<span className="text-emerald-400">"2026-07-19T00:00:00.000Z"</span>{`,
+    "`}<span className="text-sky-300 font-bold">updatedAt</span>{`": `}<span className="text-emerald-400">"2026-07-19T00:00:02.000Z"</span>{`
+  }
+}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Topic: Webhooks */}
+                  <div id="doc-webhooks" className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm">
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                        Webhooks Setup
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Configure your webhook endpoint to receive asynchronous updates when transactions complete. We push payload events via POST and sign the payload.
+                      </p>
+                      <div className="space-y-1.5 p-3 bg-slate-50 border border-slate-100 rounded-xl font-semibold text-[11px] text-slate-705">
+                        <p><span className="text-slate-400 uppercase tracking-wider text-[9px] font-bold block">Webhook Event Headers</span></p>
+                        <p><span className="text-slate-500">X-SYDATA-Event:</span> <span className="font-mono text-slate-900 font-bold">transaction.updated</span></p>
+                        <p><span className="text-slate-500">X-SYDATA-Signature:</span> <span className="font-mono text-slate-900 font-bold text-blue-600">hex_hmac_sha256_hash</span></p>
+                      </div>
+
+                      <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4 flex gap-3 text-blue-800 text-[11px] font-semibold leading-relaxed">
+                        <Info className="shrink-0 text-blue-600 mt-0.5" size={16} />
+                        <div>
+                          <span className="font-bold">Signature Verification</span>
+                          <p className="mt-1">
+                            Compute a SHA256 HMAC of the raw request payload body. Use your raw developer **API Client Key** as the hashing key. Compare the computed signature hex against the value in the header key <code className="bg-blue-100 px-1 py-0.2 rounded font-mono font-bold text-blue-900">X-SYDATA-Signature</code>.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950 text-slate-100 p-5 rounded-2xl border border-slate-800 font-mono text-[11px] shadow-lg space-y-4">
+                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[9px] font-bold">Node.js Verification Example</span>
+                      <pre className="text-sky-300 p-3 bg-slate-900/60 rounded-lg border border-slate-800/80 whitespace-pre overflow-x-auto text-[10px]">
+{`const crypto = require("crypto");
+
+function verifyWebhook(reqBody, headerSignature, apiKey) {
+  const hash = crypto
+    .createHmac("sha256", apiKey)
+    .update(JSON.stringify(reqBody))
+    .digest("hex");
+    
+  return hash === headerSignature;
+}`}
+                      </pre>
+                    </div>
+                  </div>
 
                   {/* Topic: Errors */}
-                  <section id="doc-errors" className="space-y-4">
-                    <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">HTTP Error Codes</h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
+                  <div id="doc-errors" className="bg-white border border-slate-200/50 p-8 rounded-3xl shadow-sm space-y-4">
+                    <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
+                      HTTP Error Codes
+                    </h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       Summary table of API response error codes and their context:
                     </p>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border border-slate-100 rounded-xl overflow-hidden">
-                        <thead className="bg-slate-50 text-slate-700 uppercase font-bold">
+                    <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                      <table className="w-full text-left text-[11px] text-slate-500">
+                        <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-[9px] border-b border-slate-100">
                           <tr>
                             <th className="px-4 py-2.5">HTTP Code</th>
                             <th className="px-4 py-2.5">Error Message</th>
                             <th className="px-4 py-2.5">Cause / Resolution</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-150 font-medium text-slate-600">
+                        <tbody className="divide-y divide-slate-100 font-semibold text-slate-655">
                           <tr>
                             <td className="px-4 py-2.5 text-slate-900 font-bold">400 Bad Request</td>
-                            <td className="px-4 py-2.5 font-mono">Invalid phone number</td>
+                            <td className="px-4 py-2.5 font-mono text-red-500">Invalid phone number</td>
                             <td className="px-4 py-2.5">Recipient's phone format is incorrect (must be 11 digits starting with 0).</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-2.5 text-slate-900 font-bold">400 Bad Request</td>
-                            <td className="px-4 py-2.5 font-mono">Insufficient wallet balance</td>
+                            <td className="px-4 py-2.5 font-mono text-red-500">Insufficient wallet balance</td>
                             <td className="px-4 py-2.5">Your main wallet balance does not cover the price of the requested plan.</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-2.5 text-slate-900 font-bold">401 Unauthorized</td>
-                            <td className="px-4 py-2.5 font-mono">Invalid API credentials</td>
-                            <td className="px-4 py-2.5">The provided `X-API-Key` or `X-API-Secret` headers are incorrect.</td>
+                            <td className="px-4 py-2.5 font-mono text-red-500">Invalid API credentials</td>
+                            <td className="px-4 py-2.5">The provided `X-API-Key` header is incorrect or suspended.</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-2.5 text-slate-900 font-bold">403 Forbidden</td>
-                            <td className="px-4 py-2.5 font-mono">IP address not whitelisted</td>
+                            <td className="px-4 py-2.5 font-mono text-red-500">IP address not whitelisted</td>
                             <td className="px-4 py-2.5">Your request server IP does not match the configured whitelist array in settings.</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-2.5 text-slate-900 font-bold">409 Conflict</td>
-                            <td className="px-4 py-2.5 font-mono">Duplicate reference detected</td>
+                            <td className="px-4 py-2.5 font-mono text-red-500">Duplicate reference detected</td>
                             <td className="px-4 py-2.5">A transaction with that exact reference has already been executed. Use a new trace key.</td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
-                  </section>
+                  </div>
                 </div>
               </motion.div>
             )}

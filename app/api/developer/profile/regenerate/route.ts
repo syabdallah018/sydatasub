@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         apiKey: newApiKey,
-        clientSecret: newRawSecret, // Display once
       },
       { status: 200 }
     );
