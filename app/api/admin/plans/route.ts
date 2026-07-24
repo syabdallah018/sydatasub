@@ -6,12 +6,12 @@ import { z } from "zod";
 const planSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
-    network: z.enum(["MTN", "GLO", "AIRTEL"]),
+    network: z.enum(["MTN", "GLO", "AIRTEL", "NINEMOBILE"]),
     sizeLabel: z.string().min(1, "Size label is required"),
     validity: z.string().min(1, "Validity is required"),
     user_price: z.number().min(50, "Minimum user price is N50"),
     agent_price: z.number().min(50, "Minimum agent price is N50"),
-    apiSource: z.enum(["API_A", "API_B", "API_C", "API_D"]),
+    apiSource: z.enum(["API_A", "API_B", "API_C", "API_D", "API_E"]),
     externalPlanId: z.number().int().positive(),
     externalNetworkId: z.number().int().positive(),
   })

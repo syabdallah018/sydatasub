@@ -5,12 +5,12 @@ import { z } from "zod";
 
 const updatePlanSchema = z.object({
   name: z.string().min(1).optional(),
-  network: z.enum(["MTN", "GLO", "AIRTEL"]).optional(),
+  network: z.enum(["MTN", "GLO", "AIRTEL", "NINEMOBILE"]).optional(),
   sizeLabel: z.string().min(1).optional(),
   validity: z.string().min(1).optional(),
   user_price: z.number().min(50).optional(),
   agent_price: z.number().min(50).optional(),
-  apiSource: z.enum(["API_A", "API_B", "API_C", "API_D"]).optional(),
+  apiSource: z.enum(["API_A", "API_B", "API_C", "API_D", "API_E"]).optional(),
   externalPlanId: z.number().int().positive().optional(),
   externalNetworkId: z.number().int().positive().optional(),
   isActive: z.boolean().optional(),
