@@ -12,6 +12,7 @@ const planSchema = z
     user_price: z.number().min(50, "Minimum user price is N50"),
     agent_price: z.number().min(50, "Minimum agent price is N50"),
     apiSource: z.enum(["API_A", "API_B", "API_C", "API_D", "API_E"]),
+    category: z.string().default("SME"),
     externalPlanId: z.number().int().positive(),
     externalNetworkId: z.number().int().positive(),
   })

@@ -11,6 +11,7 @@ const updatePlanSchema = z.object({
   user_price: z.number().min(50).optional(),
   agent_price: z.number().min(50).optional(),
   apiSource: z.enum(["API_A", "API_B", "API_C", "API_D", "API_E"]).optional(),
+  category: z.string().optional(),
   externalPlanId: z.number().int().positive().optional(),
   externalNetworkId: z.number().int().positive().optional(),
   isActive: z.boolean().optional(),

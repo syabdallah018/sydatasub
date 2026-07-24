@@ -19,6 +19,7 @@ import {
   Moon,
   MessageCircle,
   Phone,
+  Plus,
   Receipt,
   ShieldCheck,
   Sparkles,
@@ -1735,13 +1736,13 @@ function InfiniteTransactionFeed({
     </>
   );
 }
-
 function HomeTab({
   user,
   showBalance,
   syncingBalance,
   rewardBalance,
   primaryAccount,
+  bankAccounts = [],
   onToggleBalance,
   onSyncBalance,
   onCopyAccount,
@@ -1756,6 +1757,7 @@ function HomeTab({
   syncingBalance: boolean;
   rewardBalance: number;
   primaryAccount: BankAccountItem | null;
+  bankAccounts?: BankAccountItem[];
   onToggleBalance: () => void;
   onSyncBalance: () => void;
   onCopyAccount: () => void;
@@ -1783,12 +1785,6 @@ function HomeTab({
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Wallet Balance
-            </p>
-            <p style={{ display: "none", fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.blueDark, margin: "0 0 8px" }}>
-              {showBalance ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(user.balance / 100) : "••••••"}
-            </p>
-            <p style={{ display: "none", fontFamily: T.font, fontSize: 12, fontWeight: 700, color: T.textMid, margin: 0 }}>
-              Payment channel update in progress
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1827,71 +1823,98 @@ function HomeTab({
           </div>
         </div>
 
-        <p style={{ fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.blueDark, margin: "0 0 10px" }}>
+        <p style={{ fontFamily: T.mono, fontSize: 28, fontWeight: 800, color: T.blueDark, margin: "0 0 14px" }}>
           {showBalance ? new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(user.balance / 100) : "••••••"}
         </p>
 
         <div
           style={{
-            border: `1px solid ${T.border}`,
-            borderRadius: 18,
-            padding: "10px 12px",
-            background: "rgba(255,255,255,0.82)",
+            display: "flex",
+            overflowX: "auto",
+            scrollSnapType: "x mandatory",
+            gap: 10,
+            paddingBottom: 4,
+            msOverflowStyle: "none",
+            scrollbarWidth: "none",
           }}
         >
-          {primaryAccount ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <div>
-                <p style={{ margin: "0 0 5px", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, textTransform: "uppercase" }}>
-                  Funding Account ({primaryAccount.bankCode})
+          {bankAccounts.map((acc) => (
+            <div
+              key={acc.id}
+              style={{
+                minWidth: 250,
+                scrollSnapAlign: "start",
+                border: `1px solid ${T.border}`,
+                borderRadius: 18,
+                padding: "10px 14px",
+                background: "rgba(255,255,255,0.85)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: "0 0 3px", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, textTransform: "uppercase" }}>
+                  {acc.bankName} {acc.isPrimary ? "• Primary" : ""}
                 </p>
-                <p style={{ margin: 0, fontFamily: T.mono, fontSize: 14, fontWeight: 700, color: T.text }}>
-                  {primaryAccount.accountNumber} • {primaryAccount.bankName}
+                <p style={{ margin: 0, fontFamily: T.mono, fontSize: 14, fontWeight: 800, color: T.text }}>
+                  {acc.accountNumber}
                 </p>
               </div>
               <button
-                onClick={onCopyAccount}
+                type="button"
+                onClick={() => {
+                  if (typeof navigator !== "undefined") {
+                    navigator.clipboard.writeText(acc.accountNumber);
+                    toast.success(`${acc.bankName} account number copied!`);
+                  }
+                }}
                 style={{
                   border: "none",
                   borderRadius: 12,
-                  padding: "8px 10px",
+                  padding: "7px 11px",
                   background: T.blueLight,
                   color: T.blue,
                   fontFamily: T.font,
+                  fontSize: 11,
                   fontWeight: 800,
+                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
-                  cursor: "pointer",
+                  gap: 4,
                 }}
               >
-                <Copy size={14} />
+                <Copy size={13} />
                 Copy
               </button>
             </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <p style={{ fontFamily: T.font, fontSize: 13, fontWeight: 700, color: T.textMid, margin: 0 }}>
-                No reserved account yet. Create one to fund your wallet.
-              </p>
-              <button
-                onClick={onOpenAccounts}
-                style={{
-                  border: "none",
-                  borderRadius: 12,
-                  padding: "8px 10px",
-                  background: T.blue,
-                  color: "#fff",
-                  fontFamily: T.font,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Create Account
-              </button>
-            </div>
-          )}
+          ))}
+
+          <button
+            type="button"
+            onClick={onOpenAccounts}
+            style={{
+              minWidth: 170,
+              scrollSnapAlign: "start",
+              border: `1.5px dashed ${T.blue}`,
+              borderRadius: 18,
+              padding: "10px 14px",
+              background: "rgba(36, 99, 235, 0.04)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <Plus size={16} color={T.blue} />
+            <span style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.blue }}>
+              + Add Account
+            </span>
+          </button>
         </div>
       </motion.div>
 
@@ -2903,6 +2926,16 @@ function DataWindow({
   setPhoneNumber: (num: string) => void;
 }) {
   const [schedulingPlan, setSchedulingPlan] = useState<DataPlan | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+
+  const filteredPlans = plans.filter((plan: any) => {
+    if (selectedCategory === "ALL") return true;
+    const pCat = String(plan.category || "SME").toUpperCase();
+    if (selectedCategory === "SME") return pCat === "SME";
+    if (selectedCategory === "CG") return pCat === "CG" || pCat === "GIFTING";
+    if (selectedCategory === "PROMO") return pCat === "PROMO" || pCat === "AWOOF";
+    return true;
+  });
 
   const handlePhoneChange = (val: string) => {
     let cleaned = val.replace(/\D/g, "");
@@ -3005,6 +3038,52 @@ function DataWindow({
         </div>
       </div>
 
+      <div style={{ marginBottom: 14 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            overflowX: "auto",
+            paddingBottom: 4,
+            msOverflowStyle: "none",
+            scrollbarWidth: "none",
+          }}
+        >
+          {[
+            { id: "ALL", label: "All Plans" },
+            { id: "SME", label: "SME" },
+            { id: "CG", label: "Gifting / CG" },
+            { id: "PROMO", label: "Awoof / Promo" },
+          ].map((cat) => {
+            const active = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                style={{
+                  border: `1px solid ${active ? T.blue : T.border}`,
+                  background: active ? T.blueLight : T.card,
+                  color: active ? T.blue : T.textMid,
+                  borderRadius: 20,
+                  padding: "6px 14px",
+                  fontFamily: T.font,
+                  fontSize: 12,
+                  fontWeight: active ? 800 : 600,
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  boxShadow: active ? "0 2px 8px rgba(36, 99, 235, 0.1)" : "none",
+                }}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div>
         <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.textDim, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Available Plans
@@ -3014,15 +3093,15 @@ function DataWindow({
           <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
             <Loader2 size={24} className="animate-spin" color={T.blue} />
           </div>
-        ) : plans.length === 0 ? (
+        ) : filteredPlans.length === 0 ? (
           <div style={{ textAlign: "center", padding: "30px 10px", background: T.card, borderRadius: 18, border: `1px solid ${T.border}` }}>
             <p style={{ fontFamily: T.font, fontSize: 13, color: T.textMid, margin: 0, textAlign: "center" }}>
-              No plans available for this network provider.
+              No plans available in this category.
             </p>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            {plans.map((plan) => (
+            {filteredPlans.map((plan) => (
               <button
                 key={plan.id}
                 onClick={() => onSelectPlan(plan)}
@@ -4694,6 +4773,7 @@ export default function DashboardClient({
                 syncingBalance={syncingBalance}
                 rewardBalance={Math.round((rewardSnapshot?.rewardBalance || user.rewardBalance || 0) / 100)}
                 primaryAccount={bankAccounts.find((item) => item.isPrimary) || bankAccounts[0] || null}
+                bankAccounts={bankAccounts}
                 onToggleBalance={() => setShowBalance((value) => !value)}
                 onSyncBalance={handleSyncBalance}
                 onCopyAccount={handleCopyAccount}

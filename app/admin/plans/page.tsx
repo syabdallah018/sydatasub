@@ -28,6 +28,7 @@ interface Plan {
   user_price: number;
   agent_price: number;
   apiSource: string;
+  category: string;
   externalPlanId: number;
   externalNetworkId: number;
   isActive: boolean;
@@ -47,6 +48,7 @@ export default function PlansPage() {
     user_price: 0,
     agent_price: 0,
     apiSource: "API_A",
+    category: "SME",
     externalPlanId: 0,
     externalNetworkId: 0,
   });
@@ -78,6 +80,7 @@ export default function PlansPage() {
       user_price: 0,
       agent_price: 0,
       apiSource: "API_A",
+      category: "SME",
       externalPlanId: 0,
       externalNetworkId: 0,
     });
@@ -90,8 +93,9 @@ export default function PlansPage() {
         throw new Error("Agent price cannot exceed user price");
       }
 
-      const method = editingId ? "PATCH" : "POST";
       const url = editingId ? `/api/admin/plans/${editingId}` : "/api/admin/plans";
+      const method = editingId ? "PATCH" : "POST";
+
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -99,11 +103,11 @@ export default function PlansPage() {
       });
 
       if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        throw new Error(data?.error || "Failed to save plan");
+        const data = await response.json();
+        throw new Error(data.error || "Failed to save plan");
       }
 
-      await fetchPlans();
+      fetchPlans();
       setOpenDialog(false);
       resetForm();
     } catch (err) {
@@ -112,69 +116,65 @@ export default function PlansPage() {
   };
 
   const handleEdit = (plan: Plan) => {
+    setEditingId(plan.id);
     setFormData({
       name: plan.name,
       network: plan.network,
       sizeLabel: plan.sizeLabel,
       validity: plan.validity,
-      user_price: plan.user_price,
-      agent_price: plan.agent_price,
+      user_price: plan.user_price || plan.price,
+      agent_price: plan.agent_price || plan.price,
       apiSource: plan.apiSource,
+      category: plan.category || "SME",
       externalPlanId: plan.externalPlanId,
       externalNetworkId: plan.externalNetworkId,
     });
-    setEditingId(plan.id);
     setOpenDialog(true);
   };
 
-  const handleDelete = async (planId: string) => {
-    if (!confirm("Are you sure you want to delete this plan?")) return;
+  const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
-      const response = await fetch(`/api/admin/plans/${planId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete plan");
-      await fetchPlans();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete");
-    }
-  };
-
-  const handleToggleActive = async (plan: Plan) => {
-    try {
-      const response = await fetch(`/api/admin/plans/${plan.id}`, {
+      const response = await fetch(`/api/admin/plans/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !plan.isActive }),
+        body: JSON.stringify({ isActive: !currentActive }),
       });
-      if (!response.ok) throw new Error("Failed to toggle plan");
-      await fetchPlans();
+
+      if (!response.ok) throw new Error("Failed to update plan");
+      fetchPlans();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update");
+      setError(err instanceof Error ? err.message : "An error occurred");
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-12">Loading plans...</div>;
-  }
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this plan?")) return;
+
+    try {
+      const response = await fetch(`/api/admin/plans/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete plan");
+      fetchPlans();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-900">Data Plans</h1>
-        <Dialog open={openDialog} onOpenChange={(open) => {
-          setOpenDialog(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger>
-            <Button onClick={() => setEditingId(null)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Plan
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-slate-900">Data Plans Management</h1>
+        <Dialog open={openDialog} onOpenChange={(open) => { setOpenDialog(open); if (!open) resetForm(); }}>
+          <DialogTrigger onClick={() => setOpenDialog(true)}>
+            <Button className="flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Add Plan
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{editingId ? "Edit Plan" : "Add New Plan"}</DialogTitle>
+              <DialogTitle>{editingId ? "Edit Plan" : "Create New Plan"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -190,6 +190,7 @@ export default function PlansPage() {
                       <SelectItem value="MTN">MTN</SelectItem>
                       <SelectItem value="GLO">Glo</SelectItem>
                       <SelectItem value="AIRTEL">Airtel</SelectItem>
+                      <SelectItem value="NINEMOBILE">9mobile</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -204,13 +205,28 @@ export default function PlansPage() {
                   <Input value={formData.validity} onChange={(e) => setFormData({ ...formData, validity: e.target.value })} placeholder="e.g., Monthly" required />
                 </div>
                 <div>
-                  <Label>User Price (N)</Label>
-                  <Input type="number" value={formData.user_price} onChange={(e) => setFormData({ ...formData, user_price: parseFloat(e.target.value) || 0 })} required />
+                  <Label>Category</Label>
+                  <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SME">SME</SelectItem>
+                      <SelectItem value="CG">CG</SelectItem>
+                      <SelectItem value="GIFTING">Gifting</SelectItem>
+                      <SelectItem value="PROMO">Promo</SelectItem>
+                      <SelectItem value="AWOOF">Awoof</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div>
-                <Label>Agent Price (N)</Label>
-                <Input type="number" value={formData.agent_price} onChange={(e) => setFormData({ ...formData, agent_price: parseFloat(e.target.value) || 0 })} required />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>User Price (₦)</Label>
+                  <Input type="number" value={formData.user_price} onChange={(e) => setFormData({ ...formData, user_price: parseFloat(e.target.value) || 0 })} required />
+                </div>
+                <div>
+                  <Label>Agent Price (₦)</Label>
+                  <Input type="number" value={formData.agent_price} onChange={(e) => setFormData({ ...formData, agent_price: parseFloat(e.target.value) || 0 })} required />
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -226,16 +242,14 @@ export default function PlansPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>External Plan ID</Label>
                   <Input type="number" value={formData.externalPlanId} onChange={(e) => setFormData({ ...formData, externalPlanId: parseInt(e.target.value, 10) || 0 })} required />
                 </div>
-                <div>
-                  <Label>External Network ID</Label>
-                  <Input type="number" value={formData.externalNetworkId} onChange={(e) => setFormData({ ...formData, externalNetworkId: parseInt(e.target.value, 10) || 0 })} required />
-                </div>
+              </div>
+              <div>
+                <Label>External Network ID</Label>
+                <Input type="number" value={formData.externalNetworkId} onChange={(e) => setFormData({ ...formData, externalNetworkId: parseInt(e.target.value, 10) || 0 })} required />
               </div>
               <Button type="submit" className="w-full">
                 {editingId ? "Update" : "Create"} Plan
@@ -259,43 +273,53 @@ export default function PlansPage() {
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Name</th>
                 <th className="px-4 py-3 text-left font-semibold">Network</th>
-                <th className="px-4 py-3 text-left font-semibold">Size</th>
-                <th className="px-4 py-3 text-left font-semibold">Validity</th>
+                <th className="px-4 py-3 text-left font-semibold">Category</th>
+                <th className="px-4 py-3 text-left font-semibold">Size / Validity</th>
                 <th className="px-4 py-3 text-left font-semibold">User Price</th>
                 <th className="px-4 py-3 text-left font-semibold">Agent Price</th>
-                <th className="px-4 py-3 text-left font-semibold">API</th>
+                <th className="px-4 py-3 text-left font-semibold">API Source</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
-                <th className="px-4 py-3 text-left font-semibold">Actions</th>
+                <th className="px-4 py-3 text-right font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {plans.map((plan) => (
-                <tr key={plan.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium">{plan.name}</td>
-                  <td className="px-4 py-3"><Badge variant="outline">{plan.network}</Badge></td>
-                  <td className="px-4 py-3">{plan.sizeLabel}</td>
-                  <td className="px-4 py-3">{plan.validity}</td>
-                  <td className="px-4 py-3 font-semibold">N{plan.user_price}</td>
-                  <td className="px-4 py-3 font-semibold">N{plan.agent_price}</td>
-                  <td className="px-4 py-3"><Badge>{plan.apiSource}</Badge></td>
-                  <td className="px-4 py-3">
-                    <Badge className={plan.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
-                      {plan.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 flex gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => handleEdit(plan)}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleToggleActive(plan)}>
-                      {plan.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(plan.id)}>
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </td>
+            <tbody className="divide-y divide-slate-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-6 text-slate-500">Loading plans...</td>
                 </tr>
-              ))}
+              ) : plans.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-6 text-slate-500">No plans found</td>
+                </tr>
+              ) : (
+                plans.map((plan) => (
+                  <tr key={plan.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-slate-900">{plan.name}</td>
+                    <td className="px-4 py-3"><Badge variant="outline">{plan.network}</Badge></td>
+                    <td className="px-4 py-3"><Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none">{plan.category || "SME"}</Badge></td>
+                    <td className="px-4 py-3">{plan.sizeLabel} ({plan.validity})</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">₦{(plan.user_price || plan.price).toLocaleString()}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-700">₦{(plan.agent_price || plan.price).toLocaleString()}</td>
+                    <td className="px-4 py-3"><Badge variant="secondary">{plan.apiSource}</Badge></td>
+                    <td className="px-4 py-3">
+                      <Badge variant={plan.isActive ? "default" : "destructive"}>
+                        {plan.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-2">
+                      <Button size="sm" variant="ghost" onClick={() => handleToggleActive(plan.id, plan.isActive)}>
+                        {plan.isActive ? <EyeOff className="w-4 h-4 text-slate-500" /> : <Eye className="w-4 h-4 text-slate-500" />}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleEdit(plan)}>
+                        <Edit2 className="w-4 h-4 text-slate-500" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDelete(plan.id)}>
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

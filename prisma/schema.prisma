@@ -190,6 +190,7 @@ model Plan {
   apiSource           ApiSource
   externalPlanId      Int
   externalNetworkId   Int
+  category            String     @default("SME") // e.g. "SME", "CG", "GIFTING", "PROMO", "AWOOF"
   isActive            Boolean    @default(true)
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
