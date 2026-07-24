@@ -19,6 +19,7 @@ import {
   Cpu,
   Menu,
   X,
+  Monitor,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -234,6 +235,14 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-full transition border border-gray-200/80"
+              title="Desktop & Developer Portal"
+            >
+              <Monitor size={14} className="text-gray-600" />
+              <span>Desktop</span>
+            </Link>
+            <Link
+              href="/app"
               className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-full transition shadow-md shadow-blue-200"
             >
               Open App
@@ -256,6 +265,16 @@ export default function LandingPage() {
                 {l.label}
               </a>
             ))}
+            <div className="pt-2 border-t border-gray-100 flex flex-col gap-2">
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileNav(false)}
+                className="flex items-center gap-2 text-sm font-bold text-gray-700 hover:text-gray-900 py-1"
+              >
+                <Monitor size={16} className="text-gray-500" />
+                <span>Desktop Portal</span>
+              </Link>
+            </div>
           </div>
         )}
       </nav>
@@ -297,7 +316,7 @@ export default function LandingPage() {
           {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-10">
             <Link
-              href="/dashboard"
+              href="/app"
               className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xl shadow-blue-200/50 flex items-center justify-center gap-2 text-[15px]"
             >
               Buy Data Now <ArrowRight size={16} />
@@ -414,7 +433,7 @@ export default function LandingPage() {
                       ))}
                     </div>
                     <div className="px-6 py-3 bg-gray-50/60 text-center">
-                      <Link href="/dashboard" className="text-blue-600 text-xs font-bold hover:underline">
+                      <Link href="/app" className="text-blue-600 text-xs font-bold hover:underline">
                         View all {network} plans →
                       </Link>
                     </div>
@@ -479,6 +498,17 @@ export default function LandingPage() {
                     <span>{feat}</span>
                   </div>
                 ))}
+              </div>
+
+              <div className="pt-2">
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2.5 px-6 py-3.5 bg-gray-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-gray-200/80"
+                >
+                  <Monitor size={18} />
+                  <span>Become a Developer</span>
+                  <ArrowRight size={16} />
+                </Link>
               </div>
             </div>
 
