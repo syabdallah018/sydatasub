@@ -3831,6 +3831,29 @@ export default function DashboardClient({
   const [broadcasts, setBroadcasts] = useState<BroadcastNotice[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const rewardBalanceSeenRef = useRef<number | null>(null);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast.success("🌐 Network connection restored. Auto-syncing...");
+      refreshUser().catch(() => {});
+      refreshRewards().catch(() => {});
+      refreshAccounts().catch(() => {});
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.warning("⚡ Network disconnected. Operating in offline mode.");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const registerFcmToken = async (token: string) => {
@@ -3957,6 +3980,9 @@ export default function DashboardClient({
   useEffect(() => {
     if (initialUser) {
       setLoading(false);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sy_cached_user_dashboard", JSON.stringify(initialUser));
+      }
       return;
     }
 
@@ -3970,6 +3996,7 @@ export default function DashboardClient({
         if (payload?.success && payload?.data) {
           setUser(payload.data);
           if (typeof window !== "undefined") {
+            localStorage.setItem("sy_cached_user_dashboard", JSON.stringify(payload.data));
             const justLoggedIn = sessionStorage.getItem("just_logged_in") === "true";
             if (!justLoggedIn && (window as any).AndroidBridge) {
               setIsLocked(true);
@@ -3979,7 +4006,19 @@ export default function DashboardClient({
         }
         router.replace("/app/auth");
       })
-      .catch(() => router.replace("/app/auth"))
+      .catch(() => {
+        if (typeof window !== "undefined") {
+          const cached = localStorage.getItem("sy_cached_user_dashboard");
+          if (cached) {
+            try {
+              setUser(JSON.parse(cached));
+              setIsOnline(false);
+              return;
+            } catch {}
+          }
+        }
+        router.replace("/app/auth");
+      })
       .finally(() => {
         clearTimeout(timeout);
         setLoading(false);
@@ -4447,6 +4486,30 @@ export default function DashboardClient({
   return (
     <>
       <style>{fontStyle}</style>
+
+      {!isOnline && (
+        <div
+          style={{
+            background: "#e11d48",
+            color: "#ffffff",
+            fontFamily: T.font,
+            fontSize: 12,
+            fontWeight: 800,
+            padding: "8px 12px",
+            textAlign: "center",
+            position: "sticky",
+            top: 0,
+            zIndex: 99999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+          }}
+        >
+          <RotateCw size={13} className="animate-spin" />
+          Offline Mode • SY Data will auto-sync when network returns
+        </div>
+      )}
 
       <AnimatePresence>
         {isLocked && user && (

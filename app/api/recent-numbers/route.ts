@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       where: {
         userId: sessionUser.userId,
         status: { in: ["SUCCESS", "PENDING"] },
-        phone: { not: null },
+        phone: { not: "" },
       },
       orderBy: { createdAt: "desc" },
       take: 30,
