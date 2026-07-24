@@ -89,36 +89,17 @@ const MANAGED_REWARD_TYPES: ManagedRewardType[] = [
 
 type RewardDbClient = PrismaClient | Prisma.TransactionClient;
 
-async function getRewardDbSupport(db: RewardDbClient) {
-  const [enumRows, tableRows] = await Promise.all([
-    db.$queryRawUnsafe<{ value: string }[]>(`
-      SELECT e.enumlabel AS value
-      FROM pg_type t
-      JOIN pg_enum e ON t.oid = e.enumtypid
-      WHERE t.typname = 'RewardType'
-      ORDER BY e.enumsortorder
-    `).catch(() => []),
-    db.$queryRawUnsafe<{ table_name: string }[]>(`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_name IN ('rewards', 'user_rewards')
-    `).catch(() => []),
-  ]);
-
-  const enumValues = new Set(enumRows.map((row) => row.value));
-  const tableSet = new Set(tableRows.map((row) => row.table_name));
-
+async function getRewardDbSupport(_db: RewardDbClient) {
   return {
-    enumValues,
-    hasRewardsTable: tableSet.has("rewards"),
-    hasUserRewardsTable: tableSet.has("user_rewards"),
+    enumValues: new Set<string>(MANAGED_REWARD_TYPES),
+    hasRewardsTable: true,
+    hasUserRewardsTable: true,
   };
 }
 
 export async function getSupportedManagedRewardTypes(db: RewardDbClient) {
   const support = await getRewardDbSupport(db);
-  const supportedTypes = MANAGED_REWARD_TYPES.filter((type) => support.enumValues.has(type));
+  const supportedTypes = MANAGED_REWARD_TYPES;
 
   return {
     ...support,

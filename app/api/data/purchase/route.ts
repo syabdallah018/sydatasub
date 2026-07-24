@@ -367,7 +367,17 @@ export async function POST(req: NextRequest) {
           });
         });
 
-        return NextResponse.json({ success: false, error: PURCHASE_FAILED_GENERIC_MESSAGE }, { status: 400 });
+        const rawErrorLower = String(apiResult.message || "").toLowerCase();
+        let clientError = errorMessage;
+        if (
+          rawErrorLower.includes("awbl") ||
+          rawErrorLower.includes("not eligible") ||
+          rawErrorLower.includes("select a new bundle")
+        ) {
+          clientError = "This number is not eligible for this plan. Please select a new bundle and try again.";
+        }
+
+        return NextResponse.json({ success: false, error: clientError }, { status: 400 });
       }
 
       await prisma.transaction.updateMany({

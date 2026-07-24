@@ -72,32 +72,43 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         reference: true,
+        externalReference: true,
         type: true,
         status: true,
         amount: true,
         phone: true,
         description: true,
         apiUsed: true,
+        balanceBefore: true,
+        balanceAfter: true,
         createdAt: true,
+        updatedAt: true,
         user: {
           select: {
             fullName: true,
             phone: true,
+            email: true,
           },
         },
         plan: {
           select: {
             name: true,
+            sizeLabel: true,
+            network: true,
+            apiSource: true,
           },
         },
       },
     });
 
-    // Format response
     const formattedTransactions = transactions.map((tx) => ({
       ...tx,
       userName: tx.user?.fullName || "Guest",
+      userPhone: tx.user?.phone || "N/A",
+      userEmail: tx.user?.email || "N/A",
       planName: tx.plan?.name || "N/A",
+      planSize: tx.plan?.sizeLabel || "",
+      network: tx.plan?.network || "",
     }));
 
     return NextResponse.json(

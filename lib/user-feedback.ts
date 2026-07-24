@@ -11,7 +11,15 @@ export function getFriendlyMessage(input?: string | null, fallback = "Something 
   if (normalized.includes("insufficient")) return "Ahh, sorry, your wallet balance is too low for this request right now.";
   if (normalized.includes("account is banned") || normalized.includes("account suspended")) return "Ahh, sorry, this account cannot complete transactions right now. Please contact support.";
   if (normalized.includes("plan not available now")) return "Ahh, sorry, that plan is not available right now. Please choose another one.";
-  if (normalized.includes("purchase failed") || normalized.includes("unable to") || normalized.includes("server error")) {
+  if (
+    normalized.includes("awbl") ||
+    normalized.includes("not eligible") ||
+    normalized.includes("select a new bundle") ||
+    normalized.includes("unable to process this request")
+  ) {
+    return "Ahh, sorry, this number is not eligible for this plan. Please select a new bundle and try again.";
+  }
+  if (normalized.includes("purchase failed") || normalized.includes("server error")) {
     return "Ahh, sorry, we could not complete that right now. Please try again in a moment.";
   }
   if (normalized.includes("network") || normalized.includes("connection")) {

@@ -13,19 +13,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 
 interface Transaction {
   id: string;
   reference: string;
+  externalReference?: string;
   userName: string;
+  userPhone?: string;
+  userEmail?: string;
+  phone: string;
   type: string;
-  description: string;
+  description?: string;
   amount: number;
+  balanceBefore?: number;
+  balanceAfter?: number;
   status: string;
   apiUsed?: string;
+  planName?: string;
+  planSize?: string;
+  network?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 interface PaginationInfo {
@@ -45,6 +61,9 @@ export default function TransactionsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal State for Full Transaction Details
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
 
   // Filters
   const [status, setStatus] = useState("ALL");
@@ -68,7 +87,7 @@ export default function TransactionsPage() {
 
       const response = await fetch(`/api/admin/transactions?${params}`);
       if (!response.ok) throw new Error("Failed to fetch transactions");
-      
+
       const data = await response.json();
       setTransactions(data.transactions);
       setPagination(data.pagination);
@@ -91,6 +110,8 @@ export default function TransactionsPage() {
         return "bg-red-100 text-red-800";
       case "PENDING":
         return "bg-yellow-100 text-yellow-800";
+      case "REVERSED":
+        return "bg-purple-100 text-purple-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -98,7 +119,71 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-slate-900">Transactions</h1>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Transactions Ledger</h1>
+          <p className="text-slate-500 text-sm mt-1">Audit and view complete real-time transaction details</p>
+        </div>
+      </div>
+
+      {/* Filters Card */}
+      <Card className="p-4 bg-white shadow-sm border border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div>
+            <Label className="text-xs text-slate-500">Search</Label>
+            <Input
+              placeholder="Phone, ref, name..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="mt-1 text-xs"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-slate-500">Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="SUCCESS">SUCCESS</SelectItem>
+                <SelectItem value="PENDING">PENDING</SelectItem>
+                <SelectItem value="FAILED">FAILED</SelectItem>
+                <SelectItem value="REVERSED">REVERSED</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-slate-500">Type</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Types</SelectItem>
+                <SelectItem value="DATA_PURCHASE">DATA_PURCHASE</SelectItem>
+                <SelectItem value="AIRTIME_PURCHASE">AIRTIME_PURCHASE</SelectItem>
+                <SelectItem value="WALLET_FUNDING">WALLET_FUNDING</SelectItem>
+                <SelectItem value="REWARD_CREDIT">REWARD_CREDIT</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-slate-500">Start Date</Label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="mt-1 text-xs"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-slate-500">End Date</Label>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="mt-1 text-xs"
+            />
+          </div>
+        </div>
+      </Card>
 
       {error && (
         <Alert variant="destructive">
@@ -107,168 +192,200 @@ export default function TransactionsPage() {
         </Alert>
       )}
 
-      {/* Filters */}
-      <Card className="p-6">
-        <h3 className="font-semibold text-slate-900 mb-4">Filters</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div>
-            <Label className="text-sm mb-2">Search User/Phone/Ref</Label>
-            <Input
-              type="text"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm mb-2">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="SUCCESS">Success</SelectItem>
-                <SelectItem value="FAILED">Failed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-sm mb-2">Type</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Types</SelectItem>
-                <SelectItem value="DATA_PURCHASE">Data Purchase</SelectItem>
-                <SelectItem value="AIRTIME_PURCHASE">Airtime Purchase</SelectItem>
-                <SelectItem value="WALLET_FUNDING">Wallet Funding</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-sm mb-2">Start Date</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm mb-2">End Date</Label>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setStatus("ALL");
-                setType("ALL");
-                setStartDate("");
-                setEndDate("");
-                setSearch("");
-              }}
-              className="w-full"
-            >
-              Reset
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       {/* Transactions Table */}
-      <Card className="overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">Loading...</div>
-        ) : transactions.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">No transactions found</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+      <Card className="overflow-hidden border border-slate-200">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600">
+              <tr>
+                <th className="px-4 py-3 text-left">Date & Time</th>
+                <th className="px-4 py-3 text-left">Reference</th>
+                <th className="px-4 py-3 text-left">User</th>
+                <th className="px-4 py-3 text-left">Recipient Phone</th>
+                <th className="px-4 py-3 text-left">Type / Details</th>
+                <th className="px-4 py-3 text-left">Amount</th>
+                <th className="px-4 py-3 text-left">API Used</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-right">Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 text-xs">
+              {loading ? (
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Reference</th>
-                  <th className="px-4 py-3 text-left font-semibold">User</th>
-                  <th className="px-4 py-3 text-left font-semibold">Type</th>
-                  <th className="px-4 py-3 text-left font-semibold">Description</th>
-                  <th className="px-4 py-3 text-left font-semibold">Amount</th>
-                  <th className="px-4 py-3 text-left font-semibold">Status</th>
-                  {/* <th className="px-4 py-3 text-left font-semibold">API</th> */}
-                  <th className="px-4 py-3 text-left font-semibold">Date</th>
+                  <td colSpan={9} className="text-center py-8 text-slate-500">
+                    Loading transactions...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                      {tx.reference.slice(0, 12)}...
+              ) : transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center py-8 text-slate-500">
+                    No transactions found
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((tx) => (
+                  <tr
+                    key={tx.id}
+                    className="hover:bg-slate-50 cursor-pointer transition-colors"
+                    onClick={() => setSelectedTx(tx)}
+                  >
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                      {new Date(tx.createdAt).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
                     </td>
-                    <td className="px-4 py-3 font-medium">{tx.userName}</td>
+                    <td className="px-4 py-3 font-mono font-semibold text-slate-900">{tx.reference}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{tx.userName}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-blue-600">{tx.phone || "N/A"}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      <span className="font-semibold block">{tx.type.replace(/_/g, " ")}</span>
+                      <span className="text-[11px] text-slate-500 block truncate max-w-[200px]">{tx.description}</span>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-slate-900">₦{tx.amount.toLocaleString()}</td>
                     <td className="px-4 py-3">
-                      <Badge variant="outline">{tx.type}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-600 max-w-xs truncate">
-                      {tx.description}
-                    </td>
-                    <td className="px-4 py-3 font-semibold">
-                      ₦{tx.amount.toLocaleString()}
+                      <Badge variant="secondary" className="font-mono text-[10px]">
+                        {tx.apiUsed || "N/A"}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <Badge className={getStatusColor(tx.status)}>
+                      <Badge className={`${getStatusColor(tx.status)} border-none text-[10px]`}>
                         {tx.status}
                       </Badge>
                     </td>
-                    {/* <td className="px-4 py-3 text-xs">{tx.apiUsed || "N/A"}</td> */}
-                    <td className="px-4 py-3 text-xs text-slate-500">
-                      {new Date(tx.createdAt).toLocaleDateString()}
+                    <td className="px-4 py-3 text-right">
+                      <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setSelectedTx(tx); }}>
+                        <Eye className="w-4 h-4 text-blue-600" />
+                      </Button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-600">
-            Page {pagination.page} of {pagination.pages} ({pagination.total} total)
-          </p>
-          <div className="flex gap-2">
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
+          <div className="text-xs text-slate-500">
+            Showing Page <span className="font-semibold">{pagination.page}</span> of{" "}
+            <span className="font-semibold">{pagination.pages || 1}</span> ({pagination.total} total)
+          </div>
+          <div className="flex items-center space-x-2">
             <Button
-              variant="outline"
               size="sm"
+              variant="outline"
+              disabled={pagination.page <= 1 || loading}
               onClick={() => fetchTransactions(pagination.page - 1)}
-              disabled={pagination.page === 1}
             >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Previous
+              <ChevronLeft className="w-4 h-4" />
             </Button>
             <Button
-              variant="outline"
               size="sm"
+              variant="outline"
+              disabled={pagination.page >= pagination.pages || loading}
               onClick={() => fetchTransactions(pagination.page + 1)}
-              disabled={pagination.page === pagination.pages}
             >
-              Next
-              <ChevronRight className="w-4 h-4 ml-1" />
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
-      )}
+      </Card>
+
+      {/* Full Transaction Data Modal */}
+      <Dialog open={Boolean(selectedTx)} onOpenChange={(open) => { if (!open) setSelectedTx(null); }}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center justify-between pr-6">
+              <span>Transaction Audit Details</span>
+              {selectedTx && (
+                <Badge className={`${getStatusColor(selectedTx.status)} border-none`}>
+                  {selectedTx.status}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedTx && (
+            <div className="space-y-4 text-xs text-slate-700">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Transaction Reference:</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedTx.reference}</span>
+                </div>
+                {selectedTx.externalReference && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">External Provider Reference:</span>
+                    <span className="font-mono font-bold text-blue-600">{selectedTx.externalReference}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Transaction Type:</span>
+                  <span className="font-bold text-slate-900">{selectedTx.type}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">API Provider Used:</span>
+                  <span className="font-semibold text-blue-700">{selectedTx.apiUsed || "N/A"}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">User Details</span>
+                  <p className="font-bold text-slate-900 text-sm">{selectedTx.userName}</p>
+                  <p className="text-slate-600">Phone: {selectedTx.userPhone}</p>
+                  <p className="text-slate-600">Email: {selectedTx.userEmail}</p>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Recipient & Plan</span>
+                  <p className="font-bold text-blue-600 text-sm">Target: {selectedTx.phone}</p>
+                  <p className="text-slate-600">Plan: {selectedTx.planName} {selectedTx.planSize ? `(${selectedTx.planSize})` : ""}</p>
+                  <p className="text-slate-600">Network: {selectedTx.network || "N/A"}</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Financial Summary</span>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Amount Charged:</span>
+                  <span className="font-bold text-slate-900 text-sm">₦{selectedTx.amount.toLocaleString()}</span>
+                </div>
+                {typeof selectedTx.balanceBefore === "number" && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">User Balance Before:</span>
+                    <span className="font-mono text-slate-700">₦{(selectedTx.balanceBefore / 100).toLocaleString()}</span>
+                  </div>
+                )}
+                {typeof selectedTx.balanceAfter === "number" && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">User Balance After:</span>
+                    <span className="font-mono text-slate-700">₦{(selectedTx.balanceAfter / 100).toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Provider Description / Response</span>
+                <p className="font-mono text-xs text-slate-800 bg-white p-2 rounded border border-slate-200 whitespace-pre-wrap">
+                  {selectedTx.description || "No description provided"}
+                </p>
+              </div>
+
+              <div className="flex justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-200">
+                <span>Created: {new Date(selectedTx.createdAt).toLocaleString()}</span>
+                {selectedTx.updatedAt && (
+                  <span>Updated: {new Date(selectedTx.updatedAt).toLocaleString()}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
