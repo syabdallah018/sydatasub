@@ -286,7 +286,7 @@ export async function POST(req: NextRequest) {
             where: { reference },
             data: {
               status: "FAILED",
-              description: errorMessage,
+              description: apiResult.message || errorMessage,
               externalReference: apiResult.externalReference || undefined,
             },
           });
