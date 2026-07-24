@@ -298,12 +298,12 @@ export default function TransactionsPage() {
 
       {/* Full Transaction Data Modal */}
       <Dialog open={Boolean(selectedTx)} onOpenChange={(open) => { if (!open) setSelectedTx(null); }}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center justify-between pr-6">
+        <DialogContent className="sm:max-w-xl bg-white border border-slate-300 shadow-2xl p-6 rounded-xl">
+          <DialogHeader className="border-b border-slate-200 pb-4 mb-2">
+            <DialogTitle className="text-lg font-bold text-slate-900 flex items-center justify-between pr-6">
               <span>Transaction Audit Details</span>
               {selectedTx && (
-                <Badge className={`${getStatusColor(selectedTx.status)} border-none`}>
+                <Badge className={`${getStatusColor(selectedTx.status)} border-none text-xs px-3 py-1`}>
                   {selectedTx.status}
                 </Badge>
               )}
@@ -311,72 +311,76 @@ export default function TransactionsPage() {
           </DialogHeader>
 
           {selectedTx && (
-            <div className="space-y-4 text-xs text-slate-700">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Transaction Reference:</span>
-                  <span className="font-mono font-bold text-slate-900">{selectedTx.reference}</span>
+            <div className="space-y-4 text-xs text-slate-800">
+              {/* Reference & Identifiers */}
+              <div className="space-y-2 pb-3 border-b border-slate-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Transaction Reference:</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm select-all">{selectedTx.reference}</span>
                 </div>
                 {selectedTx.externalReference && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">External Provider Reference:</span>
-                    <span className="font-mono font-bold text-blue-600">{selectedTx.externalReference}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">External Provider Reference:</span>
+                    <span className="font-mono font-bold text-blue-600 select-all">{selectedTx.externalReference}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Transaction Type:</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Transaction Type:</span>
                   <span className="font-bold text-slate-900">{selectedTx.type}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">API Provider Used:</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">API Provider Used:</span>
                   <span className="font-semibold text-blue-700">{selectedTx.apiUsed || "N/A"}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">User Details</span>
+              {/* Customer & Target Information */}
+              <div className="grid grid-cols-2 gap-4 pb-3 border-b border-slate-200">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Customer Details</span>
                   <p className="font-bold text-slate-900 text-sm">{selectedTx.userName}</p>
-                  <p className="text-slate-600">Phone: {selectedTx.userPhone}</p>
-                  <p className="text-slate-600">Email: {selectedTx.userEmail}</p>
+                  <p className="text-slate-600 font-mono">Phone: {selectedTx.userPhone}</p>
+                  <p className="text-slate-600 truncate">Email: {selectedTx.userEmail}</p>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Recipient & Plan</span>
-                  <p className="font-bold text-blue-600 text-sm">Target: {selectedTx.phone}</p>
-                  <p className="text-slate-600">Plan: {selectedTx.planName} {selectedTx.planSize ? `(${selectedTx.planSize})` : ""}</p>
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Recipient & Plan</span>
+                  <p className="font-bold text-blue-600 font-mono text-sm">Target: {selectedTx.phone}</p>
+                  <p className="text-slate-700 font-medium">Plan: {selectedTx.planName} {selectedTx.planSize ? `(${selectedTx.planSize})` : ""}</p>
                   <p className="text-slate-600">Network: {selectedTx.network || "N/A"}</p>
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Financial Summary</span>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Amount Charged:</span>
-                  <span className="font-bold text-slate-900 text-sm">₦{selectedTx.amount.toLocaleString()}</span>
+              {/* Financial Breakdown */}
+              <div className="space-y-2 pb-3 border-b border-slate-200">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Financial Summary</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Amount Charged:</span>
+                  <span className="font-bold text-slate-900 text-base">₦{selectedTx.amount.toLocaleString()}</span>
                 </div>
                 {typeof selectedTx.balanceBefore === "number" && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">User Balance Before:</span>
-                    <span className="font-mono text-slate-700">₦{(selectedTx.balanceBefore / 100).toLocaleString()}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">User Balance Before:</span>
+                    <span className="font-mono text-slate-700 font-medium">₦{(selectedTx.balanceBefore / 100).toLocaleString()}</span>
                   </div>
                 )}
                 {typeof selectedTx.balanceAfter === "number" && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">User Balance After:</span>
-                    <span className="font-mono text-slate-700">₦{(selectedTx.balanceAfter / 100).toLocaleString()}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 font-medium">User Balance After:</span>
+                    <span className="font-mono text-slate-700 font-medium">₦{(selectedTx.balanceAfter / 100).toLocaleString()}</span>
                   </div>
                 )}
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Provider Description / Response</span>
-                <p className="font-mono text-xs text-slate-800 bg-white p-2 rounded border border-slate-200 whitespace-pre-wrap">
+              {/* Provider Response Description */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Provider Response Log</span>
+                <div className="font-mono text-xs text-slate-800 bg-slate-50 p-3 rounded-lg border border-slate-200 whitespace-pre-wrap break-all">
                   {selectedTx.description || "No description provided"}
-                </p>
+                </div>
               </div>
 
-              <div className="flex justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-200">
+              <div className="flex justify-between text-[11px] text-slate-400 pt-2">
                 <span>Created: {new Date(selectedTx.createdAt).toLocaleString()}</span>
                 {selectedTx.updatedAt && (
                   <span>Updated: {new Date(selectedTx.updatedAt).toLocaleString()}</span>
