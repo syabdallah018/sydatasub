@@ -17,20 +17,39 @@ export async function POST(req: NextRequest) {
     const rateLimitError = enforceRateLimit(req, "login", "forgot-pin-send");
     if (rateLimitError) return rateLimitError;
 
+    const body = await req.json().catch(() => ({}));
+    const phone = typeof body?.phone === "string" ? body.phone.replace(/\D/g, "") : "";
+
     const sessionUser = await getSessionUser(req);
-    if (!sessionUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
+    let user = null;
+    if (sessionUser) {
+      user = await prisma.user.findUnique({
+        where: { id: sessionUser.userId },
+        select: { email: true, phone: true },
+      });
+    } else if (phone && phone.length === 11) {
+      user = await prisma.user.findUnique({
+        where: { phone },
+        select: { email: true, phone: true },
+      });
+    } else {
+      return NextResponse.json(
+        { error: "Valid 11-digit phone number is required." },
+        { status: 400 }
+      );
     }
 
-    // Retrieve user email
-    const user = await prisma.user.findUnique({
-      where: { id: sessionUser.userId },
-      select: { email: true },
-    });
-
-    if (!user || !user.email) {
+    if (!user) {
       return NextResponse.json(
-        { error: "No registered email address found. Please contact support." },
+        { error: "No account found matching this phone number." },
+        { status: 404 }
+      );
+    }
+
+    if (!user.email) {
+      return NextResponse.json(
+        { error: "No registered email address found on this account. Contact support to reset your PIN." },
         { status: 400 }
       );
     }

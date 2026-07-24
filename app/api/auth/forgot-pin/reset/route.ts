@@ -23,23 +23,33 @@ export async function POST(req: NextRequest) {
     const rateLimitError = enforceRateLimit(req, "login", "forgot-pin-reset");
     if (rateLimitError) return rateLimitError;
 
-    const sessionUser = await getSessionUser(req);
-    if (!sessionUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const body = await req.json().catch(() => ({}));
+    const { otpCode, newPin, confirmPin } = resetSchema.parse(body);
+    const phone = typeof body?.phone === "string" ? body.phone.replace(/\D/g, "") : "";
 
-    // Retrieve user email
-    const user = await prisma.user.findUnique({
-      where: { id: sessionUser.userId },
-      select: { email: true },
-    });
+    const sessionUser = await getSessionUser(req);
+    let user = null;
+
+    if (sessionUser) {
+      user = await prisma.user.findUnique({
+        where: { id: sessionUser.userId },
+        select: { id: true, email: true },
+      });
+    } else if (phone && phone.length === 11) {
+      user = await prisma.user.findUnique({
+        where: { phone },
+        select: { id: true, email: true },
+      });
+    } else {
+      return NextResponse.json(
+        { error: "Phone number or active session is required." },
+        { status: 400 }
+      );
+    }
 
     if (!user || !user.email) {
-      return NextResponse.json({ error: "Email not found" }, { status: 400 });
+      return NextResponse.json({ error: "Email not found for account." }, { status: 400 });
     }
-
-    const body = await req.json();
-    const { otpCode, newPin, confirmPin } = resetSchema.parse(body);
 
     if (newPin !== confirmPin) {
       return NextResponse.json(
@@ -68,7 +78,7 @@ export async function POST(req: NextRequest) {
     // Hash the new PIN and write updates
     const hashedPin = await bcryptjs.hash(newPin, 10);
     await prisma.user.update({
-      where: { id: sessionUser.userId },
+      where: { id: user.id },
       data: { pinHash: hashedPin },
     });
 

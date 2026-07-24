@@ -4,6 +4,7 @@ import { purchaseData as purchaseFromSmeplug } from "@/lib/smeplug";
 import { purchaseData as purchaseFromSaiful } from "@/lib/saiful";
 import { purchaseData as purchaseFromAlrahuz } from "@/lib/alrahuz.mjs";
 import { purchaseData as purchaseFromAmysub } from "@/lib/amysub";
+import { purchaseData as purchaseFromDatabills } from "@/lib/databills";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
 import {
   findRecentDuplicateTransaction,
@@ -331,6 +332,7 @@ export async function POST(req: NextRequest) {
           API_B: purchaseFromSaiful,
           API_C: purchaseFromAlrahuz,
           API_D: purchaseFromAmysub,
+          API_E: purchaseFromDatabills,
         }
       );
 

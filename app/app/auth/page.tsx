@@ -16,6 +16,8 @@ import {
   User,
   WalletCards,
   Fingerprint,
+  X,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -106,6 +108,115 @@ export default function AuthPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
   const [savedPhone, setSavedPhone] = useState("");
+
+  // Forgot PIN Modal States
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotStep, setForgotStep] = useState<"phone" | "otp" | "reset">("phone");
+  const [forgotPhone, setForgotPhone] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotNewPin, setForgotNewPin] = useState("");
+  const [forgotConfirmPin, setForgotConfirmPin] = useState("");
+  const [forgotMaskedEmail, setForgotMaskedEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const handleOpenForgotModal = () => {
+    setForgotPhone(phone || savedPhone || "");
+    setForgotStep("phone");
+    setForgotOtp("");
+    setForgotNewPin("");
+    setForgotConfirmPin("");
+    setShowForgotModal(true);
+  };
+
+  const handleSendForgotOtp = async () => {
+    if (!forgotPhone || forgotPhone.length !== 11) {
+      toast.error("Enter your 11-digit phone number.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-pin/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: forgotPhone }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setForgotMaskedEmail(data.email || "");
+        setForgotStep("otp");
+        toast.success(data.message || "Reset code sent to your registered email.");
+      } else {
+        toast.error(data.error || "Failed to send reset code.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleVerifyForgotOtp = async () => {
+    if (forgotOtp.length !== 6) {
+      toast.error("Enter the 6-digit verification code.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-pin/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: forgotPhone, otpCode: forgotOtp }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setForgotStep("reset");
+        toast.success("Code verified! Set your new 6-digit PIN.");
+      } else {
+        toast.error(data.error || "Invalid or expired verification code.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetForgotPin = async () => {
+    if (forgotNewPin.length !== 6) {
+      toast.error("New PIN must be 6 digits.");
+      return;
+    }
+    if (forgotNewPin !== forgotConfirmPin) {
+      toast.error("PINs do not match.");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-pin/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: forgotPhone,
+          otpCode: forgotOtp,
+          newPin: forgotNewPin,
+          confirmPin: forgotConfirmPin,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("PIN reset successfully! You can now sign in.");
+        setPin(forgotNewPin);
+        setPhone(forgotPhone);
+        setShowForgotModal(false);
+      } else {
+        toast.error(data.error || "Failed to reset PIN.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -476,14 +587,24 @@ export default function AuthPage() {
                       label="PIN"
                       icon={Lock}
                       rightSlot={
-                        <button
-                          type="button"
-                          onClick={() => setShowPin((value) => !value)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 transition hover:text-sky-700"
-                        >
-                          {showPin ? <EyeOff size={13} /> : <Eye size={13} />}
-                          {showPin ? "Hide" : "Show"}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowPin((value) => !value)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 transition hover:text-sky-700"
+                          >
+                            {showPin ? <EyeOff size={13} /> : <Eye size={13} />}
+                            {showPin ? "Hide" : "Show"}
+                          </button>
+                          <span className="text-slate-300">|</span>
+                          <button
+                            type="button"
+                            onClick={handleOpenForgotModal}
+                            className="text-xs font-semibold text-emerald-600 transition hover:text-emerald-700"
+                          >
+                            Forgot PIN?
+                          </button>
+                        </div>
                       }
                       hint="Your 6-digit PIN keeps purchases secure."
                     >
@@ -695,6 +816,153 @@ export default function AuthPage() {
           </motion.section>
         </div>
       </div>
+
+      {/* ── FORGOT PIN RECOVERY MODAL ── */}
+      <AnimatePresence>
+        {showForgotModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md overflow-hidden rounded-3xl bg-white p-6 shadow-2xl border border-slate-100"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <KeyRound size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">Reset Transaction PIN</h3>
+                    <p className="text-xs text-slate-500">Recover your account PIN via email verification</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowForgotModal(false)}
+                  className="rounded-xl p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {forgotStep === "phone" && (
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Enter your registered 11-digit phone number below to receive a 6-digit verification code.
+                  </p>
+                  <AuthField label="Phone Number" icon={Phone}>
+                    <input
+                      type="tel"
+                      maxLength={11}
+                      placeholder="08012345678"
+                      value={forgotPhone}
+                      onChange={(e) => setForgotPhone(e.target.value.replace(/\D/g, ""))}
+                      className={`${inputStyle} pl-11 font-mono tracking-[0.08em]`}
+                      autoFocus
+                    />
+                  </AuthField>
+
+                  <button
+                    onClick={handleSendForgotOtp}
+                    disabled={forgotLoading || forgotPhone.length !== 11}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-5 py-3.5 text-sm font-semibold text-white transition disabled:opacity-50"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Sending verification code...
+                      </>
+                    ) : (
+                      <>
+                        Send Reset Code
+                        <ArrowRight size={16} />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {forgotStep === "otp" && (
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-emerald-50/80 p-3 border border-emerald-100 text-xs text-emerald-800">
+                    Verification code sent to <strong>{forgotMaskedEmail || "your email"}</strong>. Check your inbox or spam folder.
+                  </div>
+
+                  <AuthField label="6-Digit Verification Code" icon={Mail}>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="123456"
+                      value={forgotOtp}
+                      onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
+                      className={`${pinStyle} pl-11`}
+                      autoFocus
+                    />
+                  </AuthField>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setForgotStep("phone")}
+                      className="w-1/3 rounded-2xl border border-slate-200 px-4 py-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleVerifyForgotOtp}
+                      disabled={forgotLoading || forgotOtp.length !== 6}
+                      className="w-2/3 flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-4 py-3 text-xs font-semibold text-white transition disabled:opacity-50"
+                    >
+                      {forgotLoading ? <Loader2 size={14} className="animate-spin" /> : "Verify Code"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {forgotStep === "reset" && (
+                <div className="space-y-4">
+                  <AuthField label="New 6-Digit PIN" icon={Lock}>
+                    <input
+                      type="password"
+                      maxLength={6}
+                      placeholder="******"
+                      value={forgotNewPin}
+                      onChange={(e) => setForgotNewPin(e.target.value.replace(/\D/g, ""))}
+                      className={`${pinStyle} pl-11`}
+                      autoFocus
+                    />
+                  </AuthField>
+
+                  <AuthField label="Confirm New PIN" icon={Lock}>
+                    <input
+                      type="password"
+                      maxLength={6}
+                      placeholder="******"
+                      value={forgotConfirmPin}
+                      onChange={(e) => setForgotConfirmPin(e.target.value.replace(/\D/g, ""))}
+                      className={`${pinStyle} pl-11`}
+                    />
+                  </AuthField>
+
+                  <button
+                    onClick={handleResetForgotPin}
+                    disabled={forgotLoading || forgotNewPin.length !== 6 || forgotNewPin !== forgotConfirmPin}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 px-5 py-3.5 text-sm font-semibold text-white transition disabled:opacity-50"
+                  >
+                    {forgotLoading ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Saving new PIN...
+                      </>
+                    ) : (
+                      "Set New PIN & Return to Sign In"
+                    )}
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -50,6 +50,18 @@ export function normalizeProviderFailureMessage(message?: string | null) {
     return "Phone number is not eligible for this plan.";
   }
 
+  // Handle network mismatch errors from providers (e.g. SMEPlug: "SORRY , THE NUMBER IS NOT AN MTN NUMBER. THANK YOU!")
+  if (
+    normalizedMessage.includes("not an mtn number") ||
+    normalizedMessage.includes("not an airtel number") ||
+    normalizedMessage.includes("not a glo number") ||
+    normalizedMessage.includes("not a 9mobile number") ||
+    normalizedMessage.includes("is not an") ||
+    (normalizedMessage.includes("not an") && normalizedMessage.includes("number"))
+  ) {
+    return message ? message.trim() : "The phone number does not match the selected network operator.";
+  }
+
   // Handle third-party vendor balance/technical connection/SIM issues -> return clean network error
   if (
     normalizedMessage.includes("active sim") ||

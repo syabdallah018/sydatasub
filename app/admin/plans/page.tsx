@@ -222,6 +222,7 @@ export default function PlansPage() {
                       <SelectItem value="API_B">Saiful</SelectItem>
                       <SelectItem value="API_C">Alrahuz</SelectItem>
                       <SelectItem value="API_D">Amysub</SelectItem>
+                      <SelectItem value="API_E">DataBills</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -46,6 +46,7 @@ enum ApiSource {
   API_B
   API_C
   API_D
+  API_E
 }
 
 enum RewardType {
