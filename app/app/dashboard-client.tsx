@@ -28,6 +28,11 @@ import {
   Fingerprint,
   Mail,
   RotateCw,
+  BookUser,
+  Clock,
+  Calendar,
+  BookmarkPlus,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandEntryScreen } from "@/components/app/BrandEntry";
@@ -2416,6 +2421,466 @@ function BiometricSetupModal({
   );
 }
 
+function ContactPickerField({
+  phoneNumber,
+  onPhoneChange,
+  network,
+}: {
+  phoneNumber: string;
+  onPhoneChange: (val: string) => void;
+  network?: string | null;
+}) {
+  const [recentNumbers, setRecentNumbers] = useState<string[]>([]);
+  const [beneficiaries, setBeneficiaries] = useState<Array<{ id: string; name: string; phone: string; network: string }>>([]);
+  const [savingName, setSavingName] = useState("");
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/recent-numbers")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.recentNumbers) setRecentNumbers(data.recentNumbers);
+      })
+      .catch(() => {});
+
+    fetch("/api/beneficiaries")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.beneficiaries) setBeneficiaries(data.beneficiaries);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handlePickContact = async () => {
+    if (typeof window !== "undefined" && (window as any).AndroidBridge?.pickContact) {
+      (window as any).onContactPicked = (data: { name?: string; phone: string }) => {
+        if (data?.phone) {
+          onPhoneChange(data.phone);
+          toast.success(`Selected ${data.name || data.phone}`);
+        }
+      };
+      (window as any).AndroidBridge.pickContact();
+      return;
+    }
+
+    if (typeof navigator !== "undefined" && "contacts" in navigator && "select" in (navigator as any).contacts) {
+      try {
+        const contacts = await (navigator as any).contacts.select(["name", "tel"], { multiple: false });
+        if (contacts && contacts.length > 0) {
+          const rawTel = contacts[0].tel?.[0] || "";
+          if (rawTel) {
+            onPhoneChange(rawTel);
+            toast.success(`Selected ${contacts[0].name?.[0] || rawTel}`);
+          }
+        }
+      } catch (err: any) {
+        if (err.name !== "AbortError") {
+          toast.error("Could not open contacts");
+        }
+      }
+      return;
+    }
+
+    toast.info("1-click contact selection is available on our Android App!");
+  };
+
+  const handleSaveBeneficiary = async () => {
+    if (!savingName.trim()) {
+      toast.error("Enter a name for this contact");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/beneficiaries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: savingName.trim(),
+          phone: phoneNumber,
+          network: network || "MTN",
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Beneficiary saved!");
+        setShowSaveModal(false);
+        setBeneficiaries((prev) => [data.beneficiary, ...prev.filter((b) => b.phone !== phoneNumber)]);
+      } else {
+        toast.error(data.error || "Failed to save beneficiary");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const isAlreadyBeneficiary = beneficiaries.some((b) => b.phone === phoneNumber);
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      {/* Saved Beneficiaries Quick Chips */}
+      {beneficiaries.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
+            Saved Beneficiaries
+          </p>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+            {beneficiaries.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => onPhoneChange(b.phone)}
+                style={{
+                  border: `1px solid ${phoneNumber === b.phone ? T.blue : T.border}`,
+                  borderRadius: 12,
+                  padding: "5px 10px",
+                  background: phoneNumber === b.phone ? T.blueLight : T.surface,
+                  color: phoneNumber === b.phone ? T.blue : T.text,
+                  fontFamily: T.font,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                {b.name} ({b.phone.slice(-4)})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input Field with Contact Picker Button */}
+      <div style={{ position: "relative" }}>
+        <Phone size={16} color={T.textDim} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }} />
+        <input
+          type="tel"
+          maxLength={11}
+          value={phoneNumber}
+          placeholder="08012345678"
+          onChange={(e) => onPhoneChange(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "14px 110px 14px 44px",
+            borderRadius: 14,
+            border: `1px solid ${T.borderStrong}`,
+            background: T.surface,
+            fontFamily: T.mono,
+            fontSize: 16,
+            boxSizing: "border-box",
+            outline: "none",
+          }}
+        />
+        <button
+          type="button"
+          onClick={handlePickContact}
+          title="Pick from phone contacts"
+          style={{
+            position: "absolute",
+            right: 10,
+            top: "50%",
+            transform: "translateY(-50%)",
+            background: T.blueLight,
+            border: `1px solid ${T.blue}30`,
+            borderRadius: 10,
+            padding: "5px 8px",
+            cursor: "pointer",
+            color: T.blue,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <BookUser size={15} />
+          <span style={{ fontFamily: T.font, fontSize: 11, fontWeight: 800 }}>Contacts</span>
+        </button>
+      </div>
+
+      {/* Save Beneficiary Button */}
+      {phoneNumber.length === 11 && !isAlreadyBeneficiary && (
+        <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setSavingName("");
+              setShowSaveModal(true);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              color: T.blue,
+              fontFamily: T.font,
+              fontSize: 12,
+              fontWeight: 800,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              cursor: "pointer",
+            }}
+          >
+            <BookmarkPlus size={14} />
+            Save as Beneficiary
+          </button>
+        </div>
+      )}
+
+      {/* Recent 3 Numbers Auto-Suggestion */}
+      {recentNumbers.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 4px" }}>
+            Recent Numbers:
+          </p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {recentNumbers.map((num) => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => onPhoneChange(num)}
+                style={{
+                  border: `1px dashed ${phoneNumber === num ? T.blue : T.border}`,
+                  borderRadius: 10,
+                  padding: "3px 8px",
+                  background: phoneNumber === num ? T.blueLight : "transparent",
+                  color: phoneNumber === num ? T.blue : T.textMid,
+                  fontFamily: T.mono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Save Beneficiary Modal */}
+      {showSaveModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: T.card, borderRadius: 20, padding: 20, width: "100%", maxWidth: 340, border: `1px solid ${T.border}` }}>
+            <p style={{ fontFamily: T.font, fontSize: 16, fontWeight: 800, color: T.text, margin: "0 0 6px" }}>Save Beneficiary</p>
+            <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: "0 0 14px" }}>Assign a label to <strong>{phoneNumber}</strong></p>
+            <input
+              type="text"
+              placeholder="e.g. Mom, Work Line, Bro"
+              value={savingName}
+              onChange={(e) => setSavingName(e.target.value)}
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 12,
+                border: `1px solid ${T.borderStrong}`,
+                background: T.surface,
+                fontFamily: T.font,
+                fontSize: 14,
+                boxSizing: "border-box",
+                marginBottom: 16,
+              }}
+              autoFocus
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowSaveModal(false)}
+                style={{ flex: 1, padding: 12, borderRadius: 12, border: `1px solid ${T.border}`, background: "none", fontFamily: T.font, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveBeneficiary}
+                disabled={isSaving || !savingName.trim()}
+                style={{ flex: 1, padding: 12, borderRadius: 12, border: "none", background: T.blue, color: "#fff", fontFamily: T.font, fontSize: 13, fontWeight: 800, cursor: "pointer", opacity: isSaving ? 0.7 : 1 }}
+              >
+                {isSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScheduleTopUpModal({
+  open,
+  onClose,
+  category,
+  network,
+  phone,
+  planId,
+  airtimeAmount,
+  planName,
+}: {
+  open: boolean;
+  onClose: () => void;
+  category: "DATA" | "AIRTIME";
+  network: string;
+  phone: string;
+  planId?: string;
+  airtimeAmount?: number;
+  planName?: string;
+}) {
+  const [type, setType] = useState<"REMINDER" | "AUTO_PURCHASE">("REMINDER");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!open) return null;
+
+  const handleCreateSchedule = async () => {
+    if (!scheduledDate || !scheduledTime) {
+      toast.error("Please choose a date and time");
+      return;
+    }
+
+    const scheduledAtIso = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/scheduled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          category,
+          network,
+          phone,
+          planId,
+          airtimeAmount,
+          scheduledAt: scheduledAtIso,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success("Schedule created successfully!");
+        const item = data.scheduledTopUp;
+
+        // Register Android Native AlarmManager if in Android App
+        if (typeof window !== "undefined" && (window as any).AndroidBridge?.scheduleTopUp) {
+          const timestampMs = new Date(item.scheduledAt).getTime();
+          const title = type === "REMINDER" ? "Scheduled Top-Up Reminder" : "Scheduled Auto-Purchase";
+          const message = `Top-up for ${phone} (${network}) is due!`;
+          (window as any).AndroidBridge.scheduleTopUp(item.id, item.type, title, message, timestampMs);
+        }
+
+        onClose();
+      } else {
+        toast.error(data.error || "Failed to create schedule");
+      }
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: T.card, borderRadius: 22, padding: 20, width: "100%", maxWidth: 380, border: `1px solid ${T.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Clock size={20} color={T.blue} />
+            <span style={{ fontFamily: T.font, fontSize: 16, fontWeight: 900, color: T.text }}>Schedule Top-Up</span>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", padding: 4, cursor: "pointer", color: T.textDim }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ background: T.surface, padding: 12, borderRadius: 14, marginBottom: 16, border: `1px solid ${T.border}` }}>
+          <p style={{ fontFamily: T.font, fontSize: 12, fontWeight: 800, color: T.text, margin: "0 0 4px" }}>
+            {category === "DATA" ? planName || "Data Bundle" : `₦${airtimeAmount} Airtime`}
+          </p>
+          <p style={{ fontFamily: T.font, fontSize: 11, color: T.textMid, margin: 0 }}>
+            {network.toUpperCase()} • {phone}
+          </p>
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 6, textTransform: "uppercase" }}>
+            Schedule Mode
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => setType("REMINDER")}
+              style={{
+                border: `1px solid ${type === "REMINDER" ? T.blue : T.border}`,
+                background: type === "REMINDER" ? T.blueLight : T.card,
+                color: type === "REMINDER" ? T.blue : T.text,
+                borderRadius: 12,
+                padding: "10px 8px",
+                fontFamily: T.font,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              🔔 Reminder Alert
+            </button>
+            <button
+              type="button"
+              onClick={() => setType("AUTO_PURCHASE")}
+              style={{
+                border: `1px solid ${type === "AUTO_PURCHASE" ? T.blue : T.border}`,
+                background: type === "AUTO_PURCHASE" ? T.blueLight : T.card,
+                color: type === "AUTO_PURCHASE" ? T.blue : T.text,
+                borderRadius: 12,
+                padding: "10px 8px",
+                fontFamily: T.font,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              ⚡ Auto Purchase
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          <div>
+            <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 6, textTransform: "uppercase" }}>
+              Date
+            </label>
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={(e) => setScheduledDate(e.target.value)}
+              style={{ width: "100%", padding: 10, borderRadius: 12, border: `1px solid ${T.borderStrong}`, background: T.surface, fontFamily: T.font, fontSize: 13, boxSizing: "border-box" }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 6, textTransform: "uppercase" }}>
+              Time
+            </label>
+            <input
+              type="time"
+              value={scheduledTime}
+              onChange={(e) => setScheduledTime(e.target.value)}
+              style={{ width: "100%", padding: 10, borderRadius: 12, border: `1px solid ${T.borderStrong}`, background: T.surface, fontFamily: T.font, fontSize: 13, boxSizing: "border-box" }}
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleCreateSchedule}
+          disabled={loading || !scheduledDate || !scheduledTime}
+          style={{ width: "100%", padding: 14, borderRadius: 14, border: "none", background: T.blue, color: "#fff", fontFamily: T.font, fontSize: 14, fontWeight: 800, cursor: "pointer", opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? "Scheduling..." : "Confirm Schedule"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DataWindow({
   user,
   onBack,
@@ -2437,6 +2902,8 @@ function DataWindow({
   phoneNumber: string;
   setPhoneNumber: (num: string) => void;
 }) {
+  const [schedulingPlan, setSchedulingPlan] = useState<DataPlan | null>(null);
+
   const handlePhoneChange = (val: string) => {
     let cleaned = val.replace(/\D/g, "");
     if (cleaned.startsWith("234")) {
@@ -2492,27 +2959,7 @@ function DataWindow({
         <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Recipient Phone Number
         </label>
-        <div style={{ position: "relative" }}>
-          <Phone size={16} color={T.textDim} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }} />
-          <input
-            type="tel"
-            maxLength={30}
-            value={phoneNumber}
-            placeholder="08012345678"
-            onChange={(e) => handlePhoneChange(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "14px 16px 14px 44px",
-              borderRadius: 14,
-              border: `1px solid ${T.borderStrong}`,
-              background: T.surface,
-              fontFamily: T.mono,
-              fontSize: 16,
-              boxSizing: "border-box",
-              outline: "none",
-            }}
-          />
-        </div>
+        <ContactPickerField phoneNumber={phoneNumber} onPhoneChange={handlePhoneChange} network={selectedNetwork} />
 
         <div style={{ marginTop: 18 }}>
           <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -2603,14 +3050,53 @@ function DataWindow({
                     {plan.validity}
                   </p>
                 </div>
-                <p style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 800, color: T.blue, margin: "8px 0 0" }}>
-                  ₦{getPriceForTier(plan, user.tier).toLocaleString()}
-                </p>
+                <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "flex-end", marginTop: 8 }}>
+                  <p style={{ fontFamily: T.mono, fontSize: 14, fontWeight: 800, color: T.blue, margin: 0 }}>
+                    ₦{getPriceForTier(plan, user.tier).toLocaleString()}
+                  </p>
+                  {phoneNumber.length === 11 && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSchedulingPlan(plan);
+                      }}
+                      title="Schedule this plan"
+                      style={{
+                        border: `1px solid ${T.blue}40`,
+                        borderRadius: 8,
+                        padding: "3px 6px",
+                        background: T.blueLight,
+                        color: T.blue,
+                        fontFamily: T.font,
+                        fontSize: 10,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                      }}
+                    >
+                      <Clock size={11} />
+                      Schedule
+                    </button>
+                  )}
+                </div>
               </button>
             ))}
           </div>
         )}
       </div>
+
+      <ScheduleTopUpModal
+        open={!!schedulingPlan}
+        onClose={() => setSchedulingPlan(null)}
+        category="DATA"
+        network={selectedNetwork || "mtn"}
+        phone={phoneNumber}
+        planId={schedulingPlan?.id}
+        planName={schedulingPlan ? `${schedulingPlan.name} (${schedulingPlan.sizeLabel})` : ""}
+      />
     </motion.div>
   );
 }
@@ -2636,6 +3122,8 @@ function AirtimeWindow({
   amount: number | null;
   setAmount: (amt: number | null) => void;
 }) {
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+
   const handlePhoneChange = (val: string) => {
     let cleaned = val.replace(/\D/g, "");
     if (cleaned.startsWith("234")) {
@@ -2693,27 +3181,7 @@ function AirtimeWindow({
         <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Recipient Phone Number
         </label>
-        <div style={{ position: "relative" }}>
-          <Phone size={16} color={T.textDim} style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }} />
-          <input
-            type="tel"
-            maxLength={11}
-            value={phoneNumber}
-            placeholder="08012345678"
-            onChange={(e) => handlePhoneChange(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "14px 16px 14px 44px",
-              borderRadius: 14,
-              border: `1px solid ${T.borderStrong}`,
-              background: T.surface,
-              fontFamily: T.mono,
-              fontSize: 16,
-              boxSizing: "border-box",
-              outline: "none",
-            }}
-          />
-        </div>
+        <ContactPickerField phoneNumber={phoneNumber} onPhoneChange={handlePhoneChange} network={selectedNetwork} />
 
         <div style={{ marginTop: 18 }}>
           <label style={{ display: "block", fontFamily: T.font, fontSize: 11, fontWeight: 800, color: T.textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -2814,28 +3282,62 @@ function AirtimeWindow({
         />
       </div>
 
-      <button
-        onClick={onProceed}
-        disabled={!isFormValid}
-        style={{
-          width: "100%",
-          border: "none",
-          borderRadius: 16,
-          padding: 16,
-          background: isFormValid ? T.green : T.borderStrong,
-          color: "#fff",
-          fontFamily: T.font,
-          fontWeight: 800,
-          fontSize: 15,
-          cursor: isFormValid ? "pointer" : "not-allowed",
-          transition: "all 0.2s",
-        }}
-      >
-        Proceed to Recharge
-      </button>
-    </motion.div>
-  );
-}
+      <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              disabled={!isFormValid}
+              style={{
+                flex: 1,
+                border: `1px solid ${isFormValid ? T.blue : T.borderStrong}`,
+                borderRadius: 16,
+                padding: 14,
+                background: isFormValid ? T.blueLight : T.surface,
+                color: isFormValid ? T.blue : T.textDim,
+                fontFamily: T.font,
+                fontWeight: 800,
+                fontSize: 13,
+                cursor: isFormValid ? "pointer" : "not-allowed",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              <Clock size={16} />
+              Schedule
+            </button>
+            <button
+              onClick={onProceed}
+              disabled={!isFormValid}
+              style={{
+                flex: 2,
+                border: "none",
+                borderRadius: 16,
+                padding: 16,
+                background: isFormValid ? T.green : T.borderStrong,
+                color: "#fff",
+                fontFamily: T.font,
+                fontWeight: 800,
+                fontSize: 15,
+                cursor: isFormValid ? "pointer" : "not-allowed",
+                transition: "all 0.2s",
+              }}
+            >
+              Proceed to Recharge
+            </button>
+          </div>
+
+          <ScheduleTopUpModal
+            open={showScheduleModal}
+            onClose={() => setShowScheduleModal(false)}
+            category="AIRTIME"
+            network={selectedNetwork || "mtn"}
+            phone={phoneNumber}
+            airtimeAmount={amount || 0}
+          />
+        </motion.div>
+      );
+    }
 
 function ProfileTab({
   user,
