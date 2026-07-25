@@ -4187,6 +4187,11 @@ export default function DashboardClient({
       refreshAccounts().catch(() => undefined);
     };
 
+    if (typeof window !== "undefined") {
+      (window as any).syncNetwork = refreshDashboardState;
+      window.addEventListener("online", refreshDashboardState);
+    }
+
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refreshDashboardState();
@@ -4565,30 +4570,6 @@ export default function DashboardClient({
   return (
     <>
       <style>{fontStyle}</style>
-
-      {!isOnline && (
-        <div
-          style={{
-            background: "#e11d48",
-            color: "#ffffff",
-            fontFamily: T.font,
-            fontSize: 12,
-            fontWeight: 800,
-            padding: "8px 12px",
-            textAlign: "center",
-            position: "sticky",
-            top: 0,
-            zIndex: 99999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-          }}
-        >
-          <RotateCw size={13} className="animate-spin" />
-          Offline Mode • SY Data will auto-sync when network returns
-        </div>
-      )}
 
       <AnimatePresence>
         {isLocked && user && (

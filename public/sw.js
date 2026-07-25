@@ -1,69 +1,93 @@
-// Service Worker for SY DATA SUB
-// Conservative strategy: do not cache app shell/chunks to avoid stale-deploy WebView freezes.
+const CACHE_NAME = "sy-data-app-v1";
+const STATIC_ASSETS = [
+  "/app",
+  "/favicon.ico",
+  "/manifest.json",
+];
 
-const SW_VERSION = "sydatasub-v4";
-const STATIC_CACHE = `${SW_VERSION}-static`;
-
-const STATIC_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg", ".webp", ".ico", ".woff", ".woff2"];
-
+// Install Event - Pre-cache Core App Shell
 self.addEventListener("install", (event) => {
   self.skipWaiting();
-});
-
-self.addEventListener("activate", (event) => {
   event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(keys.filter((key) => !key.startsWith(SW_VERSION)).map((key) => caches.delete(key)));
-      await self.clients.claim();
-    })()
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn("[SW] Pre-cache partial warning:", err);
+      });
+    })
   );
 });
 
-self.addEventListener("message", (event) => {
-  if (event?.data?.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
+// Activate Event - Clean Up Old Caches
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
 });
 
-function isStaticAsset(pathname) {
-  return STATIC_EXTENSIONS.some((ext) => pathname.endsWith(ext));
-}
-
+// Fetch Event - Cache-First for Static Assets & Next.js Bundles, Network-First for Navigation
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET") return;
-
   const url = new URL(request.url);
-  const pathname = url.pathname;
 
-  // Never cache app pages, Next chunks, or API responses.
-  if (pathname.startsWith("/api/") || pathname.startsWith("/app") || pathname.startsWith("/_next/")) {
-    event.respondWith(fetch(request, { cache: "no-store" }));
+  // Skip non-GET requests and API calls from caching
+  if (request.method !== "GET" || url.pathname.startsWith("/api/")) {
     return;
   }
 
-  // Only cache passive static assets (icons/images/fonts).
-  if (isStaticAsset(pathname)) {
+  // Cache-First for Next.js static bundles, fonts, images, and static assets
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.match(/\.(png|jpg|jpeg|svg|gif|webp|ico|woff|woff2|ttf|css|js)$/)
+  ) {
     event.respondWith(
-      (async () => {
-        const cache = await caches.open(STATIC_CACHE);
-        const cached = await cache.match(request);
-        if (cached) return cached;
-
-        try {
-          const response = await fetch(request, { cache: "no-store" });
-          if (response && response.ok) {
-            cache.put(request, response.clone());
-          }
-          return response;
-        } catch {
-          return cached || Response.error();
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          // Refresh cache in background
+          fetch(request).then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
+            }
+          }).catch(() => {});
+          return cachedResponse;
         }
-      })()
+        return fetch(request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+          }
+          return networkResponse;
+        });
+      })
     );
     return;
   }
 
-  event.respondWith(fetch(request, { cache: "no-store" }));
+  // Network-First with Cache Fallback for HTML Page Navigation (/app)
+  if (request.mode === "navigate" || url.pathname === "/app") {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put("/app", responseClone));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match("/app").then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            return caches.match(request);
+          });
+        })
+    );
+    return;
+  }
 });
