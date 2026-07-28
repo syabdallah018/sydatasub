@@ -85,7 +85,7 @@ export async function purchaseData(
           "Content-Type": "application/json",
           "Authorization": `Token ${apiKey}`,
         },
-        timeout: 30000,
+        timeout: 120000,
         validateStatus: () => true,
       }
     );

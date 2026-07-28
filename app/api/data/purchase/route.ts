@@ -34,6 +34,8 @@ const purchaseSchema = z.object({
   path: ["pin"],
 });
 
+export const maxDuration = 120;
+
 const IDEMPOTENCY_WINDOW_MINUTES = 5;
 
 async function acquirePurchaseLock(tx: any, lockKey: string) {
