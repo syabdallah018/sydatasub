@@ -80,7 +80,7 @@ export function TransactionReceiptModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Download receipt as PNG image using Canvas in SY DATA Green Theme
+  // Download receipt as PNG image using Canvas with real logo & rounded pills
   const handleDownloadPNG = async () => {
     try {
       setDownloading(true);
@@ -97,10 +97,19 @@ export function TransactionReceiptModal({
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, width, height);
 
-      // 2. SY DATA Green Hero Gradient Header
-      const gradient = ctx.createLinearGradient(0, 0, width, 400);
+      // 2. Load Real Logo Image
+      const logoImg = new window.Image();
+      logoImg.crossOrigin = 'anonymous';
+      logoImg.src = '/logo.jpeg';
+      await new Promise<void>((resolve) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => resolve();
+      });
+
+      // 3. Green Hero Gradient Header
+      const gradient = ctx.createLinearGradient(0, 0, width, 380);
       if (isSuccess) {
-        gradient.addColorStop(0, '#046A38'); // SY Emerald Green
+        gradient.addColorStop(0, '#046A38');
         gradient.addColorStop(1, '#024220');
       } else if (isFailed) {
         gradient.addColorStop(0, '#B91C1C');
@@ -111,7 +120,13 @@ export function TransactionReceiptModal({
       }
 
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, 380);
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(0, 0, width, 380, [24, 24, 0, 0]);
+      } else {
+        ctx.rect(0, 0, width, 380);
+      }
+      ctx.fill();
 
       // Decorative ambient glowing circle overlay
       ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
@@ -119,9 +134,31 @@ export function TransactionReceiptModal({
       ctx.arc(500, 100, 220, 0, Math.PI * 2);
       ctx.fill();
 
-      // Brand Title
+      // Draw Compressed Logo in White Circle
+      const logoX = 40;
+      const logoY = 38;
+      const logoSize = 54;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 28px sans-serif';
+      ctx.fill();
+      ctx.clip();
+
+      if (logoImg.complete && logoImg.naturalWidth > 0) {
+        ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+      } else {
+        ctx.fillStyle = '#046A38';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('SY', logoX + logoSize / 2, logoY + 34);
+      }
+      ctx.restore();
+
+      // Brand Title & Subtitle
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 26px sans-serif';
       ctx.textAlign = 'left';
       ctx.fillText('SY DATA', 110, 62);
 
@@ -129,26 +166,30 @@ export function TransactionReceiptModal({
       ctx.font = 'bold 12px sans-serif';
       ctx.fillText('TRANSACTION RECEIPT', 110, 82);
 
-      // Logo Icon box placeholder on Canvas
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.fillRect(40, 38, 54, 54);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('SY', 67, 73);
-
-      // Status Badge Pill Top Right
+      // Status Badge Glass Pill Top Right
       const statusLabel = isSuccess ? '• SUCCESS' : isFailed ? '• FAILED' : '• PENDING';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.fillRect(430, 42, 130, 38);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      const pillX = 430;
+      const pillY = 42;
+      const pillW = 130;
+      const pillH = 38;
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(430, 42, 130, 38);
+
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(pillX, pillY, pillW, pillH, 19);
+      } else {
+        ctx.rect(pillX, pillY, pillW, pillH);
+      }
+      ctx.fill();
+      ctx.stroke();
 
       ctx.fillStyle = isSuccess ? '#86EFAC' : isFailed ? '#FCA5A5' : '#FDE68A';
       ctx.font = 'bold 14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(statusLabel, 495, 66);
+      ctx.fillText(statusLabel, pillX + pillW / 2, pillY + 24);
 
       // Hero Amount Section
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
@@ -160,16 +201,31 @@ export function TransactionReceiptModal({
       ctx.font = 'bold 54px sans-serif';
       ctx.fillText(`₦${Number(transaction.amount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`, width / 2, 235);
 
-      // Ref ID Glass Pill
+      // Ref ID Glass Pill (Adjusted size & font to fit long references)
+      const refPillW = 480;
+      const refPillH = 44;
+      const refPillX = (width - refPillW) / 2;
+      const refPillY = 270;
+
       ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-      ctx.fillRect(120, 270, 360, 42);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(120, 270, 360, 42);
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.font = '14px monospace';
-      ctx.fillText(`REF: ${transaction.reference}`, width / 2, 296);
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(refPillX, refPillY, refPillW, refPillH, 22);
+      } else {
+        ctx.rect(refPillX, refPillY, refPillW, refPillH);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      // Dynamically fit text size depending on reference length
+      const fullRefText = `REF: ${transaction.reference}`;
+      const fontSize = fullRefText.length > 35 ? 11 : fullRefText.length > 25 ? 13 : 14;
+      ctx.font = `${fontSize}px monospace`;
+      ctx.fillText(fullRefText, width / 2, refPillY + 27);
 
       // Scalloped Wavy Paper Tear Transition at 380px
       ctx.fillStyle = '#FFFFFF';
@@ -200,7 +256,6 @@ export function TransactionReceiptModal({
       details.forEach(([label, value], i) => {
         const currentY = startY + i * rowHeight;
 
-        // Muted gray divider
         if (i > 0) {
           ctx.strokeStyle = '#F1F5F9';
           ctx.lineWidth = 2;
@@ -270,17 +325,17 @@ export function TransactionReceiptModal({
             {/* Top Bar: Brand & Status */}
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-2.5">
-                <div className="relative w-9 h-9 rounded-xl overflow-hidden bg-white/10 border border-white/20 flex items-center justify-center p-0.5">
+                <div className="relative w-9 h-9 rounded-full overflow-hidden bg-white border border-white/30 flex items-center justify-center p-0.5 shrink-0 shadow-sm">
                   <Image
                     src="/logo.jpeg"
                     alt="SY DATA"
                     fill
-                    className="object-cover rounded-lg"
+                    className="object-contain p-0.5 rounded-full"
                     onError={(e) => {
                       e.currentTarget.style.display = 'none';
                     }}
                   />
-                  <span className="font-black text-xs text-white">SY</span>
+                  <span className="font-black text-xs text-emerald-800">SY</span>
                 </div>
                 <div>
                   <h3 className="text-base font-black tracking-tight text-white leading-none">SY DATA</h3>
@@ -289,7 +344,7 @@ export function TransactionReceiptModal({
               </div>
 
               {/* Status Badge Pill */}
-              <div className="px-2.5 py-1 rounded-full bg-white/15 border border-white/25 backdrop-blur-md flex items-center gap-1">
+              <div className="px-2.5 py-1 rounded-full bg-white/15 border border-white/25 backdrop-blur-md flex items-center gap-1 shrink-0">
                 <span className={`w-1.5 h-1.5 rounded-full ${isSuccess ? 'bg-emerald-300' : isFailed ? 'bg-red-300' : 'bg-amber-300'}`} />
                 <span className="text-[10px] font-extrabold tracking-wide uppercase text-white">
                   {isSuccess ? 'SUCCESS' : isFailed ? 'FAILED' : 'PENDING'}
@@ -305,11 +360,11 @@ export function TransactionReceiptModal({
               </div>
 
               {/* Ref ID Glass Pill */}
-              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-[11px] font-mono text-white/90">
-                <span className="truncate max-w-[180px]">REF: {transaction.reference}</span>
+              <div className="mt-3 inline-flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-[11px] font-mono text-white/90 max-w-[95%]">
+                <span className="truncate max-w-[190px] sm:max-w-[220px]">REF: {transaction.reference}</span>
                 <button
                   onClick={handleCopyRef}
-                  className="p-0.5 hover:bg-white/20 rounded transition-colors"
+                  className="p-0.5 hover:bg-white/20 rounded transition-colors shrink-0"
                   title="Copy reference"
                 >
                   {copied ? <Check size={11} className="text-emerald-300" /> : <Copy size={11} />}
