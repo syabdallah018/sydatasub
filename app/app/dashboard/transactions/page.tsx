@@ -5,23 +5,13 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { ChevronLeft, AlertCircle, Zap, CreditCard, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface Transaction {
-  id: string;
-  type: string;
-  status: string;
-  amount: number;
-  phone: string;
-  description: string;
-  createdAt: string;
-  reference: string;
-}
+import { TransactionReceiptModal, ReceiptTransaction } from '@/components/transaction-receipt-modal';
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<ReceiptTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<ReceiptTransaction | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
 
   useEffect(() => {
@@ -195,141 +185,15 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Receipt Modal */}
-      {receiptModalOpen && selectedTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-          <div className="w-full bg-white rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
-            {/* Close Button */}
-            <button
-              onClick={() => {
-                setReceiptModalOpen(false);
-                setSelectedTransaction(null);
-              }}
-              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <X size={24} className="text-gray-600" />
-            </button>
-
-            {/* Header */}
-            <div className="text-center mb-6 mt-2">
-              <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
-                selectedTransaction.status === 'SUCCESS'
-                  ? 'bg-green-100'
-                  : selectedTransaction.status === 'FAILED'
-                  ? 'bg-red-100'
-                  : 'bg-yellow-100'
-              }`}>
-                {selectedTransaction.status === 'SUCCESS' ? (
-                  <Zap className="text-green-600" size={32} />
-                ) : selectedTransaction.status === 'FAILED' ? (
-                  <AlertCircle className="text-red-600" size={32} />
-                ) : (
-                  <CreditCard className="text-yellow-600" size={32} />
-                )}
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {selectedTransaction.status === 'SUCCESS'
-                  ? 'Transaction Successful'
-                  : selectedTransaction.status === 'FAILED'
-                  ? 'Transaction Failed'
-                  : 'Pending'}
-              </h2>
-              <p className="text-gray-600 text-sm mt-1">
-                ₦{selectedTransaction.amount.toLocaleString()}
-              </p>
-            </div>
-
-            {/* Receipt Details Box */}
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-6 space-y-5 mb-6">
-              {/* Transaction Type */}
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Transaction Type</p>
-                  <p className="text-gray-900 font-semibold text-lg">
-                    {selectedTransaction.type === 'DATA' ? 'Data Purchase' : 'Airtime Purchase'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Phone Number */}
-              <div className="border-t border-blue-200 pt-4 flex justify-between items-start">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Phone Number</p>
-                  <p className="text-gray-900 font-semibold text-lg font-mono">
-                    {selectedTransaction.phone}
-                  </p>
-                </div>
-              </div>
-
-              {/* Amount */}
-              <div className="border-t border-blue-200 pt-4 flex justify-between items-start">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Amount</p>
-                  <p className="text-gray-900 font-semibold text-lg">
-                    ₦{selectedTransaction.amount.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {/* Status */}
-              <div className="border-t border-blue-200 pt-4 flex justify-between items-start">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Status</p>
-                  <div className="mt-1">
-                    <span
-                      className={`text-xs font-bold px-3 py-1.5 rounded-full inline-block ${getStatusColor(
-                        selectedTransaction.status
-                      )}`}
-                    >
-                      {selectedTransaction.status === 'SUCCESS'
-                        ? '✓ Successful'
-                        : selectedTransaction.status === 'FAILED'
-                        ? '✗ Failed'
-                        : '⏱ Pending'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Date & Time */}
-              <div className="border-t border-blue-200 pt-4 flex justify-between items-start">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Date & Time</p>
-                  <p className="text-gray-900 font-semibold">
-                    {format(new Date(selectedTransaction.createdAt), 'MMM d, yyyy')}
-                  </p>
-                  <p className="text-gray-600 text-sm">
-                    {format(new Date(selectedTransaction.createdAt), 'h:mm a')}
-                  </p>
-                </div>
-              </div>
-
-              {/* Reference */}
-              {selectedTransaction.reference && (
-                <div className="border-t border-blue-200 pt-4 flex justify-between items-start">
-                  <div className="w-full">
-                    <p className="text-gray-600 text-sm font-medium">Reference</p>
-                    <p className="text-gray-900 font-mono text-xs mt-2 break-all bg-white p-2 rounded border border-blue-100">
-                      {selectedTransaction.reference}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Close Button */}
-            <Button
-              onClick={() => {
-                setReceiptModalOpen(false);
-                setSelectedTransaction(null);
-              }}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 rounded-xl transition-all"
-            >
-              Done
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Compact Receipt Modal */}
+      <TransactionReceiptModal
+        open={receiptModalOpen}
+        onClose={() => {
+          setReceiptModalOpen(false);
+          setSelectedTransaction(null);
+        }}
+        transaction={selectedTransaction}
+      />
     </div>
   );
 }

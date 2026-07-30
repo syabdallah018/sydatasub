@@ -40,6 +40,7 @@ import { BrandEntryScreen } from "@/components/app/BrandEntry";
 import { getFriendlyMessage } from "@/lib/user-feedback";
 import { AIRTIME_PURCHASE_SUCCESS_MESSAGE, DATA_PURCHASE_SUCCESS_MESSAGE } from "@/lib/purchase-utils";
 import { getNetworkFromPhone } from "@/lib/utils";
+import { TransactionReceiptModal, ReceiptTransaction } from "@/components/transaction-receipt-modal";
 
 const fontStyle = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@400;500&display=swap');
@@ -100,6 +101,7 @@ interface DataPlan {
   sizeLabel: string;
   validity: string;
   network: string;
+  category?: string;
 }
 
 interface TransactionItem {
@@ -158,6 +160,7 @@ interface SuccessState {
   title: string;
   description: string;
   reference?: string;
+  transaction?: ReceiptTransaction;
 }
 
 const NETWORKS = [
@@ -798,81 +801,23 @@ function PurchaseSuccessScreen({
 }) {
   if (!state.open) return null;
 
+  const receiptTx: ReceiptTransaction = state.transaction || {
+    id: state.reference || `TX-${Date.now()}`,
+    type: state.title.toLowerCase().includes('airtime') ? 'AIRTIME_PURCHASE' : 'DATA_PURCHASE',
+    status: 'SUCCESS',
+    amount: 0,
+    phone: '',
+    description: state.description,
+    createdAt: new Date().toISOString(),
+    reference: state.reference || `REF-${Date.now()}`,
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 120,
-        background: "rgba(15,23,42,0.55)",
-        backdropFilter: "blur(8px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 18,
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 18, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.2 }}
-        style={{
-          width: "100%",
-          maxWidth: 460,
-          borderRadius: 24,
-          border: `1px solid ${T.borderStrong}`,
-          background: T.card,
-          boxShadow: T.blueShadow,
-          padding: 24,
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 66,
-            height: 66,
-            margin: "0 auto 16px",
-            borderRadius: 20,
-            background: "rgba(22,163,74,0.14)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Check size={34} color={T.green} />
-        </div>
-        <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 24, color: T.text, margin: "0 0 8px" }}>
-          {state.title}
-        </p>
-        <p style={{ fontFamily: T.font, fontSize: 14, color: T.textMid, margin: "0 0 16px", lineHeight: 1.5 }}>
-          {state.description}
-        </p>
-        {state.reference ? (
-          <p style={{ fontFamily: T.mono, fontSize: 12, color: T.textDim, margin: "0 0 20px" }}>
-            Ref: {state.reference}
-          </p>
-        ) : null}
-        <button
-          onClick={onClose}
-          style={{
-            width: "100%",
-            border: "none",
-            borderRadius: 14,
-            padding: "12px 14px",
-            background: T.blue,
-            color: "#fff",
-            fontFamily: T.font,
-            fontWeight: 800,
-            fontSize: 14,
-            cursor: "pointer",
-          }}
-        >
-          Continue
-        </button>
-      </motion.div>
-    </motion.div>
+    <TransactionReceiptModal
+      open={state.open}
+      onClose={onClose}
+      transaction={receiptTx}
+    />
   );
 }
 
@@ -1018,86 +963,12 @@ function TransactionReceipt({
 }) {
   if (!transaction) return null;
 
-  const statusTone =
-    transaction.status === "SUCCESS"
-      ? { bg: "rgba(22,163,74,0.12)", border: T.green, text: T.green, icon: "✓" }
-      : transaction.status === "FAILED"
-        ? { bg: "rgba(225,29,72,0.12)", border: T.rose, text: T.rose, icon: "!" }
-        : { bg: "rgba(217,119,6,0.12)", border: T.amber, text: T.amber, icon: "…" };
-
   return (
-    <BottomSheet open={open} onClose={onClose} title="Receipt" accentColor={T.blue}>
-      <div
-        style={{
-          background: statusTone.bg,
-          border: `1px solid ${statusTone.border}`,
-          borderRadius: 18,
-          padding: 18,
-          textAlign: "center",
-          marginBottom: 18,
-        }}
-      >
-        <div
-          style={{
-            width: 68,
-            height: 68,
-            borderRadius: "50%",
-            margin: "0 auto 12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: T.card,
-            color: statusTone.text,
-            fontFamily: T.font,
-            fontWeight: 800,
-            fontSize: 28,
-          }}
-        >
-          {statusTone.icon}
-        </div>
-        <p style={{ fontFamily: T.font, fontWeight: 800, fontSize: 18, color: statusTone.text, margin: "0 0 4px" }}>
-          {transaction.status}
-        </p>
-        <p style={{ fontFamily: T.font, fontSize: 12, color: T.textMid, margin: 0 }}>
-          {new Date(transaction.createdAt).toLocaleString()}
-        </p>
-      </div>
-
-      {[
-        ["Type", transaction.type.replace(/_/g, " ")],
-        ["Amount", `₦${transaction.amount.toLocaleString()}`],
-        ["Phone", transaction.phone || "—"],
-        ["Description", transaction.description || "—"],
-        ["Reference", transaction.reference],
-      ].map(([label, value]) => (
-        <div
-          key={label}
-          style={{
-            background: T.surface,
-            borderRadius: 14,
-            padding: 14,
-            marginBottom: 12,
-            border: `1px solid ${T.border}`,
-          }}
-        >
-          <p style={{ fontFamily: T.font, fontSize: 11, fontWeight: 700, color: T.textDim, margin: "0 0 6px", textTransform: "uppercase" }}>
-            {label}
-          </p>
-          <p
-            style={{
-              fontFamily: label === "Reference" ? T.mono : T.font,
-              fontSize: 14,
-              fontWeight: 700,
-              color: T.text,
-              margin: 0,
-              wordBreak: "break-word",
-            }}
-          >
-            {value}
-          </p>
-        </div>
-      ))}
-    </BottomSheet>
+    <TransactionReceiptModal
+      open={open}
+      onClose={onClose}
+      transaction={transaction}
+    />
   );
 }
 
@@ -4391,6 +4262,11 @@ export default function DashboardClient({
         return;
       }
 
+      const purchasedPrice = selectedPlan ? getPriceForTier(selectedPlan, user?.tier) : 0;
+      const purchasedPhone = phoneNumber;
+      const purchasedNetwork = selectedNetwork ? selectedNetwork.toUpperCase() : 'DATA';
+      const purchasedPlanName = selectedPlan ? `${selectedPlan.sizeLabel} ${selectedPlan.category || ''} (${selectedPlan.validity || '30 Days'})` : 'Data Plan';
+
       setBuyDataOpen(false);
       setBuyDataStep(1);
       setSelectedNetwork(null);
@@ -4402,6 +4278,22 @@ export default function DashboardClient({
         title: "Data purchase successful",
         description: DATA_PURCHASE_SUCCESS_MESSAGE,
         reference: result.reference,
+        transaction: {
+          id: result.reference || `TX-${Date.now()}`,
+          type: "DATA_PURCHASE",
+          status: "SUCCESS",
+          amount: purchasedPrice,
+          phone: purchasedPhone,
+          description: purchasedPlanName,
+          createdAt: new Date().toISOString(),
+          reference: result.reference || `REF-${Date.now()}`,
+          plan: {
+            network: purchasedNetwork,
+            sizeLabel: selectedPlan?.sizeLabel,
+            validity: selectedPlan?.validity,
+            category: selectedPlan?.category,
+          },
+        },
       });
       await refreshUser();
       await refreshRewards().catch(() => undefined);
@@ -4479,6 +4371,10 @@ export default function DashboardClient({
         return;
       }
 
+      const purchasedAirtimeAmount = airtimeAmount || 0;
+      const purchasedAirtimePhone = airtimePhone;
+      const purchasedAirtimeNetwork = airtimeNetwork ? airtimeNetwork.toUpperCase() : 'AIRTIME';
+
       setAirtimeOpen(false);
       setAirtimeNetwork(null);
       setAirtimeAmount(null);
@@ -4489,6 +4385,20 @@ export default function DashboardClient({
         title: "Airtime purchase successful",
         description: AIRTIME_PURCHASE_SUCCESS_MESSAGE,
         reference: result.reference,
+        transaction: {
+          id: result.reference || `TX-${Date.now()}`,
+          type: "AIRTIME_PURCHASE",
+          status: "SUCCESS",
+          amount: purchasedAirtimeAmount,
+          phone: purchasedAirtimePhone,
+          description: `Airtime Top-up (${purchasedAirtimeNetwork})`,
+          createdAt: new Date().toISOString(),
+          reference: result.reference || `REF-${Date.now()}`,
+          plan: {
+            network: purchasedAirtimeNetwork,
+            sizeLabel: "Airtime Top-up",
+          },
+        },
       });
       await refreshUser();
       await refreshRewards().catch(() => undefined);
