@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json(
       {
+        success: true,
         message: "Biometric login successful",
+        token: sessionToken,
         user: {
           id: user.id,
           phone: normalizedUser.phone,

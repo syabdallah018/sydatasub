@@ -11,6 +11,19 @@ export function rejectCrossSiteMutation(
     return null;
   }
 
+  // Allow mobile clients with dedicated headers, Bearer token, or mobile user-agent
+  const userAgent = req.headers.get("user-agent")?.toLowerCase() || "";
+  const isMobileClient =
+    req.headers.get("x-client") === "mobile" ||
+    req.headers.get("x-app-platform") === "flutter" ||
+    Boolean(req.headers.get("authorization")?.startsWith("Bearer ")) ||
+    userAgent.includes("dart") ||
+    userAgent.includes("flutter");
+
+  if (isMobileClient) {
+    return null;
+  }
+
   const requestOrigin = req.nextUrl.origin;
   const originHeader = req.headers.get("origin");
   const refererHeader = req.headers.get("referer");
@@ -25,7 +38,13 @@ export function rejectCrossSiteMutation(
 
   try {
     const parsedOrigin = new URL(candidate).origin;
-    if (parsedOrigin !== requestOrigin) {
+    const allowedOrigins = [
+      requestOrigin,
+      "https://www.sydatasub.com",
+      "https://sydatasub.com",
+      "http://localhost:3000",
+    ];
+    if (!allowedOrigins.includes(parsedOrigin) && parsedOrigin !== requestOrigin) {
       return NextResponse.json({ error: "Cross-site request blocked" }, { status: 403 });
     }
   } catch {

@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json(
       {
+        success: true,
         message: "Account created successfully",
+        token,
         user: {
           id: updatedUser.id,
           phone: updatedUser.phone,
