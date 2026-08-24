@@ -35,7 +35,8 @@ import {
   HelpCircle,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -98,6 +99,7 @@ export default function DashboardClient({
   // Developer states
   const [requestingAccess, setRequestingAccess] = useState(false);
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [testingWebhook, setTestingWebhook] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState(devProfile?.webhookUrl || "");
   const [ipsInput, setIpsInput] = useState(devProfile?.whitelistIps?.join(", ") || "");
   const [generatedCreds, setGeneratedCreds] = useState<{ apiKey: string; clientSecret: string } | null>(null);
@@ -245,6 +247,29 @@ export default function DashboardClient({
       toast.error("Network error saving configurations.");
     } finally {
       setUpdatingProfile(false);
+    }
+  };
+
+  const handleTestWebhook = async () => {
+    if (!webhookUrl) {
+      toast.error("Please enter and save a Webhook URL first.");
+      return;
+    }
+    setTestingWebhook(true);
+    try {
+      const res = await fetch("/api/developer/webhook/test", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Webhook test delivered successfully! HTTP ${data.statusCode} (${data.latencyMs}ms)`);
+      } else {
+        toast.error(data.error || `Webhook delivery failed with HTTP ${data.statusCode || 400}`);
+      }
+    } catch {
+      toast.error("Network error triggering webhook test.");
+    } finally {
+      setTestingWebhook(false);
     }
   };
 
@@ -981,7 +1006,9 @@ export default function DashboardClient({
               >
                 {!devProfile && (
                   <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm text-center max-w-2xl mx-auto">
-                    <Terminal size={48} className="mx-auto text-blue-600 mb-4 animate-pulse" />
+                    <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-200/80 flex items-center justify-center text-blue-600 mx-auto mb-4 shadow-sm">
+                      <Terminal size={32} />
+                    </div>
                     <h3 className="text-xl font-bold text-slate-800">Become a Partner Developer</h3>
                     <p className="text-slate-500 mt-2 text-sm max-w-lg mx-auto">
                       Access programmatic endpoints to integrate data sales. Query plans, submit sales directly from your server, and get automated webhook callbacks on resolution.
@@ -998,12 +1025,15 @@ export default function DashboardClient({
 
                 {devProfile && devProfile.status === "PENDING" && (
                   <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm text-center max-w-2xl mx-auto">
-                    <Loader2 size={48} className="mx-auto text-amber-500 mb-4 animate-spin" />
-                    <h3 className="text-xl font-bold text-slate-800">Developer Access Reviewing</h3>
+                    <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 mx-auto mb-4 shadow-sm">
+                      <Clock size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800">Developer Access Under Review</h3>
                     <p className="text-slate-500 mt-2 text-sm max-w-lg mx-auto">
                       Your request to access Developer Credentials has been received and is undergoing validation by our admins. You will receive access credentials once approved.
                     </p>
-                    <div className="mt-4 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 py-1.5 px-3 rounded-full inline-block">
+                    <div className="mt-4 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 py-1.5 px-3 rounded-full inline-flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                       Status: Pending Approval
                     </div>
                   </div>
@@ -1011,7 +1041,9 @@ export default function DashboardClient({
 
                 {devProfile && devProfile.status === "REJECTED" && (
                   <div className="bg-white rounded-3xl border border-rose-100 p-8 shadow-sm text-center max-w-2xl mx-auto">
-                    <AlertTriangle size={48} className="mx-auto text-rose-500 mb-4" />
+                    <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200/80 flex items-center justify-center text-rose-600 mx-auto mb-4 shadow-sm">
+                      <AlertTriangle size={32} />
+                    </div>
                     <h3 className="text-xl font-bold text-slate-800">Developer Access Rejected</h3>
                     <p className="text-slate-500 mt-2 text-sm max-w-lg mx-auto">
                       Unfortunately, your developer application was declined by the administrator. Please contact customer support for appeal parameters.
@@ -1084,6 +1116,16 @@ export default function DashboardClient({
                             className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
                           >
                             {updatingProfile ? <Loader2 className="animate-spin" size={14} /> : "Save Configuration"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleTestWebhook}
+                            disabled={testingWebhook || !webhookUrl}
+                            className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50 flex items-center justify-center gap-2 border border-slate-200"
+                          >
+                            {testingWebhook ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
+                            Test Webhook Endpoint
                           </button>
                         </form>
                       </div>
@@ -1331,14 +1373,14 @@ export default function DashboardClient({
                         Introduction
                       </h3>
                       <p className="text-sm text-slate-600 leading-relaxed">
-                        Welcome to the SY DATA SUB Developer API documentation! This guide details how to integrate mobile data bundle sales programmatically.
+                        Welcome to the SY DATA SUB Developer API documentation! This guide details how to integrate mobile data bundle sales programmatically with automated instant fulfillment and webhook callbacks.
                       </p>
                       <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4 flex gap-3 text-blue-800 text-xs font-semibold leading-relaxed">
                         <Info className="shrink-0 text-blue-600 mt-0.5" size={16} />
                         <div>
                           <span className="font-bold text-sm">Protocol Requirement</span>
                           <p className="mt-1">
-                            All requests must be made over <span className="font-semibold text-blue-900">HTTPS</span>. Re-validate your balances before execution, as data orders automatically trigger wallet debits.
+                            All requests must be made over <span className="font-semibold text-blue-900">HTTPS</span>. Re-validate your balances before execution, as data orders automatically trigger wallet debits upon submission.
                           </p>
                         </div>
                       </div>
@@ -1365,7 +1407,7 @@ export default function DashboardClient({
                         Authentication
                       </h3>
                       <p className="text-sm text-slate-600 leading-relaxed">
-                        Access to our developer API endpoints is validated using custom HTTP header parameters. Authentication is simple: pass your raw API Key inside the <code className="bg-slate-100 px-1 py-0.5 rounded text-blue-600 font-bold">X-API-Key</code> header of all requests.
+                        Access to all developer API endpoints is authenticated via the <code className="bg-slate-100 px-1.5 py-0.5 rounded text-blue-600 font-bold">X-API-Key</code> request header. Pass your unique active API key with every programmatic request.
                       </p>
                       <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex gap-3 text-amber-800 text-xs font-semibold leading-relaxed">
                         <AlertTriangle className="shrink-0 text-amber-600 mt-0.5" size={16} />
@@ -1378,11 +1420,23 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="lg:col-span-5 bg-slate-955 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
-                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Required Headers</span>
-                      <div className="space-y-1.5 p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-200">
-                        <p><span className="text-slate-400">Content-Type:</span> <span className="text-emerald-450">"application/json"</span></p>
-                        <p><span className="text-slate-400">X-API-Key:</span> <span className="text-sky-300">"sy_live_c8588b0e..."</span></p>
+                    <div className="lg:col-span-5 space-y-3">
+                      <div className="bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
+                        <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Required Headers</span>
+                        <div className="space-y-1.5 p-3 bg-slate-900 rounded-lg border border-slate-800 text-slate-200">
+                          <p><span className="text-slate-400">Content-Type:</span> <span className="text-emerald-400">"application/json"</span></p>
+                          <p><span className="text-slate-400">X-API-Key:</span> <span className="text-sky-300">"sy_live_c8588b0e..."</span></p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-950 text-slate-300 p-4 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-2">
+                        <span className="text-rose-400 block uppercase tracking-widest text-[10px] font-bold">Auth Failure Response (401)</span>
+                        <pre className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-rose-300 whitespace-pre-wrap select-all leading-relaxed text-[11px]">
+{`{
+  "success": false,
+  "error": "Authentication credentials required (x-api-key header)"
+}`}
+                        </pre>
                       </div>
                     </div>
                   </section>
@@ -1405,16 +1459,28 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="lg:col-span-5 bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
-                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Sample Response (200 OK)</span>
-                      <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed">
+                    <div className="lg:col-span-5 space-y-3">
+                      <div className="bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
+                        <span className="text-emerald-400 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Success Response (200 OK)</span>
+                        <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed">
 {`{
   "success": true,
-  "balance": 12540.50, // In Naira
-  "balanceKobo": 1254050, // In Kobo
+  "balance": 15000.50,
+  "balanceKobo": 1500050,
   "currency": "NGN"
 }`}
-                      </pre>
+                        </pre>
+                      </div>
+
+                      <div className="bg-slate-950 text-slate-300 p-4 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-2">
+                        <span className="text-rose-400 block uppercase tracking-widest text-[10px] font-bold">Failure Response (401 / 403)</span>
+                        <pre className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-rose-300 whitespace-pre-wrap select-all leading-relaxed text-[11px]">
+{`{
+  "success": false,
+  "error": "Developer account not found or pending approval"
+}`}
+                        </pre>
+                      </div>
                     </div>
                   </section>
 
@@ -1462,7 +1528,12 @@ export default function DashboardClient({
                               <tr>
                                 <td className="px-4 py-3 font-mono text-blue-600 text-xs">network</td>
                                 <td className="px-4 py-3 text-slate-405 text-xs">String</td>
-                                <td className="px-4 py-3 text-xs">MTN, GLO, AIRTEL, or 9MOBILE.</td>
+                                <td className="px-4 py-3 text-xs">MTN, GLO, AIRTEL, or NINEMOBILE.</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-3 font-mono text-blue-600 text-xs">networkId</td>
+                                <td className="px-4 py-3 text-slate-405 text-xs">Integer</td>
+                                <td className="px-4 py-3 text-xs">1 = MTN, 2 = GLO, 3 = NINEMOBILE, 4 = AIRTEL.</td>
                               </tr>
                               <tr>
                                 <td className="px-4 py-3 font-mono text-blue-600 text-xs">price</td>
@@ -1475,24 +1546,35 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="lg:col-span-5 bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
-                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Sample Response (200 OK)</span>
-                      <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed">
+                    <div className="lg:col-span-5 space-y-3">
+                      <div className="bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
+                        <span className="text-emerald-400 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Success Response (200 OK)</span>
+                        <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed">
 {`{
   "success": true,
   "plans": [
     {
-      "id": 125, // Integer ID
+      "id": 125,
       "name": "MTN SME 1GB",
       "network": "MTN",
       "networkId": 1,
       "size": "1GB",
       "validity": "30 Days",
       "price": 240
+    },
+    {
+      "id": 126,
+      "name": "GLO 1.5GB Data Plan",
+      "network": "GLO",
+      "networkId": 2,
+      "size": "1.5GB",
+      "validity": "30 Days",
+      "price": 450
     }
   ]
 }`}
-                      </pre>
+                        </pre>
+                      </div>
                     </div>
                   </section>
 
@@ -1510,7 +1592,7 @@ export default function DashboardClient({
                           Submit a data purchase transaction. The reference identifier must be unique globally across your transactions history logs. Pass the integer `planId` key retrieved from `/api/plans`.
                         </p>
                         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-150 max-w-xs">
-                          <span className="px-2.5 py-0.5 bg-green-650 text-white font-bold rounded text-[10px]">POST</span>
+                          <span className="px-2.5 py-0.5 bg-emerald-600 text-white font-bold rounded text-[10px]">POST</span>
                           <code className="text-xs font-mono font-bold text-slate-850">/api/data</code>
                         </div>
                       </div>
@@ -1565,21 +1647,54 @@ export default function DashboardClient({
 {`{
   "phone": "08164135836",
   "networkId": 1,
-  "planId": 125, // Integer ID
+  "planId": 125,
   "reference": "tx-unique-trace-983"
 }`}
                         </pre>
                       </div>
 
-                      <div className="bg-slate-955 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
-                        <span className="text-slate-550 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Sample Success Response (200 OK)</span>
-                        <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed">
+                      <div className="bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
+                        <span className="text-emerald-400 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Exact Success Response (200 OK)</span>
+                        <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-emerald-300 whitespace-pre-wrap select-all leading-relaxed">
 {`{
   "success": true,
   "reference": "tx-unique-trace-983",
   "externalReference": "API-C-7289139",
   "status": "SUCCESS",
   "message": "You have successfully transferred MTN SME 1GB to 08164135836"
+}`}
+                        </pre>
+                      </div>
+
+                      <div className="bg-slate-950 text-slate-300 p-4 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-2">
+                        <span className="text-rose-400 block uppercase tracking-widest text-[10px] font-bold">Provider Failure Response (400 Bad Request)</span>
+                        <pre className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-rose-300 whitespace-pre-wrap select-all leading-relaxed text-[11px]">
+{`{
+  "success": false,
+  "error": "Provider network error. Please try again shortly.",
+  "reference": "tx-unique-trace-983",
+  "status": "FAILED"
+}`}
+                        </pre>
+                        <p className="text-[10px] text-slate-400">Note: Failed requests are automatically refunded to your wallet balance.</p>
+                      </div>
+
+                      <div className="bg-slate-950 text-slate-300 p-4 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-2">
+                        <span className="text-amber-400 block uppercase tracking-widest text-[10px] font-bold">Insufficient Balance Response (400 Bad Request)</span>
+                        <pre className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-amber-300 whitespace-pre-wrap select-all leading-relaxed text-[11px]">
+{`{
+  "success": false,
+  "error": "Insufficient wallet balance"
+}`}
+                        </pre>
+                      </div>
+
+                      <div className="bg-slate-950 text-slate-300 p-4 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-2">
+                        <span className="text-purple-400 block uppercase tracking-widest text-[10px] font-bold">Duplicate Reference Response (409 Conflict)</span>
+                        <pre className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-purple-300 whitespace-pre-wrap select-all leading-relaxed text-[11px]">
+{`{
+  "success": false,
+  "error": "Duplicate reference detected"
 }`}
                         </pre>
                       </div>
@@ -1604,13 +1719,14 @@ export default function DashboardClient({
                       </div>
                     </div>
 
-                    <div className="lg:col-span-5 bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
-                      <span className="text-slate-500 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Sample Response (200 OK)</span>
-                      <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed">
+                    <div className="lg:col-span-5 space-y-3">
+                      <div className="bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
+                        <span className="text-emerald-400 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Success Response (200 OK)</span>
+                        <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed">
 {`{
   "success": true,
   "transaction": {
-    "id": "tx_cuid_key_abc",
+    "id": "cly123456789",
     "reference": "tx-unique-trace-983",
     "externalReference": "API-C-7289139",
     "type": "DATA_PURCHASE",
@@ -1618,11 +1734,22 @@ export default function DashboardClient({
     "amount": 240,
     "recipient": "08164135836",
     "description": "Developer API: MTN SME 1GB -> 08164135836",
-    "createdAt": "2026-07-19T00:00:00.000Z",
-    "updatedAt": "2026-07-19T00:00:02.000Z"
+    "createdAt": "2026-08-24T20:00:00.000Z",
+    "updatedAt": "2026-08-24T20:00:02.000Z"
   }
 }`}
-                      </pre>
+                        </pre>
+                      </div>
+
+                      <div className="bg-slate-950 text-slate-300 p-4 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-2">
+                        <span className="text-rose-400 block uppercase tracking-widest text-[10px] font-bold">Not Found Response (404)</span>
+                        <pre className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-rose-300 whitespace-pre-wrap select-all leading-relaxed text-[11px]">
+{`{
+  "success": false,
+  "error": "Transaction not found"
+}`}
+                        </pre>
+                      </div>
                     </div>
                   </section>
 
@@ -1633,15 +1760,50 @@ export default function DashboardClient({
                     <div className="lg:col-span-7 space-y-4">
                       <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                        Webhooks Setup
+                        Webhooks Setup & Event Types
                       </h3>
                       <p className="text-sm text-slate-600 leading-relaxed">
-                        Configure your webhook endpoint to receive asynchronous updates when transactions complete. We push payload events via POST and sign the payload.
+                        Configure your webhook endpoint to receive asynchronous HTTP POST notifications on every state transition. Each event is signed with an HMAC SHA-256 signature using your raw API key.
                       </p>
-                      <div className="space-y-1.5 p-3 bg-slate-50 border border-slate-150 rounded-xl font-semibold text-xs text-slate-705">
-                        <p><span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold block">Webhook Event Headers</span></p>
-                        <p><span className="text-slate-550">X-SYDATA-Event:</span> <span className="font-mono text-slate-900 font-bold">transaction.updated</span></p>
-                        <p><span className="text-slate-550">X-SYDATA-Signature:</span> <span className="font-mono text-slate-900 font-bold text-blue-600">hex_hmac_sha256_hash</span></p>
+
+                      <div className="overflow-x-auto border border-slate-150 rounded-2xl">
+                        <table className="w-full text-left text-sm text-slate-500">
+                          <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-xs border-b border-slate-150">
+                            <tr>
+                              <th className="px-3.5 py-2">Event Name</th>
+                              <th className="px-3.5 py-2">Trigger Description</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-semibold text-slate-655 text-xs">
+                            <tr>
+                              <td className="px-3.5 py-2.5 font-mono text-amber-600 font-bold">transaction.pending</td>
+                              <td className="px-3.5 py-2.5">Dispatched immediately when transaction is created and queued for delivery.</td>
+                            </tr>
+                            <tr>
+                              <td className="px-3.5 py-2.5 font-mono text-emerald-600 font-bold">transaction.success</td>
+                              <td className="px-3.5 py-2.5">Dispatched when data bundle delivery completes successfully.</td>
+                            </tr>
+                            <tr>
+                              <td className="px-3.5 py-2.5 font-mono text-rose-600 font-bold">transaction.failed</td>
+                              <td className="px-3.5 py-2.5">Dispatched when delivery fails and your wallet balance is refunded.</td>
+                            </tr>
+                            <tr>
+                              <td className="px-3.5 py-2.5 font-mono text-purple-600 font-bold">transaction.refunded</td>
+                              <td className="px-3.5 py-2.5">Dispatched when an administrator manually reverses / refunds a transaction.</td>
+                            </tr>
+                            <tr>
+                              <td className="px-3.5 py-2.5 font-mono text-blue-600 font-bold">test.webhook</td>
+                              <td className="px-3.5 py-2.5">Dispatched when clicking 'Test Webhook' in your developer settings tab.</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="space-y-1.5 p-3.5 bg-slate-50 border border-slate-150 rounded-xl font-semibold text-xs text-slate-705">
+                        <p><span className="text-slate-400 uppercase tracking-wider text-[10px] font-bold block">Webhook HTTP Headers</span></p>
+                        <p><span className="text-slate-550">X-SYDATA-Event:</span> <span className="font-mono text-slate-900 font-bold">transaction.success</span></p>
+                        <p><span className="text-slate-550">X-SYDATA-Signature:</span> <span className="font-mono text-blue-600 font-bold">hex_hmac_sha256_hash</span></p>
+                        <p><span className="text-slate-550">X-SYDATA-Timestamp:</span> <span className="font-mono text-slate-800 font-bold">2026-08-24T20:00:02.123Z</span></p>
                       </div>
 
                       <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-4 flex gap-3 text-blue-800 text-xs font-semibold leading-relaxed">
@@ -1649,26 +1811,48 @@ export default function DashboardClient({
                         <div>
                           <span className="font-bold text-sm">Signature Verification</span>
                           <p className="mt-1">
-                            Compute a SHA256 HMAC of the raw request payload body. Use your raw developer **API Client Key** as the hashing key. Compare the computed signature hex against the value in the header key <code className="bg-blue-100 px-1 py-0.2 rounded font-mono font-bold text-blue-900">X-SYDATA-Signature</code>.
+                            Compute a SHA256 HMAC of the raw request payload body using your raw developer **API Client Key** as the secret. Compare the computed signature hex against the value in the header <code className="bg-blue-100 px-1 py-0.2 rounded font-mono font-bold text-blue-900">X-SYDATA-Signature</code>.
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="lg:col-span-5 bg-slate-955 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-4">
-                      <span className="text-slate-550 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Node.js Verification Example</span>
-                      <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre overflow-x-auto leading-relaxed">
+                    <div className="lg:col-span-5 space-y-4">
+                      <div className="bg-slate-950 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
+                        <span className="text-emerald-400 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Sample Webhook Payload</span>
+                        <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre-wrap select-all leading-relaxed text-[11px]">
+{`{
+  "event": "transaction.success",
+  "timestamp": "2026-08-24T20:00:02.123Z",
+  "data": {
+    "id": "cly123456789",
+    "reference": "tx-unique-trace-983",
+    "externalReference": "API-C-7289139",
+    "type": "DATA_PURCHASE",
+    "status": "SUCCESS",
+    "amount": 240,
+    "recipient": "08164135836",
+    "description": "You have successfully transferred MTN SME 1GB to 08164135836"
+  }
+}`}
+                        </pre>
+                      </div>
+
+                      <div className="bg-slate-955 text-slate-300 p-5 rounded-2xl border border-slate-800 font-mono text-xs shadow-xl space-y-3">
+                        <span className="text-slate-550 block border-b border-slate-800 pb-2 uppercase tracking-widest text-[10px] font-bold">Node.js Verification Example</span>
+                        <pre className="bg-slate-900 p-3 rounded-lg border border-slate-800 text-sky-300 whitespace-pre overflow-x-auto leading-relaxed text-[11px]">
 {`const crypto = require("crypto");
 
-function verifyWebhook(reqBody, headerSignature, apiKey) {
+function verifyWebhook(rawBody, signature, apiKey) {
   const hash = crypto
     .createHmac("sha256", apiKey)
-    .update(JSON.stringify(reqBody))
+    .update(typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody))
     .digest("hex");
     
-  return hash === headerSignature;
+  return hash === signature;
 }`}
-                      </pre>
+                        </pre>
+                      </div>
                     </div>
                   </section>
 
@@ -1678,17 +1862,17 @@ function verifyWebhook(reqBody, headerSignature, apiKey) {
                   <section id="doc-errors" className="space-y-4 pb-16">
                     <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full bg-blue-600"></span>
-                      HTTP Error Codes
+                      HTTP Error Codes Reference
                     </h3>
                     <p className="text-sm text-slate-655 leading-relaxed">
-                      Summary table of API response error codes and their context:
+                      Comprehensive reference of API response error codes, exact messages, and their resolutions:
                     </p>
                     <div className="overflow-x-auto border border-slate-150 rounded-2xl">
                       <table className="w-full text-left text-sm text-slate-500">
                         <thead className="bg-slate-50 text-slate-700 font-bold uppercase text-xs border-b border-slate-150">
                           <tr>
                             <th className="px-4 py-2.5">HTTP Code</th>
-                            <th className="px-4 py-2.5">Error Message</th>
+                            <th className="px-4 py-2.5">Exact Error Message</th>
                             <th className="px-4 py-2.5">Cause / Resolution</th>
                           </tr>
                         </thead>
@@ -1700,23 +1884,53 @@ function verifyWebhook(reqBody, headerSignature, apiKey) {
                           </tr>
                           <tr>
                             <td className="px-4 py-3 text-slate-900 font-bold text-xs">400 Bad Request</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Invalid network ID</td>
+                            <td className="px-4 py-3 text-xs">Network ID must be an integer between 1 and 4 (1=MTN, 2=Glo, 3=9mobile, 4=Airtel).</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 text-slate-900 font-bold text-xs">400 Bad Request</td>
                             <td className="px-4 py-3 font-mono text-red-500 text-xs">Insufficient wallet balance</td>
-                            <td className="px-4 py-3 text-xs">Your main wallet balance does not cover the price of the requested plan.</td>
+                            <td className="px-4 py-3 text-xs">Your main wallet balance does not cover the price of the requested plan. Fund your wallet.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 text-slate-900 font-bold text-xs">400 Bad Request</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">[Provider error message]</td>
+                            <td className="px-4 py-3 text-xs">Provider delivery failed. Your wallet balance is automatically refunded and a webhook is dispatched.</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-3 text-slate-900 font-bold text-xs">401 Unauthorized</td>
-                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Invalid API credentials</td>
-                            <td className="px-4 py-3 text-xs">The provided `X-API-Key` header is incorrect or suspended.</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Authentication credentials required (x-api-key header)</td>
+                            <td className="px-4 py-3 text-xs">Missing `X-API-Key` in request headers.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 text-slate-900 font-bold text-xs">401 Unauthorized</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Developer account not found or pending approval</td>
+                            <td className="px-4 py-3 text-xs">Your developer profile has not been approved by the administrator yet.</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-3 text-slate-900 font-bold text-xs">403 Forbidden</td>
-                            <td className="px-4 py-3 font-mono text-red-500 text-xs">IP address not whitelisted</td>
-                            <td className="px-4 py-3 text-xs">Your request server IP does not match the configured whitelist array in settings.</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">IP address not whitelisted: [IP]</td>
+                            <td className="px-4 py-3 text-xs">Your request origin IP does not match the configured whitelist array in your developer settings.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 text-slate-900 font-bold text-xs">404 Not Found</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Plan not found or inactive</td>
+                            <td className="px-4 py-3 text-xs">The provided `planId` does not exist or is currently deactivated. Retrieve valid IDs from `/api/plans`.</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-3 text-slate-900 font-bold text-xs">409 Conflict</td>
                             <td className="px-4 py-3 font-mono text-red-500 text-xs">Duplicate reference detected</td>
-                            <td className="px-4 py-3 text-xs">A transaction with that exact reference has already been executed. Use a new trace key.</td>
+                            <td className="px-4 py-3 text-xs">A transaction with that exact reference has already been executed. Generate a new unique trace key.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 text-slate-900 font-bold text-xs">429 Too Many Requests</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Rate limit exceeded: You can only purchase data for the same number once per minute.</td>
+                            <td className="px-4 py-3 text-xs">Anti-spam rate limit triggered for the recipient phone number.</td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 text-slate-900 font-bold text-xs">500 Internal Error</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Purchase processing failed. If your wallet was charged, it has been automatically refunded.</td>
+                            <td className="px-4 py-3 text-xs">Unhandled server error. All funds were automatically restored to your wallet balance.</td>
                           </tr>
                         </tbody>
                       </table>

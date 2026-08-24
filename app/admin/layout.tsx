@@ -14,6 +14,7 @@ const SIDEBAR_ITEMS = [
   { href: "/admin/plans", label: "Data Plans", icon: Database },
   { href: "/admin/pricing", label: "Pricing Tiers", icon: Database },
   { href: "/admin/transactions", label: "Transactions", icon: Receipt },
+  { href: "/admin/api-transactions", label: "API Transactions", icon: Terminal },
   { href: "/admin/agents", label: "Agent Apps", icon: UserCheck },
   { href: "/admin/developers", label: "Developers", icon: Terminal },
   { href: "/admin/rewards", label: "Rewards", icon: Gift },

@@ -222,6 +222,9 @@ export async function POST(req: NextRequest) {
 
     const { transaction: dbTx, rewardDebit, walletDebit } = txResult;
 
+    // Dispatch webhook for transaction initiation/pending state
+    dispatchDeveloperWebhook(user.id, dbTx, "transaction.pending");
+
     try {
       // Call provider API
       const apiResult = await purchaseDataByPlan(
@@ -263,7 +266,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Fire failure Webhook
-        dispatchDeveloperWebhook(user.id, updatedTx);
+        dispatchDeveloperWebhook(user.id, updatedTx, "transaction.failed");
 
         return NextResponse.json(
           { success: false, error: errorMessage, reference, status: "FAILED" },
@@ -291,8 +294,8 @@ export async function POST(req: NextRequest) {
         `Successful purchase of ${plan.sizeLabel} for ${phone}. Ref: ${reference}`
       ).catch(err => console.error("[PUSH ERROR]", err));
 
-      // Dispatch webhook
-      dispatchDeveloperWebhook(user.id, updatedTx);
+      // Dispatch success webhook
+      dispatchDeveloperWebhook(user.id, updatedTx, "transaction.success");
 
       return NextResponse.json(
         {
@@ -326,7 +329,7 @@ export async function POST(req: NextRequest) {
         });
       });
 
-      dispatchDeveloperWebhook(user.id, updatedTx);
+      dispatchDeveloperWebhook(user.id, updatedTx, "transaction.failed");
 
       return NextResponse.json(
         { success: false, error: PURCHASE_FAILED_GENERIC_MESSAGE, reference, status: "FAILED" },
