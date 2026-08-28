@@ -117,6 +117,7 @@ model User {
   developerProfile DeveloperProfile?
   beneficiaries    Beneficiary[]
   scheduledTopUps  ScheduledTopUp[]
+  preference       UserPreference?
 
   @@index([phone])
   @@index([email])
@@ -357,3 +358,24 @@ model ScheduledTopUp {
   @@index([status, scheduledAt])
   @@map("scheduled_topups")
 }
+
+model UserPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  themeMode           String   @default("system") // "system", "light", "dark"
+  biometricsEnabled   Boolean  @default(false)
+  hideBalance         Boolean  @default(false)
+  emailNotifications  Boolean  @default(true)
+  smsNotifications    Boolean  @default(true)
+  pushNotifications   Boolean  @default(true)
+  twoFactorEnabled    Boolean  @default(false)
+  transactionReceipts Boolean  @default(true)
+  preferredNetwork    String?  @default("MTN")
+  language            String   @default("en")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("user_preferences")
+}
+
