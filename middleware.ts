@@ -76,7 +76,7 @@ export async function middleware(req: NextRequest) {
   }
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "default-src 'self' blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.gstatic.com; worker-src 'self' blob:; connect-src 'self' https: data: blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
   );
   
   return response;
