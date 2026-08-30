@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { evaluateDepositRewardInTx } from "@/lib/rewards";
 import { processBillstackWebhookWithAdapter } from "@/lib/billstack-webhook-core.mjs";
-import { sendPushToUser } from "@/lib/push";
+import { sendPushNotification } from "@/lib/push";
 
 type RawPayload = Record<string, unknown>;
 
@@ -184,7 +184,7 @@ export async function processBillstackWebhook(payload: RawPayload) {
       }) => {
         const user = await tx.user.findUnique({
           where: { id: userId },
-          select: { id: true, phone: true, balance: true },
+          select: { id: true, phone: true, balance: true, fcmToken: true },
         });
 
         if (!user) {
@@ -220,11 +220,13 @@ export async function processBillstackWebhook(payload: RawPayload) {
           depositAmount: amountNaira,
         });
 
-        sendPushToUser(
-          user.id,
-          "Wallet Funded Successfully",
-          `Your wallet has been credited with ₦${amountNaira.toFixed(2)}. New balance: ₦${(updatedUser.balance / 100).toFixed(2)}`
-        ).catch(err => console.error("[PUSH ERROR] Webhook push failed:", err));
+        if (user.fcmToken) {
+          sendPushNotification(
+            user.fcmToken,
+            "Wallet Funded Successfully",
+            `Your wallet has been credited with ₦${amountNaira.toFixed(2)}. New balance: ₦${(updatedUser.balance / 100).toFixed(2)}`
+          ).catch((err) => console.warn("[PUSH] Webhook push delivery error:", err));
+        }
 
         return {
           transactionId: createdTx.id,

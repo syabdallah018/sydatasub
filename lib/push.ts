@@ -163,9 +163,9 @@ export async function sendPushToUser(
       return false;
     }
 
-    return sendPushNotification(user.fcmToken, title, body, data);
-  } catch (error) {
-    console.error(`[PUSH ERROR] Failed to send push to user ${userId}:`, error);
+    return await sendPushNotification(user.fcmToken, title, body, data);
+  } catch (error: any) {
+    console.warn(`[PUSH] Could not resolve push token for user ${userId}:`, error?.message || error);
     return false;
   }
 }
