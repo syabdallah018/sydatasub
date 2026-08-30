@@ -8,8 +8,15 @@ const createScheduleSchema = z.object({
   category: z.enum(["DATA", "AIRTIME"]),
   network: z.string().min(1, "Network is required"),
   phone: z.string().regex(/^0[0-9]{10}$/, "Invalid 11-digit phone number"),
-  planId: z.string().optional(),
-  airtimeAmount: z.number().positive().optional(),
+  planId: z.string().nullish(),
+  airtimeAmount: z
+    .union([z.number(), z.string()])
+    .nullish()
+    .transform((val) => {
+      if (val === null || val === undefined || val === "") return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    }),
   scheduledAt: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid scheduled date/time"),
 });
 
