@@ -20,6 +20,12 @@ import {
   Menu,
   X,
   Monitor,
+  Sparkles,
+  Bell,
+  Fingerprint,
+  Layers,
+  ArrowUpRight,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -210,6 +216,7 @@ export default function LandingPage() {
   const navLinks = [
     { label: "Features", href: "#features" },
     { label: "Developers", href: "#developer" },
+    { label: "Own App & Web", href: "#own-platform" },
     { label: "Get Mobile App", href: "#download" },
     { label: "FAQ", href: "#faq" },
   ];
@@ -364,6 +371,202 @@ export default function LandingPage() {
         {/* decorative blobs */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100/30 rounded-full blur-3xl -mr-64 -mt-64 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-violet-100/20 rounded-full blur-3xl -ml-48 pointer-events-none" />
+      </section>
+
+      {/* ═══════════════ OWN YOUR DATA WEBSITE & APP CTA ═══════════════ */}
+      <section id="own-platform" className="py-20 sm:py-28 px-6 relative overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-indigo-950 text-white">
+        {/* Ambient background glow effects */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[450px] h-[450px] bg-emerald-600/15 rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="max-w-6xl mx-auto relative z-10">
+          {/* Section Header */}
+          <div className="text-center max-w-3xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-violet-500/20 border border-violet-400/30 text-violet-300 text-xs font-extrabold uppercase tracking-widest mb-5 shadow-inner">
+              <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+              Turn-Key Telecom Solution
+            </div>
+
+            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.15] mb-5">
+              Get Your Own Data Website & Mobile App
+            </h2>
+
+            <p className="text-slate-300 text-base sm:text-lg leading-relaxed">
+              Launch your own fully branded, automated telecom & VTU business at an affordable fee. Sell cheap data bundles, airtime, and utility bills under your own custom brand with zero coding required.
+            </p>
+          </div>
+
+          {/* Pricing Options Comparison Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-14">
+            {/* Standalone Tier */}
+            <div className="bg-white/[0.07] backdrop-blur-xl border-2 border-violet-400/40 p-6 sm:p-8 rounded-3xl text-left shadow-2xl relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-violet-600 to-indigo-600 text-white text-[10px] font-black uppercase px-3 py-1 rounded-bl-2xl tracking-wider shadow-md">
+                👑 100% Independent
+              </div>
+
+              <div>
+                <span className="text-xs font-black uppercase tracking-widest text-violet-300 block mb-1">
+                  Standalone Platform
+                </span>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-3xl sm:text-4xl font-black text-white">₦250,000.00</span>
+                </div>
+                <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+                  Full independent deployment with your own custom provider gateway integrations, dedicated virtual accounts, Android native app, and full admin portal.
+                </p>
+
+                <ul className="space-y-2 text-xs text-slate-200 mb-6">
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Connect 3 independent provider APIs
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Full source ownership & custom domain
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Native Android app + Web portal
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Biometrics & Push notifications
+                  </li>
+                </ul>
+              </div>
+
+              <div className="text-[11px] font-semibold text-slate-400 bg-white/5 py-2 px-3 rounded-xl border border-white/5 text-center">
+                ⚡ Ready in ≤ 24-48 Hours
+              </div>
+            </div>
+
+            {/* SY DATA Affiliate Tier */}
+            <div className="bg-white/[0.05] backdrop-blur-xl border border-white/15 p-6 sm:p-8 rounded-3xl text-left shadow-2xl relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500 to-teal-500 text-slate-950 text-[10px] font-black uppercase px-3 py-1 rounded-bl-2xl tracking-wider shadow-md">
+                🚀 Lowest Wholesale Rates
+              </div>
+
+              <div>
+                <span className="text-xs font-black uppercase tracking-widest text-emerald-300 block mb-1">
+                  SY DATA Affiliate Platform
+                </span>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-3xl sm:text-4xl font-black text-white">₦150,000.00</span>
+                </div>
+                <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+                  Affiliated directly with the SY DATA wholesale telecom engine. Zero provider configuration hassle with instant wholesale pricing margins.
+                </p>
+
+                <ul className="space-y-2 text-xs text-slate-200 mb-6">
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Powered by SY DATA wholesale engine
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Custom brand name & custom domain
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Native Android app + Web portal
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Dedicated virtual bank accounts
+                  </li>
+                </ul>
+              </div>
+
+              <div className="text-[11px] font-semibold text-slate-400 bg-white/5 py-2 px-3 rounded-xl border border-white/5 text-center">
+                ⚡ Ready in ≤ 24-48 Hours
+              </div>
+            </div>
+          </div>
+
+          {/* Feature Highlights Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-14">
+            <div className="p-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-300 group">
+              <div className="w-12 h-12 rounded-xl bg-violet-500/20 text-violet-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Layers size={24} />
+              </div>
+              <h3 className="font-bold text-white text-lg mb-2">Provider APIs Integrated</h3>
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                Connect robust, switchable provider APIs with automatic failover, smart routing, and 99.9% dispensing uptime.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-300 group">
+              <div className="w-12 h-12 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Bell size={24} />
+              </div>
+              <h3 className="font-bold text-white text-lg mb-2">Real-Time Push Notifications</h3>
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                Firebase Cloud Messaging (FCM) integration to engage your customers with instant delivery receipts, promo alerts, and broadcast announcements.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-300 group">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Fingerprint size={24} />
+              </div>
+              <h3 className="font-bold text-white text-lg mb-2">Biometrics & 6-Digit PIN</h3>
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                Bank-grade Fingerprint & Face ID authentication with secure transaction PIN authorization to guarantee zero fraud and safe customer wallets.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-300 group">
+              <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Smartphone size={24} />
+              </div>
+              <h3 className="font-bold text-white text-lg mb-2">100% Native Mobile App</h3>
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                High-performance Flutter Android mobile application ready for Google Play Store release, plus ultra-responsive web portal for desktop & iOS browsers.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-300 group">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Wallet size={24} />
+              </div>
+              <h3 className="font-bold text-white text-lg mb-2">Dedicated Virtual Accounts</h3>
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                Automated bank transfer deposit accounts that automatically credit user wallet balances instantly 24/7.
+              </p>
+            </div>
+
+            <div className="p-6 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all duration-300 group">
+              <div className="w-12 h-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <ShieldCheck size={24} />
+              </div>
+              <h3 className="font-bold text-white text-lg mb-2">Full Admin Control Suite</h3>
+              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                Complete management dashboard: monitor live transactions, adjust prices & profit margins per tier, manage users, and broadcast announcements.
+              </p>
+            </div>
+          </div>
+
+          {/* Official WhatsApp CTA Action Box */}
+          <div className="text-center max-w-xl mx-auto bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border border-emerald-500/30 p-8 sm:p-10 rounded-3xl shadow-2xl backdrop-blur-lg">
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-white mb-3">
+              Ready to Launch Your Platform?
+            </h3>
+            <p className="text-slate-300 text-sm mb-8 leading-relaxed">
+              Talk directly with our lead developer to choose your brand name, select your preferred theme colors, and get your website and app up and running immediately.
+            </p>
+
+            <a
+              href="https://wa.me/2349076872520?text=Hello%20developer%2C%20I%20want%20to%20get%20my%20own%20Data%20Website%20and%20Mobile%20App%20(Standalone%20%E2%82%A6250k%20or%20SY%20Data%20Affiliate%20%E2%82%A6150k)."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white text-base sm:text-lg font-black rounded-2xl transition-all duration-200 shadow-2xl shadow-green-500/40 hover:scale-[1.03] active:scale-[0.98]"
+            >
+              <svg className="w-6 h-6 fill-current shrink-0" viewBox="0 0 24 24">
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+              </svg>
+              <span>Get Now on WhatsApp with Developer</span>
+              <ArrowUpRight size={20} />
+            </a>
+
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
+              <span>Direct Phone: <strong className="text-white">09076872520</strong></span>
+              <span>•</span>
+              <span className="text-emerald-400">Fast Developer Response</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ═══════════════ FEATURES ═══════════════ */}
@@ -642,6 +845,7 @@ export default function LandingPage() {
             <span className="font-extrabold text-gray-900 text-sm">SY DATA SUB</span>
           </div>
           <div className="flex gap-8 text-xs font-semibold text-gray-400">
+            <a href="#own-platform" className="hover:text-gray-700 transition">Own App & Website</a>
             <Link href="/privacy" className="hover:text-gray-700 transition">Privacy Policy</Link>
             <a href="#download" className="hover:text-gray-700 transition">Download Android App</a>
             <Link href="/dashboard" className="hover:text-gray-700 transition">Developer Portal</Link>

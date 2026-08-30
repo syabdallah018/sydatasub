@@ -9,7 +9,10 @@ import { provisionSignupBillstackAccount } from "@/lib/billstack-account";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Enter a valid email address"),
+  email: z.string().optional().transform((val) => {
+    const trimmed = (val || "").trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }),
   phone: z.string().regex(/^0[0-9]{10}$/, "Phone number must be 11 digits starting with 0"),
   pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
   confirmPin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
@@ -45,11 +48,13 @@ export async function POST(req: NextRequest) {
     }
 
     const pinHash = await bcryptjs.hash(pin, 12);
+    const resolvedEmail = email || `${phone}@sydatasub.local`;
+
     const user = await prisma.user.create({
       data: await buildUserCreateCompatData({
         fullName: name,
         phone,
-        email,
+        email: resolvedEmail,
         pinHash,
         role: "USER",
         tier: "user",
@@ -59,6 +64,7 @@ export async function POST(req: NextRequest) {
     });
 
     let fundingAccountProvisioned = false;
+    let provisionedAccountsCount = 0;
     try {
       const provisioning = await provisionSignupBillstackAccount({
         userId: user.id,
@@ -67,6 +73,7 @@ export async function POST(req: NextRequest) {
         email: user.email,
       });
       fundingAccountProvisioned = provisioning.success;
+      provisionedAccountsCount = provisioning.count;
     } catch (billstackError: unknown) {
       const message = billstackError instanceof Error ? billstackError.message : "provision_failed";
       console.error("[BILLSTACK SIGNUP PROVISION WARNING]", {

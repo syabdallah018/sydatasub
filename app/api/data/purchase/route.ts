@@ -29,6 +29,7 @@ const purchaseSchema = z.object({
   pin: z.string().regex(/^\d{6}$/, "Invalid PIN").optional(),
   biometricToken: z.string().optional(),
   confirmDuplicate: z.boolean().optional(),
+  idempotencyKey: z.string().optional(),
 }).refine((data) => data.pin || data.biometricToken, {
   message: "Either PIN or Biometric Token is required",
   path: ["pin"],
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (rateLimitError) return rateLimitError;
 
     const body = await req.json();
-    const { planId, buyerPhone, recipientPhone, pin, biometricToken, confirmDuplicate = false } =
+    const { planId, buyerPhone, recipientPhone, pin, biometricToken, confirmDuplicate = false, idempotencyKey } =
       purchaseSchema.parse(body);
     const sessionUser = await getSessionUser(req);
     const compat = await getUserSelectCompat();
@@ -68,7 +69,6 @@ export async function POST(req: NextRequest) {
         pinHash: true,
         biometricTokenHash: true,
         isBanned: true,
-        kycLocked: true,
         tier: true,
         balance: true,
         ...withCompatibleUserFields({}, compat),
@@ -85,52 +85,6 @@ export async function POST(req: NextRequest) {
 
     if (user.isBanned) {
       return NextResponse.json({ success: false, error: "Account is banned" }, { status: 403 });
-    }
-
-    if (user.kycLocked) {
-      return NextResponse.json({ success: false, error: "Account KYC locked. Please contact support." }, { status: 403 });
-    }
-
-    // Rate Limiting: 1 purchase per recipient phone number per minute
-    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
-    const recentRecipientTx = await prisma.transaction.findFirst({
-      where: {
-        phone: recipientPhone,
-        status: { in: ["SUCCESS", "PENDING"] },
-        createdAt: { gte: oneMinuteAgo },
-      },
-      select: { id: true },
-    });
-    if (recentRecipientTx) {
-      return NextResponse.json({
-        success: false,
-        error: "Rate limit exceeded: You can only purchase data for the same number once per minute."
-      }, { status: 429 });
-    }
-
-    // Velocity check: 3 purchases across all numbers under 3 minutes
-    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
-    const recentUserTxCount = await prisma.transaction.count({
-      where: {
-        userId: user.id,
-        status: { in: ["SUCCESS", "PENDING"] },
-        createdAt: { gte: threeMinutesAgo },
-      },
-    });
-
-    if (recentUserTxCount >= 3) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          kycLocked: true,
-          kycLockReason: "Velocity threshold exceeded: 3 data purchases within 3 minutes",
-          kycLockedAt: new Date(),
-        },
-      });
-      return NextResponse.json({
-        success: false,
-        error: "Transaction declined. Your account KYC has been locked due to high frequency transactions. Please contact support."
-      }, { status: 403 });
     }
 
     if (biometricToken) {
@@ -399,11 +353,23 @@ export async function POST(req: NextRequest) {
         `You have successfully purchased ${plan.sizeLabel} for ${recipientPhone}. Ref: ${reference}`
       ).catch(err => console.error("[PUSH ERROR] Purchase push failed:", err));
 
+      const createdTx = await prisma.transaction.findFirst({
+        where: { reference },
+      });
+
       return NextResponse.json(
         {
           success: true,
           message: DATA_PURCHASE_SUCCESS_MESSAGE,
           reference,
+          transaction: createdTx || {
+            reference,
+            status: "SUCCESS",
+            amount: planPrice,
+            phone: recipientPhone,
+            description: apiResult.message || `${plan.name} -> ${recipientPhone}`,
+            createdAt: new Date().toISOString(),
+          },
         },
         { status: 200 }
       );

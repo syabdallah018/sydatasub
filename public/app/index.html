@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/app/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="mobile">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>SY DATA SUB</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <!-- API Login and Session Injection Helper -->
+  <script>
+    window.injectSession = function(token, userObj) {
+      if (token) {
+        localStorage.setItem("flutter.auth_token", JSON.stringify(token));
+      }
+      if (userObj) {
+        if (userObj.phone) localStorage.setItem("flutter.saved_phone", JSON.stringify(userObj.phone));
+        localStorage.setItem("flutter.cached_user_json", JSON.stringify(JSON.stringify(userObj)));
+      }
+      console.log("[SY Data Sub] Session injected successfully!");
+    };
+
+    window.apiLogin = async function(phone = "08164135836", pin = "658063") {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-app-platform": "flutter" },
+          body: JSON.stringify({ phone, pin })
+        });
+        const data = await res.json();
+        if (data.token && (data.user || data.data)) {
+          window.injectSession(data.token, data.user || data.data);
+          console.log("[SY Data Sub] Logged in via API! Reloading to home...");
+          window.location.href = "/flutter/#/home";
+          return true;
+        } else {
+          console.error("[SY Data Sub] Login error:", data);
+          return false;
+        }
+      } catch (e) {
+        console.error("[SY Data Sub] API Login fetch failed:", e);
+        return false;
+      }
+    };
+
+    (function() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        if (token) {
+          window.injectSession(token, { phone: '08164135836', fullName: 'Abdullahi Adam Usman ' });
+        }
+      } catch (_) {}
+    })();
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

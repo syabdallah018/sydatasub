@@ -93,15 +93,19 @@ export async function createBillstackBankAccount(params: CreateAccountParams) {
   };
 }
 
+export const SUPPORTED_BANKS: BillstackBank[] = ["PALMPAY", "9PSB", "SAFEHAVEN"];
+
 export async function provisionSignupBillstackAccount(params: {
   userId: string;
   fullName: string;
   phone: string;
   email?: string | null;
 }) {
-  let lastError: unknown = null;
+  const createdAccounts: any[] = [];
+  const failedBanks: Array<{ bank: string; error: string }> = [];
 
-  for (const bank of SIGNUP_BANK_FALLBACK) {
+  for (let i = 0; i < SUPPORTED_BANKS.length; i++) {
+    const bank = SUPPORTED_BANKS[i];
     try {
       const provisioned = await createBillstackBankAccount({
         userId: params.userId,
@@ -109,25 +113,26 @@ export async function provisionSignupBillstackAccount(params: {
         phone: params.phone,
         email: params.email,
         bank,
-        makePrimary: true,
+        makePrimary: i === 0, // First successful becomes primary if none
       });
-      return {
-        success: true,
-        bank,
-        account: provisioned.account,
-      };
+      if (provisioned.account) {
+        createdAccounts.push(provisioned.account);
+      }
     } catch (error) {
-      lastError = error;
-      console.error("[BILLSTACK SIGNUP FALLBACK FAILED]", {
+      const message = error instanceof Error ? error.message : "unknown_error";
+      failedBanks.push({ bank, error: message });
+      console.warn("[BILLSTACK SIGNUP PROVISION NOTICE]", {
         userId: params.userId,
         bank,
-        message: error instanceof Error ? error.message : "unknown_error",
+        message,
       });
     }
   }
 
   return {
-    success: false,
-    error: lastError instanceof Error ? lastError.message : "Could not create reserved account",
+    success: createdAccounts.length > 0,
+    createdAccounts,
+    failedBanks,
+    count: createdAccounts.length,
   };
 }

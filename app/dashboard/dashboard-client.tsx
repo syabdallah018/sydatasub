@@ -1924,8 +1924,8 @@ function verifyWebhook(rawBody, signature, apiKey) {
                           </tr>
                           <tr>
                             <td className="px-4 py-3 text-slate-900 font-bold text-xs">429 Too Many Requests</td>
-                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Rate limit exceeded: You can only purchase data for the same number once per minute.</td>
-                            <td className="px-4 py-3 text-xs">Anti-spam rate limit triggered for the recipient phone number.</td>
+                            <td className="px-4 py-3 font-mono text-red-500 text-xs">Too many requests. Please wait and try again.</td>
+                            <td className="px-4 py-3 text-xs">Standard API request rate limit threshold reached. Retry request after a brief cooldown.</td>
                           </tr>
                           <tr>
                             <td className="px-4 py-3 text-slate-900 font-bold text-xs">500 Internal Error</td>

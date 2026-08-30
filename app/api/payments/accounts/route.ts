@@ -7,7 +7,7 @@ import { BillstackBank, createBillstackBankAccount, listUserBankAccounts } from 
 
 const createSchema = z.object({
   bank: z.enum(["9PSB", "SAFEHAVEN", "PROVIDUS", "BANKLY", "PALMPAY"]),
-  email: z.string().email(),
+  email: z.string().email().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { id: sessionUser.userId },
-      select: { id: true, fullName: true, phone: true },
+      select: { id: true, fullName: true, phone: true, email: true },
     });
 
     if (!user) {
@@ -53,26 +53,21 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createSchema.parse(body);
 
+    const userEmail = (parsed.email || user.email || "").trim() || `${user.phone}@sydatasub.local`;
+
     const created = await createBillstackBankAccount({
       userId: user.id,
       fullName: user.fullName,
       phone: user.phone,
-      email: parsed.email,
+      email: userEmail,
       bank: parsed.bank as BillstackBank,
       makePrimary: false,
     });
 
-    if (!created.created) {
-      return NextResponse.json(
-        { success: false, error: "Account already exists for selected bank" },
-        { status: 409 }
-      );
-    }
-
     const accounts = await listUserBankAccounts(user.id);
     return NextResponse.json({
       success: true,
-      message: "Account created successfully",
+      message: created.created ? "Account created successfully" : "Account already exists",
       data: accounts,
     });
   } catch (error) {

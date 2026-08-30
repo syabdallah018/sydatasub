@@ -23,6 +23,7 @@ const purchaseSchema = z.object({
   pin: z.string().regex(/^\d{6}$/, "Invalid PIN").optional(),
   biometricToken: z.string().optional(),
   confirmDuplicate: z.boolean().optional(),
+  idempotencyKey: z.string().optional(),
 }).refine((data) => data.pin || data.biometricToken, {
   message: "Either PIN or Biometric Token is required",
   path: ["pin"],
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
       pin,
       biometricToken,
       confirmDuplicate = false,
+      idempotencyKey,
     } = purchaseSchema.parse(body);
 
     const sessionUser = await getSessionUser(req);
@@ -310,11 +312,23 @@ export async function POST(req: NextRequest) {
         `You have successfully purchased ₦${amount} airtime for ${recipientPhone}. Ref: ${reference}`
       ).catch(err => console.error("[PUSH ERROR] Purchase push failed:", err));
 
+      const createdTx = await prisma.transaction.findFirst({
+        where: { reference },
+      });
+
       return NextResponse.json(
         {
           success: true,
           message: AIRTIME_PURCHASE_SUCCESS_MESSAGE,
           reference,
+          transaction: createdTx || {
+            reference,
+            status: "SUCCESS",
+            amount,
+            phone: recipientPhone,
+            description: `${network.toUpperCase()} Airtime Recharge - ₦${amount}`,
+            createdAt: new Date().toISOString(),
+          },
         },
         { status: 200 }
       );
