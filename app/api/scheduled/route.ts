@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { z } from "zod";
+import { processDueScheduledTopUps } from "@/lib/scheduled-processor";
+
+export const dynamic = "force-dynamic";
 
 const createScheduleSchema = z.object({
   type: z.enum(["REMINDER", "AUTO_PURCHASE"]),
@@ -26,6 +29,11 @@ export async function GET(req: NextRequest) {
     if (!sessionUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Process any due schedules immediately
+    await processDueScheduledTopUps().catch((err) =>
+      console.error("[SCHEDULE GET PROCESS ERROR]", err)
+    );
 
     const scheduledTopUps = await prisma.scheduledTopUp.findMany({
       where: { userId: sessionUser.userId },
