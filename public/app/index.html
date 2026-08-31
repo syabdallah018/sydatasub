@@ -35,8 +35,61 @@
 
   <title>SY DATA SUB</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0F172A;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #ffffff;
+      overflow: hidden;
+    }
+    #loading-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: opacity 0.4s ease;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 3.5px solid rgba(255, 255, 255, 0.12);
+      border-top: 3.5px solid #2563EB;
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+      margin-bottom: 18px;
+    }
+    .logo-text {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      margin-bottom: 5px;
+      color: #F8FAFC;
+    }
+    .sub-text {
+      font-size: 12.5px;
+      color: #94A3B8;
+      font-weight: 500;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
+  <div id="loading-indicator">
+    <div class="spinner"></div>
+    <div class="logo-text">SY DATA SUB</div>
+    <div class="sub-text">Loading app securely...</div>
+  </div>
+
   <script>
     window.injectSession = function(token, userObj) {
       if (token) {

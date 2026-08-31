@@ -115,7 +115,7 @@ export async function middleware(req: NextRequest) {
   }
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self' blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://www.gstatic.com; worker-src 'self' blob:; connect-src 'self' https: data: blob:; frame-ancestors 'none'; base-uri 'self' /app/ /flutter/; form-action 'self'"
+    "default-src 'self' blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://www.gstatic.com; worker-src 'self' blob:; child-src 'self' blob:; connect-src 'self' https: data: blob: https://www.gstatic.com https://fonts.gstatic.com https://fonts.googleapis.com; frame-ancestors 'none'; base-uri 'self' /app/ /flutter/; form-action 'self'"
   );
 
   return response;
