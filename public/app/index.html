@@ -41,20 +41,22 @@
       padding: 0;
       background-color: #0F172A;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       min-height: 100vh;
       color: #ffffff;
       overflow: hidden;
     }
     #loading-indicator {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background-color: #0F172A;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
-      transition: opacity 0.4s ease;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
     }
     .spinner {
       width: 44px;
@@ -91,6 +93,30 @@
   </div>
 
   <script>
+    function removeLoader() {
+      var el = document.getElementById("loading-indicator");
+      if (el) {
+        el.style.opacity = "0";
+        setTimeout(function() { el.remove(); }, 300);
+      }
+    }
+
+    var obs = new MutationObserver(function(mutations) {
+      for (var i = 0; i < mutations.length; i++) {
+        for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+          var n = mutations[i].addedNodes[j];
+          if (n.nodeName === "FLUTTER-VIEW" || n.nodeName === "FLT-GLASS-PANE" || n.nodeName === "CANVAS") {
+            removeLoader();
+            obs.disconnect();
+            return;
+          }
+        }
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("flutter-first-frame", removeLoader);
+    setTimeout(removeLoader, 1800);
+
     window.injectSession = function(token, userObj) {
       if (token) {
         localStorage.setItem("flutter.auth_token", JSON.stringify(token));
@@ -103,8 +129,8 @@
 
     (function() {
       try {
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
+        var params = new URLSearchParams(window.location.search);
+        var token = params.get('token');
         if (token) {
           window.injectSession(token);
         }
