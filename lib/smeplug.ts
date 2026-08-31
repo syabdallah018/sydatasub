@@ -62,7 +62,6 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
     const { baseUrl, apiKey } = getSmeplugConfig();
 
     // Phone format: Keep as 09xxxxxxx (Nigerian local format)
-    // Smeplug expects local format, not international
     const formattedPhone = formatSmeplugPhone(phone);
 
     const requestBody = {
@@ -78,6 +77,8 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       reference,
     });
 
+    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 120000);
+
     const response = await axios.post(
       `${baseUrl}/data/purchase`,
       requestBody,
@@ -86,7 +87,8 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        timeout: 30000,
+        timeout: timeoutMs,
+        validateStatus: () => true,
       }
     );
 
@@ -97,21 +99,44 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       reference,
     });
 
-    // SMEPlug returns status as boolean (true/false)
-    if (response.data && response.data.status === true && response.data.data) {
+    const data = response.data;
+    const statusVal = data?.status;
+    const isSuccess =
+      (response.status >= 200 && response.status < 300) &&
+      (statusVal === true ||
+        statusVal === "true" ||
+        statusVal === 1 ||
+        (typeof statusVal === "string" && ["success", "successful", "ok"].includes(statusVal.toLowerCase())) ||
+        (data?.data && typeof data.data === "object" && (data.data.status === true || data.data.status === "success" || data.data.status === "successful")));
+
+    const returnMsg =
+      data?.data?.msg ||
+      data?.data?.message ||
+      data?.msg ||
+      data?.message ||
+      (isSuccess ? "Data purchase successful" : "Data purchase failed");
+
+    const extRef =
+      data?.data?.reference ||
+      data?.reference ||
+      data?.data?.order_id ||
+      data?.order_id ||
+      reference;
+
+    if (isSuccess) {
       const returnData = {
         success: true,
-        message: response.data.data.msg || "Data purchase successful",
-        externalReference: response.data.data.reference,
+        message: returnMsg,
+        externalReference: extRef,
       };
       logProviderTraffic("[SMEPLUG SUCCESS]", returnData);
       return returnData;
     } else {
-      const errorMsg = response.data?.data?.msg || response.data?.msg || response.data?.message || "Data purchase failed";
-      logProviderTraffic("[SMEPLUG FAILED]", { message: errorMsg, response: response.data });
+      logProviderTraffic("[SMEPLUG FAILED]", { message: returnMsg, response: response.data });
       return {
         success: false,
-        message: errorMsg,
+        message: returnMsg,
+        externalReference: extRef,
       };
     }
   } catch (error: any) {
@@ -123,27 +148,24 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
     });
 
     if (error.response) {
-      // API returned an error response
-      const errorMessage = error.response.data?.msg || error.response.data?.message || `API Error: ${error.response.status}`;
-      console.error("[SMEPLUG API DETAILS]", {
-        errorMessage,
-        apiResponse: error.response.data,
-      });
+      const errorMessage =
+        error.response.data?.data?.msg ||
+        error.response.data?.msg ||
+        error.response.data?.message ||
+        `API Error: ${error.response.status}`;
       return {
         success: false,
         message: errorMessage,
       };
-    } else if (error.code === "ECONNABORTED") {
-      // Timeout
+    } else if (error.code === "ECONNABORTED" || error.message?.toLowerCase().includes("timeout")) {
       return {
         success: false,
-        message: "Request timeout - please try again",
+        message: "Provider gateway timeout - request in flight or processing",
       };
     } else {
-      // Network or other error
       return {
         success: false,
-        message: "Network error - please try again",
+        message: error.message || "Network error - please try again",
       };
     }
   }
@@ -171,6 +193,8 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
       })
     );
 
+    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 120000);
+
     const response = await axios.post(
       `${baseUrl}/airtime/purchase`,
       requestBody,
@@ -179,7 +203,8 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
           "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        timeout: 30000,
+        timeout: timeoutMs,
+        validateStatus: () => true,
       }
     );
 
@@ -194,21 +219,42 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
       })
     );
 
-    if (response.data?.status === true && response.data?.data) {
+    const data = response.data;
+    const statusVal = data?.status;
+    const isSuccess =
+      (response.status >= 200 && response.status < 300) &&
+      (statusVal === true ||
+        statusVal === "true" ||
+        statusVal === 1 ||
+        (typeof statusVal === "string" && ["success", "successful", "ok"].includes(statusVal.toLowerCase())) ||
+        (data?.data && typeof data.data === "object" && (data.data.status === true || data.data.status === "success" || data.data.status === "successful")));
+
+    const returnMsg =
+      data?.data?.msg ||
+      data?.data?.message ||
+      data?.msg ||
+      data?.message ||
+      (isSuccess ? "Airtime purchase successful" : "Airtime purchase failed");
+
+    const extRef =
+      data?.data?.reference ||
+      data?.reference ||
+      data?.data?.order_id ||
+      data?.order_id ||
+      reference;
+
+    if (isSuccess) {
       return {
         success: true,
-        message: response.data.data.msg || "Airtime purchase successful",
-        externalReference: response.data.data.reference || reference,
+        message: returnMsg,
+        externalReference: extRef,
       };
     }
 
     return {
       success: false,
-      message:
-        response.data?.data?.msg ||
-        response.data?.msg ||
-        response.data?.message ||
-        "Airtime purchase failed",
+      message: returnMsg,
+      externalReference: extRef,
     };
   } catch (error: any) {
     console.error(
@@ -234,16 +280,16 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
       };
     }
 
-    if (error.code === "ECONNABORTED") {
+    if (error.code === "ECONNABORTED" || error.message?.toLowerCase().includes("timeout")) {
       return {
         success: false,
-        message: "Request timeout - please try again",
+        message: "Provider gateway timeout - request in flight or processing",
       };
     }
 
     return {
       success: false,
-      message: "Network error - please try again",
+      message: error.message || "Network error - please try again",
     };
   }
 }
