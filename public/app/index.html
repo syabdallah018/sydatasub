@@ -37,7 +37,6 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!-- API Login and Session Injection Helper -->
   <script>
     window.injectSession = function(token, userObj) {
       if (token) {
@@ -47,30 +46,6 @@
         if (userObj.phone) localStorage.setItem("flutter.saved_phone", JSON.stringify(userObj.phone));
         localStorage.setItem("flutter.cached_user_json", JSON.stringify(JSON.stringify(userObj)));
       }
-      console.log("[SY Data Sub] Session injected successfully!");
-    };
-
-    window.apiLogin = async function(phone = "08164135836", pin = "658063") {
-      try {
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-app-platform": "flutter" },
-          body: JSON.stringify({ phone, pin })
-        });
-        const data = await res.json();
-        if (data.token && (data.user || data.data)) {
-          window.injectSession(data.token, data.user || data.data);
-          console.log("[SY Data Sub] Logged in via API! Reloading to home...");
-          window.location.href = "/flutter/#/home";
-          return true;
-        } else {
-          console.error("[SY Data Sub] Login error:", data);
-          return false;
-        }
-      } catch (e) {
-        console.error("[SY Data Sub] API Login fetch failed:", e);
-        return false;
-      }
     };
 
     (function() {
@@ -78,7 +53,7 @@
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token');
         if (token) {
-          window.injectSession(token, { phone: '08164135836', fullName: 'Abdullahi Adam Usman ' });
+          window.injectSession(token);
         }
       } catch (_) {}
     })();
