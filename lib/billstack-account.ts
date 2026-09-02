@@ -73,18 +73,43 @@ export async function createBillstackBankAccount(params: CreateAccountParams) {
 
   const shouldBePrimary = Boolean(params.makePrimary || !primaryAccount);
 
-  const account = await prisma.userBankAccount.create({
-    data: {
-      userId: params.userId,
-      bankCode: params.bank,
-      accountNumber: result.accountNumber,
-      accountName: result.accountName,
-      bankName: result.bankName,
-      merchantReference,
-      providerReference: result.providerReference,
-      isPrimary: shouldBePrimary,
-    },
+  const existingByNumber = await prisma.userBankAccount.findUnique({
+    where: { accountNumber: result.accountNumber },
   });
+
+  let account;
+  if (existingByNumber) {
+    account = await prisma.userBankAccount.update({
+      where: { id: existingByNumber.id },
+      data: {
+        userId: params.userId,
+        bankCode: params.bank,
+        accountName: result.accountName || existingByNumber.accountName,
+        bankName: result.bankName || existingByNumber.bankName,
+        providerReference: result.providerReference || existingByNumber.providerReference,
+        merchantReference,
+      },
+    });
+
+    return {
+      created: existingByNumber.userId !== params.userId,
+      reason: existingByNumber.userId === params.userId ? "exists_for_user" : "reassigned",
+      account,
+    };
+  } else {
+    account = await prisma.userBankAccount.create({
+      data: {
+        userId: params.userId,
+        bankCode: params.bank,
+        accountNumber: result.accountNumber,
+        accountName: result.accountName,
+        bankName: result.bankName,
+        merchantReference,
+        providerReference: result.providerReference,
+        isPrimary: shouldBePrimary,
+      },
+    });
+  }
 
   return {
     created: true,
