@@ -104,19 +104,30 @@ export async function processBillstackWebhook(payload: RawPayload) {
         accountNumber?: string | null;
         transactionReference?: string | null;
       }) => {
-        const clauses = [
-          ...(merchantReference ? [{ merchantReference }] : []),
-          ...(accountNumber ? [{ accountNumber }] : []),
-        ];
-
-        if (clauses.length > 0) {
-          const bankAccount = await tx.userBankAccount.findFirst({
-            where: { OR: clauses },
-            select: { userId: true },
+        // 1. Strict Priority: Resolve by accountNumber FIRST.
+        // Each NUBAN account number uniquely belongs to the specific UserBankAccount where funds were deposited.
+        if (accountNumber && accountNumber.trim().length > 0) {
+          const bankAccount = await tx.userBankAccount.findUnique({
+            where: { accountNumber: accountNumber.trim() },
+            select: { userId: true, user: { select: { id: true, isActive: true, isBanned: true } } },
           });
-          if (bankAccount) return { userId: bankAccount.userId };
+          if (bankAccount?.userId && bankAccount.user?.isActive && !bankAccount.user?.isBanned) {
+            return { userId: bankAccount.userId };
+          }
         }
 
+        // 2. Secondary fallback: Look up by merchantReference if accountNumber is not matched
+        if (merchantReference && merchantReference.trim().length > 0) {
+          const bankAccount = await tx.userBankAccount.findUnique({
+            where: { merchantReference: merchantReference.trim() },
+            select: { userId: true, user: { select: { id: true, isActive: true, isBanned: true } } },
+          });
+          if (bankAccount?.userId && bankAccount.user?.isActive && !bankAccount.user?.isBanned) {
+            return { userId: bankAccount.userId };
+          }
+        }
+
+        // 3. Embedded user ID fallback in merchant or transaction reference
         const embeddedUserId =
           extractEmbeddedUserId(merchantReference) ||
           extractEmbeddedUserId(transactionReference);
@@ -125,10 +136,10 @@ export async function processBillstackWebhook(payload: RawPayload) {
 
         const user = await tx.user.findUnique({
           where: { id: embeddedUserId },
-          select: { id: true },
+          select: { id: true, isActive: true, isBanned: true },
         });
 
-        return user ? { userId: user.id } : null;
+        return user && user.isActive && !user.isBanned ? { userId: user.id } : null;
       },
       withLock: async (lockKey: string, fn: () => Promise<unknown>) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;

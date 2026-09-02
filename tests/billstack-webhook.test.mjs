@@ -108,3 +108,41 @@ test("processBillstackWebhookWithAdapter accepts PAYMENT_NOTIFICATION and payer 
   assert.equal(result.status, "processed");
   assert.equal(result.reason, "credited");
 });
+
+test("processBillstackWebhookWithAdapter extracts account_number when account is array", async () => {
+  let resolvedAccountArg = null;
+  const adapter = {
+    findProcessedEvent: async () => null,
+    resolveAccount: async (arg) => {
+      resolvedAccountArg = arg;
+      return { userId: "user_3" };
+    },
+    withLock: async (_key, fn) => fn(),
+    recordReceived: async () => "event_arr",
+    creditWallet: async ({ amountNaira }) => ({ transactionId: "tx_3", balanceAfter: amountNaira * 100 }),
+    markProcessed: async () => undefined,
+  };
+
+  const payload = {
+    event: "PAYMENT_NOTIFICATION",
+    data: {
+      type: "RESERVED_ACCOUNT_TRANSACTION",
+      reference: "R-TESTARRAY",
+      merchant_reference: "BS-VA-user_root",
+      wiaxy_ref: "wiaxy-array-001",
+      amount: "2000",
+      account: [
+        {
+          account_number: "6653072463",
+          bank_name: "9PSB Bank",
+        },
+      ],
+    },
+  };
+
+  const result = await processBillstackWebhookWithAdapter(payload, adapter);
+  assert.equal(result.status, "processed");
+  assert.equal(resolvedAccountArg.accountNumber, "6653072463");
+  assert.equal(resolvedAccountArg.merchantReference, "BS-VA-user_root");
+});
+

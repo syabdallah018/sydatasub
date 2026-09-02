@@ -31,11 +31,15 @@ export async function POST(req: NextRequest) {
     if (rateLimitError) return rateLimitError;
 
     const secret = process.env.BILLSTACK_SECRET_KEY || "";
-    const signature = req.headers.get("x-wiaxy-signature");
+    const signature =
+      req.headers.get("x-wiaxy-signature") ||
+      req.headers.get("x-billstack-signature") ||
+      req.headers.get("wiaxy-signature");
 
     if (!verifyBillstackSignature(signature, secret)) {
       logWebhook("signature_invalid", {
         hasSignature: Boolean(signature),
+        hasSecret: Boolean(secret),
       });
       return NextResponse.json({ success: false, error: "Unauthorized webhook signature" }, { status: 401 });
     }

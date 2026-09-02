@@ -9,10 +9,7 @@ import { provisionSignupBillstackAccount } from "@/lib/billstack-account";
 
 const signupSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().optional().transform((val) => {
-    const trimmed = (val || "").trim();
-    return trimmed.length > 0 ? trimmed : undefined;
-  }),
+  email: z.string().trim().min(5, "Email is required").email("Please enter a valid email address"),
   phone: z.string().regex(/^0[0-9]{10}$/, "Phone number must be 11 digits starting with 0"),
   pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
   confirmPin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits"),
@@ -36,19 +33,31 @@ export async function POST(req: NextRequest) {
     const { name, email, phone, pin } = signupSchema.parse(body);
     const compat = await getUserSelectCompat();
 
-    const existingUser = await prisma.user.findUnique({
+    const existingPhone = await prisma.user.findUnique({
       where: { phone },
     });
 
-    if (existingUser) {
+    if (existingPhone) {
       return NextResponse.json(
-        { error: "Phone number already registered" },
+        { error: "Phone number already registered. Please sign in." },
+        { status: 409 }
+      );
+    }
+
+    const existingEmail = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: { id: true },
+    });
+
+    if (existingEmail) {
+      return NextResponse.json(
+        { error: "Email address is already registered. Please sign in or use another email." },
         { status: 409 }
       );
     }
 
     const pinHash = await bcryptjs.hash(pin, 12);
-    const resolvedEmail = email || `${phone}@sydatasub.local`;
+    const resolvedEmail = email.toLowerCase().trim();
 
     const user = await prisma.user.create({
       data: await buildUserCreateCompatData({

@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: accounts,
+      accounts: accounts,
     });
   } catch (error) {
     console.error("[PAYMENT ACCOUNTS GET ERROR]", error);
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
       success: true,
       message: created.created ? "Account created successfully" : "Account already exists",
       data: accounts,
+      accounts: accounts,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
