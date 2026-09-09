@@ -39,6 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+scratch/
+release_builds/
+*.aab
 
 # mobile release artifacts
 /release_builds/
