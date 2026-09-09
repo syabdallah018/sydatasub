@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
-import { getSessionUser } from "@/lib/auth";
+import { getSessionExpiration, getSessionUser, isMobileClient, setUserSessionCookie, signToken } from "@/lib/auth";
 import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat"
 
 export async function GET(req: NextRequest) {
   try {
     const sessionUser = await getSessionUser(req);
     if (!sessionUser) {
-      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
+      return NextResponse.json(
+        { success: false, error: "Your session has expired. Please log in again to continue." },
+        { status: 401 }
+      );
     }
 
     const compat = await getUserSelectCompat()
@@ -39,7 +42,27 @@ export async function GET(req: NextRequest) {
 
     const normalizedUser = normalizeUserCompat(user)
 
-    return NextResponse.json({ success: true, data: normalizedUser })
+    const isMobile = isMobileClient(req);
+    const refreshedToken = await signToken(
+      {
+        userId: normalizedUser.id,
+        email: normalizedUser.email || normalizedUser.phone,
+        role: normalizedUser.role,
+      },
+      getSessionExpiration(req)
+    );
+
+    const response = NextResponse.json({
+      success: true,
+      data: normalizedUser,
+      token: refreshedToken,
+    });
+
+    if (!isMobile) {
+      setUserSessionCookie(response, refreshedToken);
+    }
+
+    return response;
   } catch (error) {
     console.error("[me]", error)
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })

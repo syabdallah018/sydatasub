@@ -64,7 +64,10 @@ export async function POST(req: NextRequest) {
 
     const sessionUser = await getSessionUser(req);
     if (!sessionUser) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Your session has expired. Please log in again to continue." },
+        { status: 401 }
+      );
     }
 
     const user = await prisma.user.findUnique({

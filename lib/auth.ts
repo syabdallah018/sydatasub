@@ -46,12 +46,31 @@ export interface JWTPayload {
   [key: string]: any;
 }
 
-export async function signToken(payload: JWTPayload): Promise<string> {
+export function isMobileClient(req: NextRequest): boolean {
+  const clientHeader = req.headers.get("x-client")?.toLowerCase();
+  const platformHeader = req.headers.get("x-app-platform")?.toLowerCase();
+  const authHeader = req.headers.get("authorization")?.toLowerCase();
+  return (
+    clientHeader === "mobile" ||
+    clientHeader === "mobile-web" ||
+    platformHeader === "flutter" ||
+    Boolean(authHeader?.startsWith("bearer "))
+  );
+}
+
+export function getSessionExpiration(req: NextRequest): string {
+  return isMobileClient(req) ? "90d" : "7d";
+}
+
+export async function signToken(
+  payload: JWTPayload,
+  expiresIn: string | number = "7d"
+): Promise<string> {
   const secret = getSecretBytes();
   const token = await new SignJWT({ ...payload, sv: SESSION_TOKEN_VERSION })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(expiresIn)
     .sign(secret);
 
   return token;

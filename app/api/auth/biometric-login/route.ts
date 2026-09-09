@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
-import { setUserSessionCookie, signToken } from "@/lib/auth";
+import { getSessionExpiration, setUserSessionCookie, signToken } from "@/lib/auth";
 import { getUserSelectCompat, normalizeUserCompat, withCompatibleUserFields } from "@/lib/user-compat";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 
@@ -58,11 +58,14 @@ export async function POST(req: NextRequest) {
 
     const normalizedUser = normalizeUserCompat(user);
 
-    const sessionToken = await signToken({
-      userId: normalizedUser.id,
-      email: normalizedUser.email || normalizedUser.phone,
-      role: normalizedUser.role,
-    });
+    const sessionToken = await signToken(
+      {
+        userId: normalizedUser.id,
+        email: normalizedUser.email || normalizedUser.phone,
+        role: normalizedUser.role,
+      },
+      getSessionExpiration(req)
+    );
 
     const response = NextResponse.json(
       {

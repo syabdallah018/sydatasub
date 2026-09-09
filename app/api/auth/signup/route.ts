@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { setUserSessionCookie, signToken } from "@/lib/auth";
+import { getSessionExpiration, setUserSessionCookie, signToken } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { buildUserCreateCompatData, getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
@@ -91,11 +91,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const token = await signToken({
-      userId: user.id,
-      email: user.email || user.phone,
-      role: user.role,
-    });
+    const token = await signToken(
+      {
+        userId: user.id,
+        email: user.email || user.phone,
+        role: user.role,
+      },
+      getSessionExpiration(req)
+    );
 
     const updatedUser = await prisma.user.findUnique({
       where: { id: user.id },
