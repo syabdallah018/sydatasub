@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Providers } from "@/components/providers";
-import { Loader2, BarChart3, Users, Database, LogOut, Bell, Gift, Receipt, UserCheck, Webhook, Phone, Send, Terminal, ShieldCheck, Cpu } from "lucide-react";
+import { Loader2, BarChart3, Users, Database, LogOut, Bell, Gift, Receipt, UserCheck, Webhook, Phone, Send, Terminal, ShieldCheck, Cpu, Settings, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -21,6 +21,7 @@ const SIDEBAR_ITEMS = [
   { href: "/admin/airtime-cash", label: "Airtime Cash", icon: Phone },
   { href: "/admin/notices", label: "Broadcasts", icon: Bell },
   { href: "/admin/push", label: "Push Broadcast", icon: Send },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
   { href: "/admin/webhooks", label: "Webhooks", icon: Webhook },
 ];
 
@@ -33,8 +34,6 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [phone, setPhone] = useState("");
-  const [pin, setPin] = useState("");
   const [password, setPassword] = useState("");
   const [authAttempted, setAuthAttempted] = useState(false);
 
@@ -61,20 +60,19 @@ export default function AdminLayout({
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, pin, password }),
+        body: JSON.stringify({ password }),
       });
 
       const data = await res.json();
       if (data.success) {
         setAuthenticated(true);
-        toast.success("Ahh, nice. Admin access confirmed.");
+        toast.success("Admin access confirmed. Welcome back!");
       } else {
-        toast.error(data.error || "Ahh, sorry, admin sign-in failed.");
-        setPin("");
+        toast.error(data.error || "Admin sign-in failed. Please check your password.");
         setPassword("");
       }
     } catch {
-      toast.error("Ahh, sorry, admin sign-in could not be completed right now.");
+      toast.error("Admin sign-in could not be completed right now.");
     } finally {
       setAuthAttempted(false);
     }
@@ -84,12 +82,10 @@ export default function AdminLayout({
     try {
       await fetch("/api/admin/logout", { method: "POST" });
       setAuthenticated(false);
-      setPhone("");
-      setPin("");
       setPassword("");
       toast.success("You have been signed out of admin.");
     } catch {
-      toast.error("Ahh, sorry, admin sign-out could not finish right now.");
+      toast.error("Admin sign-out could not finish right now.");
     }
   };
 
@@ -107,82 +103,63 @@ export default function AdminLayout({
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-blue-700 to-slate-900 p-4">
           <div className="w-full max-w-md">
             {/* Logo Card */}
-            <div className="mb-8 text-center bg-white rounded-2xl shadow-2xl p-8">
+            <div className="mb-6 text-center bg-white rounded-2xl shadow-2xl p-6">
               <img 
                 src="/logo.jpeg" 
                 alt="SY DATA" 
-                className="h-32 w-32 mx-auto object-contain mb-4"
+                className="h-28 w-28 mx-auto object-contain mb-2"
               />
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">SY DATA SUB</h2>
+              <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mt-0.5">Admin Management Portal</p>
             </div>
 
             {/* Login Card */}
             <div className="w-full bg-white rounded-2xl shadow-2xl p-8">
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">Admin Panel</h1>
-              <p className="text-slate-600 mb-8">Enter admin phone, PIN, and admin password</p>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-10 w-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                  <KeyRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900">Admin Sign In</h1>
+                  <p className="text-slate-500 text-xs">Enter your password to access the dashboard</p>
+                </div>
+              </div>
 
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-5 mt-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={11}
-                    placeholder="07000000000"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                    disabled={authAttempted}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    PIN
-                  </label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="••••••"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    disabled={authAttempted}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
                     Admin Password
                   </label>
                   <input
                     type="password"
-                    placeholder="••••••••"
+                    placeholder="Enter admin password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={authAttempted}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
                     autoFocus
+                    required
                   />
                 </div>
                 <button
                   type="submit"
-                  disabled={phone.length !== 11 || pin.length !== 6 || !password || authAttempted}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition shadow-lg"
+                  disabled={!password || authAttempted}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold transition shadow-lg text-sm"
                 >
                   {authAttempted ? (
                     <span className="flex items-center justify-center gap-2">
                       <Loader2 size={18} className="animate-spin" />
-                      Verifying...
+                      Verifying Password...
                     </span>
                   ) : (
-                    "Access Dashboard"
+                    "Access Admin Dashboard"
                   )}
                 </button>
               </form>
 
-              <p className="text-center text-xs text-slate-500 mt-6">
-                Secure admin access • Password protected
+              <p className="text-center text-xs text-slate-400 mt-6 flex items-center justify-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                Secure password-only admin access
               </p>
             </div>
           </div>

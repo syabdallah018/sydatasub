@@ -39,15 +39,49 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    const hasMore = transactions.length > limit
-    const items = hasMore ? transactions.slice(0, -1) : transactions
-    const nextCursor = hasMore ? items[items.length - 1].id : null
+    const hasMore = transactions.length > limit;
+    const items = hasMore ? transactions.slice(0, -1) : transactions;
+    const nextCursor = hasMore ? items[items.length - 1].id : null;
+
+    // Gatekeep: Sanitize descriptions so users never see provider low balance or internal errors
+    const sanitizedItems = items.map((tx) => {
+      let desc = tx.description || "";
+      const lower = desc.toLowerCase();
+      if (tx.status === "FAILED") {
+        if (
+          lower.includes("balance") ||
+          lower.includes("insufficient") ||
+          lower.includes("wallet") ||
+          lower.includes("fund") ||
+          lower.includes("sim") ||
+          lower.includes("provider") ||
+          lower.includes("gateway") ||
+          lower.includes("api") ||
+          lower.includes("smeplug") ||
+          lower.includes("saiful") ||
+          lower.includes("amysub") ||
+          lower.includes("alrahuz")
+        ) {
+          if (tx.plan) {
+            desc = `${tx.plan.network} ${tx.plan.sizeLabel} Data (${tx.plan.category})`;
+          } else if (tx.type === "AIRTIME_PURCHASE") {
+            desc = "Airtime Purchase";
+          } else {
+            desc = "Transaction Failed";
+          }
+        }
+      }
+      return {
+        ...tx,
+        description: desc,
+      };
+    });
 
     return NextResponse.json({ 
       success: true, 
-      transactions: items, 
+      transactions: sanitizedItems, 
       nextCursor 
-    })
+    });
   } catch (error) {
     console.error("[transactions]", error)
     return NextResponse.json({ success: false, error: "Server error" }, { status: 500 })

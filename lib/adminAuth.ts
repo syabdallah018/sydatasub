@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE_NAME, clearAdminSessionCookie, setAdminSessionCookie, signToken, verifyAdminToken } from "@/lib/auth";
 import { enforceRateLimit, getServerBaseUrl, rejectCrossSiteMutation, secureCompare } from "@/lib/security";
+import { prisma } from "@/lib/db";
+import bcryptjs from "bcryptjs";
 
 export interface AdminUser {
   userId: string;
@@ -72,6 +74,52 @@ export function validateAdminPassword(password: string | undefined | null): bool
   }
 
   return secureCompare(password || "", configuredPassword);
+}
+
+/**
+ * Asynchronously validate admin password against database first, then fallback to ENV
+ */
+export async function validateAdminPasswordAsync(password: string | undefined | null): Promise<{
+  isValid: boolean;
+  adminUser?: any;
+  source: "DATABASE" | "ENV" | "NONE";
+}> {
+  if (!password) {
+    return { isValid: false, source: "NONE" };
+  }
+
+  // 1. Look for admin user in DB
+  const adminUsers = await prisma.user.findMany({
+    where: { role: "ADMIN", isBanned: false },
+    select: {
+      id: true,
+      fullName: true,
+      phone: true,
+      email: true,
+      role: true,
+      adminPasswordHash: true,
+    },
+    orderBy: { joinedAt: "asc" },
+  });
+
+  const primaryAdmin = adminUsers[0];
+
+  // 2. If admin has a password in DB, check that first!
+  if (primaryAdmin?.adminPasswordHash) {
+    const isDbValid = await bcryptjs.compare(password, primaryAdmin.adminPasswordHash);
+    if (isDbValid) {
+      return { isValid: true, adminUser: primaryAdmin, source: "DATABASE" };
+    }
+    return { isValid: false, adminUser: primaryAdmin, source: "DATABASE" };
+  }
+
+  // 3. Fallback to ENV var password
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+  if (configuredPassword && secureCompare(password, configuredPassword)) {
+    return { isValid: true, adminUser: primaryAdmin, source: "ENV" };
+  }
+
+  return { isValid: false, source: "NONE" };
 }
 
 export function enforceAdminMutationGuard(req: NextRequest) {

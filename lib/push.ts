@@ -38,9 +38,10 @@ function getFirebaseCredentials() {
   return { projectId, clientEmail, privateKey };
 }
 
-// Cached token to avoid requesting new OAuth2 token on every call
+// Single-flight lock for token retrieval
 let cachedToken: string | null = null;
 let tokenExpiryTime = 0;
+let pendingTokenPromise: Promise<string | null> | null = null;
 
 async function getFcmAccessToken(): Promise<string | null> {
   const credentials = getFirebaseCredentials();
@@ -54,46 +55,60 @@ async function getFcmAccessToken(): Promise<string | null> {
     return cachedToken;
   }
 
-  try {
-    const privateKey = await _joseDeps.importPKCS8(credentials.privateKey, "RS256");
-    const jwt = await new _joseDeps.SignJWT({
-      iss: credentials.clientEmail,
-      scope: "https://www.googleapis.com/auth/firebase.messaging",
-      aud: "https://oauth2.googleapis.com/token",
-      exp: now + 3600,
-      iat: now - 30,
-    })
-      .setProtectedHeader({ alg: "RS256" })
-      .sign(privateKey);
-
-    const response = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: jwt,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Google OAuth error: ${errText}`);
-    }
-
-    const data = await response.json();
-    cachedToken = data.access_token;
-    tokenExpiryTime = now + (data.expires_in || 3600);
-    return cachedToken!;
-  } catch (error) {
-    console.error("[PUSH ERROR] Failed to fetch FCM access token:", error);
-    return null;
+  if (pendingTokenPromise) {
+    return pendingTokenPromise;
   }
+
+  pendingTokenPromise = (async () => {
+    try {
+      const privateKey = await _joseDeps.importPKCS8(credentials.privateKey, "RS256");
+      const jwt = await new _joseDeps.SignJWT({
+        iss: credentials.clientEmail,
+        scope: "https://www.googleapis.com/auth/firebase.messaging",
+        aud: "https://oauth2.googleapis.com/token",
+        exp: now + 3600,
+        iat: now - 30,
+      })
+        .setProtectedHeader({ alg: "RS256" })
+        .sign(privateKey);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+
+      const response = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+          assertion: jwt,
+        }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout));
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Google OAuth error: ${errText}`);
+      }
+
+      const data = await response.json();
+      cachedToken = data.access_token;
+      tokenExpiryTime = now + (data.expires_in || 3600);
+      return cachedToken;
+    } catch (error) {
+      console.error("[PUSH ERROR] Failed to fetch FCM access token:", error);
+      return null;
+    } finally {
+      pendingTokenPromise = null;
+    }
+  })();
+
+  return pendingTokenPromise;
 }
 
 /**
- * Sends a push notification to a specific FCM token
+ * Sends a push notification to a specific FCM token with timeout and dead-token cleanup
  */
 export async function sendPushNotification(
   fcmToken: string | null | undefined,
@@ -101,7 +116,7 @@ export async function sendPushNotification(
   body: string,
   data?: Record<string, string>
 ): Promise<boolean> {
-  if (!fcmToken) {
+  if (!fcmToken || typeof fcmToken !== "string" || fcmToken.trim().length === 0) {
     return false;
   }
 
@@ -110,6 +125,9 @@ export async function sendPushNotification(
 
   const accessToken = await getFcmAccessToken();
   if (!accessToken) return false;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
 
   try {
     const url = `https://fcm.googleapis.com/v1/projects/${credentials.projectId}/messages:send`;
@@ -121,7 +139,7 @@ export async function sendPushNotification(
       },
       body: JSON.stringify({
         message: {
-          token: fcmToken,
+          token: fcmToken.trim(),
           notification: {
             title,
             body,
@@ -129,19 +147,59 @@ export async function sendPushNotification(
           ...(data ? { data } : {}),
         },
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("[PUSH ERROR] Firebase API response failed:", errText);
+      console.warn("[PUSH WARN] Firebase message send failed:", errText);
+
+      // Clean up stale or unregistered tokens from DB to keep future sends fast
+      if (
+        errText.includes("UNREGISTERED") ||
+        errText.includes("registration-token-not-registered") ||
+        errText.includes("NOT_FOUND") ||
+        response.status === 404
+      ) {
+        prisma.user
+          .updateMany({
+            where: { fcmToken },
+            data: { fcmToken: null },
+          })
+          .catch(() => {});
+      }
+
       return false;
     }
 
     return true;
-  } catch (error) {
-    console.error("[PUSH ERROR] Failed to send notification:", error);
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      console.warn("[PUSH TIMEOUT] Firebase HTTP request timed out for token:", fcmToken.slice(0, 10) + "...");
+    } else {
+      console.error("[PUSH ERROR] Failed to send notification:", error?.message || error);
+    }
     return false;
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+/**
+ * Helper to process promises in controlled concurrent chunks (e.g. 25 at a time)
+ */
+async function processInChunks<T, R>(
+  items: T[],
+  chunkSize: number,
+  handler: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize);
+    const chunkResults = await Promise.all(chunk.map(handler));
+    results.push(...chunkResults);
+  }
+  return results;
 }
 
 /**
@@ -152,7 +210,7 @@ export async function sendPushToUser(
   title: string,
   body: string,
   data?: Record<string, string>
-): Promise<boolean> {
+): Promise<{ success: boolean; hasDevice: boolean }> {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -160,55 +218,137 @@ export async function sendPushToUser(
     });
 
     if (!user || !user.fcmToken) {
-      return false;
+      return { success: false, hasDevice: false };
     }
 
-    return await sendPushNotification(user.fcmToken, title, body, data);
+    const success = await sendPushNotification(user.fcmToken, title, body, data);
+    return { success, hasDevice: true };
   } catch (error: any) {
     console.warn(`[PUSH] Could not resolve push token for user ${userId}:`, error?.message || error);
-    return false;
+    return { success: false, hasDevice: false };
   }
 }
 
 /**
- * Sends a push notification to all users who have registered a token
+ * Sends push notifications to a targeted list of user IDs
+ */
+export async function sendPushToUsers(
+  userIds: string[],
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<{ successCount: number; failureCount: number; totalDevices: number }> {
+  try {
+    const uniqueIds = Array.from(new Set(userIds.filter((id) => id && id.trim().length > 0)));
+    if (uniqueIds.length === 0) {
+      return { successCount: 0, failureCount: 0, totalDevices: 0 };
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: uniqueIds },
+        fcmToken: { not: null },
+      },
+      select: { id: true, fcmToken: true },
+    });
+
+    const tokens = users.map((u) => u.fcmToken!).filter(Boolean);
+    if (tokens.length === 0) {
+      return { successCount: 0, failureCount: 0, totalDevices: 0 };
+    }
+
+    const sendResults = await processInChunks(tokens, 25, async (token) => {
+      return await sendPushNotification(token, title, body, data);
+    });
+
+    let successCount = 0;
+    let failureCount = 0;
+    sendResults.forEach((res) => {
+      if (res) successCount++;
+      else failureCount++;
+    });
+
+    return { successCount, failureCount, totalDevices: tokens.length };
+  } catch (error) {
+    console.error("[PUSH ERROR] Failed to send push to users:", error);
+    return { successCount: 0, failureCount: 0, totalDevices: 0 };
+  }
+}
+
+/**
+ * Sends a push notification to all users who have registered a device token
  */
 export async function sendPushToAll(
   title: string,
   body: string,
   data?: Record<string, string>
-): Promise<{ successCount: number; failureCount: number }> {
+): Promise<{ successCount: number; failureCount: number; totalDevices: number }> {
   try {
     const users = await prisma.user.findMany({
       where: { fcmToken: { not: null } },
       select: { id: true, fcmToken: true },
     });
 
-    if (users.length === 0) {
-      return { successCount: 0, failureCount: 0 };
+    const tokens = users.map((u) => u.fcmToken!).filter(Boolean);
+    if (tokens.length === 0) {
+      return { successCount: 0, failureCount: 0, totalDevices: 0 };
     }
 
-    const sendPromises = users.map(async (u) => {
-      const success = await sendPushNotification(u.fcmToken, title, body, data);
-      return success;
+    // Process in batches of 25 concurrent requests to avoid network/socket choking
+    const results = await processInChunks(tokens, 25, async (token) => {
+      return await sendPushNotification(token, title, body, data);
     });
 
-    const results = await Promise.allSettled(sendPromises);
     let successCount = 0;
     let failureCount = 0;
-
-    results.forEach((r) => {
-      if (r.status === "fulfilled" && r.value) {
+    results.forEach((success) => {
+      if (success) {
         successCount++;
       } else {
         failureCount++;
       }
     });
 
-    return { successCount, failureCount };
+    return { successCount, failureCount, totalDevices: tokens.length };
   } catch (error) {
     console.error("[PUSH ERROR] Failed to broadcast push to all users:", error);
-    return { successCount: 0, failureCount: 0 };
+    return { successCount: 0, failureCount: 0, totalDevices: 0 };
+  }
+}
+
+/**
+ * Sends push notifications to a list of specific FCM tokens
+ */
+export async function sendPushToTokens(
+  tokens: string[],
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<{ successCount: number; failureCount: number; totalDevices: number }> {
+  try {
+    const validTokens = tokens.filter((t) => typeof t === "string" && t.trim().length > 0);
+    if (validTokens.length === 0) {
+      return { successCount: 0, failureCount: 0, totalDevices: 0 };
+    }
+
+    const results = await processInChunks(validTokens, 25, async (token) => {
+      return await sendPushNotification(token, title, body, data);
+    });
+
+    let successCount = 0;
+    let failureCount = 0;
+    results.forEach((success) => {
+      if (success) {
+        successCount++;
+      } else {
+        failureCount++;
+      }
+    });
+
+    return { successCount, failureCount, totalDevices: validTokens.length };
+  } catch (error) {
+    console.error("[PUSH ERROR] Failed to send push to tokens:", error);
+    return { successCount: 0, failureCount: 0, totalDevices: 0 };
   }
 }
 

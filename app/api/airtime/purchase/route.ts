@@ -322,6 +322,8 @@ export async function POST(req: NextRequest) {
       if (!apiResult.success) {
         const errorMessage = normalizeProviderFailureMessage(apiResult.message);
 
+        const airtimeDesc = `${networkId} Airtime - ₦${amount}`;
+
         await prisma.$transaction(async (tx) => {
           await tx.user.update({
             where: { id: user.id },
@@ -332,13 +334,13 @@ export async function POST(req: NextRequest) {
             where: { reference },
             data: {
               status: "FAILED",
-              description: apiResult.message || errorMessage,
+              description: airtimeDesc,
               externalReference: apiResult.externalReference || undefined,
             },
           });
         });
 
-        return NextResponse.json({ success: false, error: PURCHASE_FAILED_GENERIC_MESSAGE }, { status: 400 });
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
       }
 
       await prisma.transaction.updateMany({

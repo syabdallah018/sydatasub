@@ -55,8 +55,9 @@ export function isSimDispenseError(message?: string | null): boolean {
 }
 
 
-export function normalizeProviderFailureMessage(message?: string | null) {
-  const normalizedMessage = (message || "").toLowerCase();
+export function normalizeProviderFailureMessage(message?: string | null): string {
+  if (!message) return "Service temporarily unavailable. Please try again shortly.";
+  const normalizedMessage = message.toLowerCase();
 
   // Handle subscriber eligibility errors
   if (
@@ -65,42 +66,59 @@ export function normalizeProviderFailureMessage(message?: string | null) {
     normalizedMessage.includes("watch out for other") ||
     normalizedMessage.includes("offers from mtn")
   ) {
-    return "Phone number is not eligible for this plan.";
+    return "Phone number is not eligible for this plan. Please select a different bundle.";
   }
 
-  // Handle network mismatch errors from providers (e.g. SMEPlug: "SORRY , THE NUMBER IS NOT AN MTN NUMBER. THANK YOU!")
+  // Handle network mismatch errors from providers
   if (
     normalizedMessage.includes("not an mtn number") ||
     normalizedMessage.includes("not an airtel number") ||
     normalizedMessage.includes("not a glo number") ||
     normalizedMessage.includes("not a 9mobile number") ||
-    normalizedMessage.includes("is not an") ||
     (normalizedMessage.includes("not an") && normalizedMessage.includes("number"))
   ) {
-    return message ? message.trim() : "The phone number does not match the selected network operator.";
+    return "The phone number does not match the selected network operator.";
   }
 
-  // Handle third-party vendor balance/technical connection/SIM issues -> return clean network error
-  if (
-    normalizedMessage.includes("active sim") ||
-    normalizedMessage.includes("sim to dispense") ||
-    normalizedMessage.includes("active_sim") ||
-    normalizedMessage.includes("smeplug") ||
-    normalizedMessage.includes("balance") ||
-    normalizedMessage.includes("insufficient") ||
-    normalizedMessage.includes("fund") ||
-    normalizedMessage.includes("wallet") ||
-    normalizedMessage.includes("network") ||
-    normalizedMessage.includes("gateway") ||
-    normalizedMessage.includes("timeout") ||
-    normalizedMessage.includes("not available") ||
-    PROVIDER_TECHNICAL_FAILURE_PATTERNS.some((pattern) => normalizedMessage.includes(pattern)) ||
-    PLAN_UNAVAILABLE_PATTERNS.some((pattern) => normalizedMessage.includes(pattern))
-  ) {
-    return "Network error";
+  // Gatekeep: Any provider error mentioning balance, wallet, insufficient, fund, sim, provider, timeout
+  // Users must never see vendor internal/low balance errors
+  return "Service temporarily unavailable. Please try again shortly.";
+}
+
+/**
+ * Sanitizes transaction descriptions so provider errors (especially low balance, sim, or api messages)
+ * are never leaked to user transaction lists and receipts.
+ */
+export function sanitizeTransactionDescription(
+  description: string | null | undefined,
+  status: string,
+  fallback: string
+): string {
+  if (!description || description.trim().length === 0) return fallback;
+  if (status !== "FAILED") return description;
+
+  const lower = description.toLowerCase();
+  const isLeakedInternalError =
+    lower.includes("balance") ||
+    lower.includes("insufficient") ||
+    lower.includes("wallet") ||
+    lower.includes("fund") ||
+    lower.includes("sim") ||
+    lower.includes("dispense") ||
+    lower.includes("provider") ||
+    lower.includes("gateway") ||
+    lower.includes("timeout") ||
+    lower.includes("smeplug") ||
+    lower.includes("saiful") ||
+    lower.includes("amysub") ||
+    lower.includes("alrahuz") ||
+    lower.includes("api");
+
+  if (isLeakedInternalError) {
+    return fallback;
   }
 
-  return PURCHASE_FAILED_GENERIC_MESSAGE;
+  return description;
 }
 
 type DuplicateCheckParams = {

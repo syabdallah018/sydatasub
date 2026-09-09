@@ -107,6 +107,7 @@ model User {
   kycLockedAt        DateTime?
   fcmToken           String?
   biometricTokenHash String?
+  adminPasswordHash  String?
   joinedAt           DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -392,4 +393,13 @@ model PushBroadcast {
   @@index([createdAt])
   @@map("push_broadcasts")
 }
+
+model AirtimeCashConfig {
+  id         String   @id @default("default")
+  feePercent Int      @default(10)
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("airtime_cash_config")
+}
+
 

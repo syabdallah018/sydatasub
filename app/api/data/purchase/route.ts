@@ -398,6 +398,8 @@ export async function POST(req: NextRequest) {
 
         const errorMessage = normalizeProviderFailureMessage(apiResult.message);
 
+        const planDesc = `${plan.network} ${plan.sizeLabel} Data (${plan.category})`;
+
         await prisma.$transaction(async (tx) => {
           await tx.user.update({
             where: { id: user.id },
@@ -411,7 +413,7 @@ export async function POST(req: NextRequest) {
             where: { reference },
             data: {
               status: "FAILED",
-              description: apiResult.message || errorMessage,
+              description: planDesc,
               externalReference: apiResult.externalReference || undefined,
             },
           });
@@ -424,7 +426,11 @@ export async function POST(req: NextRequest) {
           rawErrorLower.includes("not eligible") ||
           rawErrorLower.includes("select a new bundle")
         ) {
-          clientError = "This number is not eligible for this plan. Please select a new bundle and try again.";
+          clientError = "This number is not eligible for this plan. Please select a different bundle and try again.";
+        } else if (rawErrorLower.includes("not an") && rawErrorLower.includes("number")) {
+          clientError = "The phone number does not match the selected network operator.";
+        } else {
+          clientError = "Service temporarily unavailable. Please try again shortly.";
         }
 
         return NextResponse.json({ success: false, error: clientError }, { status: 400 });
