@@ -150,10 +150,37 @@ export async function POST(req: NextRequest) {
     }
 
     const reference = `AIRTIME-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    const lockKey = `airtime:${user.id}:${recipientPhone}:${amount}:${network}`;
+    const lockKey = idempotencyKey
+      ? `airtime:idemp:${user.id}:${idempotencyKey}`
+      : `airtime:${user.id}:${recipientPhone}:${amount}:${network}`;
 
     const txResult = await prisma.$transaction(async (tx) => {
       await acquirePurchaseLock(tx, lockKey);
+
+      if (idempotencyKey) {
+        const existingByIdemp = await tx.transaction.findFirst({
+          where: {
+            userId: user.id,
+            tempTxRef: idempotencyKey,
+          },
+          select: {
+            id: true,
+            reference: true,
+            status: true,
+            amount: true,
+            phone: true,
+            createdAt: true,
+            description: true,
+          },
+        });
+
+        if (existingByIdemp) {
+          return {
+            kind: "idempotent_duplicate" as const,
+            transaction: existingByIdemp,
+          };
+        }
+      }
 
       const existingDuplicate = await tx.transaction.findFirst({
         where: {
@@ -207,6 +234,7 @@ export async function POST(req: NextRequest) {
           amount,
           status: "PENDING",
           reference,
+          tempTxRef: idempotencyKey || null,
           description: `Airtime: N${amount} to ${recipientPhone}`,
           phone: recipientPhone,
           apiUsed,
@@ -217,6 +245,19 @@ export async function POST(req: NextRequest) {
 
       return { kind: "created" as const };
     });
+
+    if (txResult.kind === "idempotent_duplicate") {
+      const isSuccess = txResult.transaction.status === "SUCCESS";
+      return NextResponse.json({
+        success: isSuccess,
+        status: txResult.transaction.status,
+        message: isSuccess
+          ? AIRTIME_PURCHASE_SUCCESS_MESSAGE
+          : "Your airtime recharge is already being processed.",
+        reference: txResult.transaction.reference,
+        transaction: txResult.transaction,
+      });
+    }
 
     if (txResult.kind === "pending_duplicate") {
       return NextResponse.json(
