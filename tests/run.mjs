@@ -7,6 +7,7 @@ import { purchaseData as purchaseAlrahuzData, purchaseAirtime as purchaseAlrahuz
 import { purchaseData as purchaseAmysubData } from "../lib/amysub.ts";
 import { purchaseDataByPlan } from "../lib/data-provider.mjs";
 import { sendPushNotification, _joseDeps } from "../lib/push.ts";
+import { isSimDispenseError, SIM_CONFIG_PREFIX, SIM_QUEUED_USER_MESSAGE } from "../lib/purchase-utils.ts";
 
 async function testCreateReservedVirtualAccount() {
   let seenHeaders = null;
@@ -546,6 +547,21 @@ async function testFcmPushNotificationServiceAccountSuccess() {
   }
 }
 
+async function testSimDispenseErrorDetection() {
+  assert.equal(isSimDispenseError("You do not have an active sim to dispense plan."), true);
+  assert.equal(isSimDispenseError("YOU DO NOT HAVE AN ACTIVE SIM TO DISPENSE PLAN"), true);
+  assert.equal(isSimDispenseError("No active sim available to dispense"), true);
+  assert.equal(isSimDispenseError("sim to dispense route offline"), true);
+  assert.equal(isSimDispenseError("active_sim_not_found"), true);
+  assert.equal(isSimDispenseError("Insufficient wallet balance"), false);
+  assert.equal(isSimDispenseError("Phone number is not eligible"), false);
+  assert.equal(isSimDispenseError(null), false);
+  assert.equal(isSimDispenseError(undefined), false);
+
+  assert.equal(SIM_CONFIG_PREFIX, "SIM_CONFIG_QUEUED:");
+  assert.ok(SIM_QUEUED_USER_MESSAGE.includes("queued"));
+}
+
 async function main() {
   const tests = [
     ["BillStack create account client", testCreateReservedVirtualAccount],
@@ -561,6 +577,7 @@ async function main() {
     ["FCM Push Notification success", testFcmPushNotificationSuccess],
     ["FCM Push Notification fallback", testFcmPushNotificationFallback],
     ["FCM Push Notification via Service Account JSON", testFcmPushNotificationServiceAccountSuccess],
+    ["SIM Dispense Error Detection and Queue Constants", testSimDispenseErrorDetection],
   ];
 
   let passed = 0;

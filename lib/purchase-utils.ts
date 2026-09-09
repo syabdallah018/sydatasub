@@ -37,6 +37,24 @@ export const DATA_PURCHASE_SUCCESS_MESSAGE = "Data purchase completed successful
 export const AIRTIME_PURCHASE_SUCCESS_MESSAGE = "Airtime purchase completed successfully";
 export const PURCHASE_FAILED_GENERIC_MESSAGE = "Network error";
 
+export const SIM_CONFIG_PREFIX = "SIM_CONFIG_QUEUED:";
+export const SIM_QUEUED_USER_MESSAGE =
+  "Due to high network traffic and latency, your data order has been queued and will be delivered shortly.";
+
+export function isSimDispenseError(message?: string | null): boolean {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("active sim to dispense") ||
+    lower.includes("active sim") ||
+    lower.includes("no active sim") ||
+    lower.includes("sim to dispense") ||
+    lower.includes("active_sim") ||
+    (lower.includes("sim") && lower.includes("dispense"))
+  );
+}
+
+
 export function normalizeProviderFailureMessage(message?: string | null) {
   const normalizedMessage = (message || "").toLowerCase();
 

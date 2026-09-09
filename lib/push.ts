@@ -211,3 +211,75 @@ export async function sendPushToAll(
     return { successCount: 0, failureCount: 0 };
   }
 }
+
+/**
+ * Sends a push notification to a user by phone number
+ */
+export async function sendPushToPhone(
+  phone: string,
+  title: string,
+  body: string,
+  data?: Record<string, string>
+): Promise<boolean> {
+  try {
+    const cleanDigits = phone.replace(/[^0-9]/g, "");
+    const last10 = cleanDigits.slice(-10);
+    const candidatePhones = [
+      phone,
+      `0${last10}`,
+      `234${last10}`,
+      `+234${last10}`,
+      last10,
+    ];
+
+    const user = await prisma.user.findFirst({
+      where: {
+        phone: { in: candidatePhones },
+        fcmToken: { not: null },
+      },
+      select: { id: true, fcmToken: true },
+    });
+
+    if (!user || !user.fcmToken) {
+      console.warn(`[PUSH] No registered FCM token found for phone ${phone}`);
+      return false;
+    }
+
+    return await sendPushNotification(user.fcmToken, title, body, data);
+  } catch (error: any) {
+    console.warn(`[PUSH] Could not send push to phone ${phone}:`, error?.message || error);
+    return false;
+  }
+}
+
+/**
+ * Notifies admin (07068614426) when a data purchase is queued for SIM configuration
+ */
+export async function notifyAdminSimConfigNeeded(params: {
+  phone: string;
+  planName?: string;
+  sizeLabel?: string;
+  network?: string;
+  provider?: string;
+  reference: string;
+}): Promise<void> {
+  const adminPhone = "07068614426";
+  const title = "🚨 Queued Order - SIM Config Needed";
+  const body = `Data order ${params.sizeLabel || ""} ${params.network || ""} for ${params.phone} is queued on ${params.provider || "provider"}. SIM configuration required. Ref: ${params.reference}`;
+
+  try {
+    const pushSent = await sendPushToPhone(adminPhone, title, body, {
+      type: "SIM_CONFIG_ALERT",
+      reference: params.reference,
+      provider: params.provider || "UNKNOWN",
+      phone: params.phone,
+    });
+
+    if (!pushSent) {
+      console.log(`[SIM CONFIG ALERT] Push logged for admin ${adminPhone} (recipient device offline or token unregistered). Msg: ${body}`);
+    }
+  } catch (err) {
+    console.error("[SIM CONFIG ALERT] Error dispatching admin alert:", err);
+  }
+}
+

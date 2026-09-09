@@ -379,3 +379,17 @@ model UserPreference {
   @@map("user_preferences")
 }
 
+model PushBroadcast {
+  id           String   @id @default(cuid())
+  title        String
+  body         String
+  target       String   @default("ALL")
+  successCount Int      @default(0)
+  failureCount Int      @default(0)
+  totalDevices Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("push_broadcasts")
+}
+

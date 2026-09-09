@@ -9,6 +9,9 @@ import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
 import {
   findRecentDuplicateTransaction,
   normalizeProviderFailureMessage,
+  isSimDispenseError,
+  SIM_CONFIG_PREFIX,
+  SIM_QUEUED_USER_MESSAGE,
   DATA_INSUFFICIENT_FUNDS_MESSAGE,
   DATA_PURCHASE_SUCCESS_MESSAGE,
   PURCHASE_FAILED_GENERIC_MESSAGE,
@@ -20,7 +23,7 @@ import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 import { getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
-import { sendPushToUser } from "@/lib/push";
+import { sendPushToUser, notifyAdminSimConfigNeeded } from "@/lib/push";
 
 const purchaseSchema = z.object({
   planId: z.string().min(1, "Plan ID is required"),
@@ -305,6 +308,53 @@ export async function POST(req: NextRequest) {
       });
 
       if (!apiResult.success) {
+        // Handle provider active SIM / dispensing server offline errors
+        if (isSimDispenseError(apiResult.message)) {
+          const queuedDescription = `${SIM_CONFIG_PREFIX} ${apiResult.message || "Awaiting SIM configuration"}`;
+
+          // Keep transaction in PENDING status - DO NOT REFUND USER
+          await prisma.transaction.updateMany({
+            where: { reference },
+            data: {
+              status: "PENDING",
+              description: queuedDescription,
+              externalReference: apiResult.externalReference || undefined,
+            },
+          });
+
+          // Alert admin phone 07068614426 via push notification
+          notifyAdminSimConfigNeeded({
+            phone: recipientPhone,
+            planName: plan.name,
+            sizeLabel: plan.sizeLabel,
+            network: plan.network,
+            provider: plan.apiSource,
+            reference,
+          }).catch((err) => console.error("[SIM CONFIG QUEUE] Admin alert error:", err));
+
+          const queuedTx = await prisma.transaction.findFirst({
+            where: { reference },
+          });
+
+          return NextResponse.json(
+            {
+              success: true,
+              status: "PENDING",
+              message: SIM_QUEUED_USER_MESSAGE,
+              reference,
+              transaction: queuedTx || {
+                reference,
+                status: "PENDING",
+                amount: planPrice,
+                phone: recipientPhone,
+                description: queuedDescription,
+                createdAt: new Date().toISOString(),
+              },
+            },
+            { status: 200 }
+          );
+        }
+
         const errorMessage = normalizeProviderFailureMessage(apiResult.message);
 
         await prisma.$transaction(async (tx) => {

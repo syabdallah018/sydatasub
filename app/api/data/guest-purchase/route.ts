@@ -9,9 +9,13 @@ import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
 import { getPlanPriceForUser } from "@/lib/pricing";
 import {
   normalizeProviderFailureMessage,
+  isSimDispenseError,
+  SIM_CONFIG_PREFIX,
+  SIM_QUEUED_USER_MESSAGE,
   DATA_PURCHASE_SUCCESS_MESSAGE,
   PURCHASE_FAILED_GENERIC_MESSAGE,
 } from "@/lib/purchase-utils";
+import { notifyAdminSimConfigNeeded } from "@/lib/push";
 import { z } from "zod";
 
 const guestPurchaseSchema = z.object({
@@ -80,6 +84,37 @@ export async function POST(req: NextRequest) {
           {
             success: true,
             message: DATA_PURCHASE_SUCCESS_MESSAGE,
+            reference,
+          },
+          { status: 200 }
+        );
+      }
+
+      if (isSimDispenseError(apiResult.message)) {
+        const queuedDescription = `${SIM_CONFIG_PREFIX} ${apiResult.message || "Awaiting SIM configuration"}`;
+        await prisma.transaction.update({
+          where: { reference },
+          data: {
+            status: "PENDING",
+            description: queuedDescription,
+            externalReference: apiResult.externalReference || undefined,
+          },
+        });
+
+        notifyAdminSimConfigNeeded({
+          phone,
+          planName: plan.name,
+          sizeLabel: plan.sizeLabel,
+          network: plan.network,
+          provider: plan.apiSource,
+          reference,
+        }).catch((err) => console.error("[SIM CONFIG QUEUE] Admin alert error:", err));
+
+        return NextResponse.json(
+          {
+            success: true,
+            status: "PENDING",
+            message: SIM_QUEUED_USER_MESSAGE,
             reference,
           },
           { status: 200 }
