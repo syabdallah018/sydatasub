@@ -30,7 +30,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       { success: true, data: serializedPlans, plans: serializedPlans },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=86400",
+        },
+      }
     );
   } catch (error) {
     console.error("[DATA PLANS ERROR]", error);

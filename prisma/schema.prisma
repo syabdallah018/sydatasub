@@ -230,6 +230,7 @@ model Transaction {
   updatedAt          DateTime           @updatedAt
 
   @@index([userId])
+  @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@index([phone])
   @@index([reference])

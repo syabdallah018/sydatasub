@@ -19,7 +19,15 @@ export async function GET(req: NextRequest) {
       orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
     });
 
-    return NextResponse.json({ success: true, data: notices }, { status: 200 });
+    return NextResponse.json(
+      { success: true, data: notices },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (error) {
     console.error("[ACTIVE NOTICES ERROR]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

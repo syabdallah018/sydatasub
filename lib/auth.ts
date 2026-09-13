@@ -83,7 +83,7 @@ export async function verifyToken(
     const secret = getSecretBytes();
     const verified = await jwtVerify(token, secret);
     const payload = verified.payload as JWTPayload;
-    if (payload.sv !== SESSION_TOKEN_VERSION) {
+    if (payload.role === "ADMIN" && payload.sv !== SESSION_TOKEN_VERSION) {
       return null;
     }
     return payload;

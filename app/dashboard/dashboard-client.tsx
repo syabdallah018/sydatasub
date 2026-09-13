@@ -180,13 +180,60 @@ export default function DashboardClient({
     }
   };
 
+  const [refreshingUser, setRefreshingUser] = useState(false);
+
+  const refreshUserData = async (silent = false) => {
+    try {
+      if (!silent) setRefreshingUser(true);
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      const d = await res.json();
+      const updatedUser = d.data || d.user;
+      if (updatedUser) {
+        setUser((prev) => ({
+          ...prev,
+          ...updatedUser,
+        }));
+        if (!silent) toast.success("Wallet balance refreshed");
+      }
+    } catch {
+      if (!silent) toast.error("Failed to refresh balance");
+    } finally {
+      if (!silent) setRefreshingUser(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "transactions") {
       fetchTransactions();
     } else if (activeTab === "accounts") {
       fetchBankAccounts();
     }
+    // Always silently sync user balance when switching tabs
+    refreshUserData(true);
   }, [activeTab]);
+
+  useEffect(() => {
+    // Periodically sync balance every 90s only when tab is actively visible
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        refreshUserData(true);
+      }
+    }, 90000);
+
+    // Revalidate immediately when user switches back to the tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshUserData(true);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -329,11 +376,7 @@ export default function DashboardClient({
 
       if (data.success) {
         toast.success("Sandbox request processed successfully!");
-        fetch("/api/auth/me")
-          .then((r) => r.json())
-          .then((d) => {
-            if (d.user) setUser((prev) => ({ ...prev, balance: d.user.balance }));
-          });
+        refreshUserData(true);
       } else {
         toast.error(data.error || "Sandbox API purchase failed");
       }
@@ -375,11 +418,7 @@ export default function DashboardClient({
         setQuickPhone("");
         setQuickPin("");
         setQuickPlanId("");
-        const meRes = await fetch("/api/auth/me");
-        const meData = await meRes.json();
-        if (meData.user) {
-          setUser(meData.user);
-        }
+        refreshUserData(true);
       } else {
         toast.error(data.error || "Purchase failed");
       }
@@ -418,11 +457,7 @@ export default function DashboardClient({
         setAirtimeAmount("");
         setAirtimePin("");
         setAirtimeNetwork("");
-        const meRes = await fetch("/api/auth/me");
-        const meData = await meRes.json();
-        if (meData.user) {
-          setUser(meData.user);
-        }
+        refreshUserData(true);
       } else {
         toast.error(data.error || "Airtime purchase failed");
       }
@@ -612,6 +647,15 @@ export default function DashboardClient({
                   ₦{(user.balance / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={() => refreshUserData(false)}
+                disabled={refreshingUser}
+                title="Refresh live balance"
+                className="ml-1 p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-100/50 transition disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={refreshingUser ? "animate-spin text-blue-600" : ""} />
+              </button>
             </div>
             
             {user.rewardBalance !== undefined && user.rewardBalance > 0 && (

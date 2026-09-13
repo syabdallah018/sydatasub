@@ -65,7 +65,7 @@ export async function purchaseData(params: SaifulPurchaseParams): Promise<Saiful
           "Authorization": `Bearer ${SAIFUL_API_KEY}`,
           "Content-Type": "application/json",
         },
-        timeout: 120000,
+        timeout: Number(process.env.SAIFUL_TIMEOUT_MS || 30000),
         validateStatus: () => true,
       }
     );
@@ -169,7 +169,7 @@ export async function purchaseAirtime(params: AirtimePurchaseParams): Promise<Sa
           "Authorization": `Bearer ${SAIFUL_API_KEY}`,
           "Content-Type": "application/json",
         },
-        timeout: 120000,
+        timeout: Number(process.env.SAIFUL_TIMEOUT_MS || 30000),
         validateStatus: () => true,
       }
     );

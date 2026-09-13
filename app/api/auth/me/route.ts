@@ -43,22 +43,34 @@ export async function GET(req: NextRequest) {
     const normalizedUser = normalizeUserCompat(user)
 
     const isMobile = isMobileClient(req);
-    const refreshedToken = await signToken(
-      {
-        userId: normalizedUser.id,
-        email: normalizedUser.email || normalizedUser.phone,
-        role: normalizedUser.role,
-      },
-      getSessionExpiration(req)
-    );
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expSec = Number(sessionUser.exp || 0);
+    const remainingSeconds = expSec - nowSec;
+
+    // Only re-sign if token is missing expiration or approaching expiration (last 7 days for mobile, 2 days for web)
+    const refreshThresholdSeconds = isMobile ? 7 * 86400 : 2 * 86400;
+    const shouldRefreshToken = !expSec || remainingSeconds < refreshThresholdSeconds;
+
+    let refreshedToken: string | undefined;
+    if (shouldRefreshToken) {
+      refreshedToken = await signToken(
+        {
+          userId: normalizedUser.id,
+          email: normalizedUser.email || normalizedUser.phone,
+          role: normalizedUser.role,
+        },
+        getSessionExpiration(req)
+      );
+    }
 
     const response = NextResponse.json({
       success: true,
       data: normalizedUser,
-      token: refreshedToken,
+      user: normalizedUser,
+      ...(refreshedToken ? { token: refreshedToken } : {}),
     });
 
-    if (!isMobile) {
+    if (!isMobile && refreshedToken) {
       setUserSessionCookie(response, refreshedToken);
     }
 

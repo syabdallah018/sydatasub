@@ -77,7 +77,7 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       reference,
     });
 
-    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 120000);
+    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 30000);
 
     const response = await axios.post(
       `${baseUrl}/data/purchase`,
@@ -193,7 +193,7 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
       })
     );
 
-    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 120000);
+    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 30000);
 
     const response = await axios.post(
       `${baseUrl}/airtime/purchase`,

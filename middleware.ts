@@ -40,30 +40,21 @@ export async function middleware(req: NextRequest) {
 
   const response = NextResponse.next();
 
-  // ===== CRITICAL: Cache-Control Headers for WebView Compatibility =====
-  // Prevents Android WebView and browsers from aggressively caching responses
-  // This forces revalidation on every request, especially for real-time data like balance
-
-  // SW and Next runtime assets: force fresh fetch after deployment for WebView stability.
-  if (req.nextUrl.pathname === "/sw.js" || req.nextUrl.pathname.startsWith("/_next/")) {
-    response.headers.set(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
-    );
-    response.headers.set("Pragma", "no-cache");
-    response.headers.set("Expires", "0");
-    response.headers.set("Surrogate-Control", "no-store");
-  }
-
-  // API Routes: No cache (must always fetch fresh data) + CORS
+  // API Routes: CORS and dynamic cache control
   if (isApi) {
-    response.headers.set(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
-    );
-    response.headers.set("Pragma", "no-cache");
-    response.headers.set("Expires", "0");
-    response.headers.set("Surrogate-Control", "no-store");
+    const isPublicCacheableApi =
+      req.nextUrl.pathname === "/api/data/plans" ||
+      req.nextUrl.pathname === "/api/notices/active";
+
+    if (!isPublicCacheableApi) {
+      response.headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      );
+      response.headers.set("Pragma", "no-cache");
+      response.headers.set("Expires", "0");
+      response.headers.set("Surrogate-Control", "no-store");
+    }
     response.headers.set("Access-Control-Allow-Origin", origin);
     response.headers.set("Access-Control-Allow-Credentials", "true");
     response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
@@ -76,9 +67,9 @@ export async function middleware(req: NextRequest) {
     response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
   }
 
-  // App/Dashboard Routes: Minimal cache with forced revalidation
+  // App/Dashboard Routes: Minimal cache with forced revalidation for auth states
   if (
-    req.nextUrl.pathname.startsWith("/app/") ||
+    req.nextUrl.pathname === "/app" ||
     req.nextUrl.pathname.startsWith("/dashboard")
   ) {
     response.headers.set(
@@ -93,7 +84,7 @@ export async function middleware(req: NextRequest) {
   // Landing/Public Pages: Cache but allow stale
   if (
     !isApi &&
-    !req.nextUrl.pathname.startsWith("/app/") &&
+    req.nextUrl.pathname !== "/app" &&
     !req.nextUrl.pathname.startsWith("/dashboard") &&
     req.nextUrl.pathname !== "/sw.js" &&
     !req.nextUrl.pathname.startsWith("/_next/")
@@ -122,5 +113,14 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/:path*"],
+  matcher: [
+    /*
+     * Match all request paths except for:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, manifest.json, sw.js
+     * - Static asset file extensions
+     */
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|ttf|woff|woff2|js|css)$).*)",
+  ],
 };
