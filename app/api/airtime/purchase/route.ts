@@ -6,6 +6,9 @@ import { purchaseAirtime as purchaseAirtimeSaiful } from "@/lib/saiful";
 import {
   findRecentDuplicateTransaction,
   normalizeProviderFailureMessage,
+  isTimeoutError,
+  TIMEOUT_PREFIX,
+  TIMEOUT_QUEUED_USER_MESSAGE,
   AIRTIME_PURCHASE_SUCCESS_MESSAGE,
   PURCHASE_FAILED_GENERIC_MESSAGE,
 } from "@/lib/purchase-utils";
@@ -13,7 +16,7 @@ import { getSessionUser } from "@/lib/auth";
 import { z } from "zod";
 import bcryptjs from "bcryptjs";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
-import { sendPushToUser } from "@/lib/push";
+import { sendPushToUser, notifyAdminTimeoutOccurred } from "@/lib/push";
 
 const purchaseSchema = z.object({
   buyerPhone: z.string().regex(/^0[0-9]{10}$/, "Invalid buyer phone"),
@@ -320,6 +323,52 @@ export async function POST(req: NextRequest) {
       });
 
       if (!apiResult.success) {
+        if ((apiResult as any).isTimeout || isTimeoutError(apiResult.message)) {
+          const timeoutDescription = `${TIMEOUT_PREFIX} ${apiResult.message || "Provider gateway timeout - request in flight"}`;
+
+          // Keep transaction in PENDING status - DO NOT REFUND USER
+          await prisma.transaction.updateMany({
+            where: { reference },
+            data: {
+              status: "PENDING",
+              description: timeoutDescription,
+              externalReference: apiResult.externalReference || undefined,
+            },
+          });
+
+          notifyAdminTimeoutOccurred({
+            phone: recipientPhone,
+            type: "AIRTIME_PURCHASE",
+            amount,
+            network: network.toUpperCase(),
+            provider: apiUsed,
+            reference,
+            message: apiResult.message,
+          }).catch((err) => console.error("[TIMEOUT QUEUE] Admin alert error:", err));
+
+          const queuedTx = await prisma.transaction.findFirst({
+            where: { reference },
+          });
+
+          return NextResponse.json(
+            {
+              success: true,
+              status: "PENDING",
+              message: TIMEOUT_QUEUED_USER_MESSAGE,
+              reference,
+              transaction: queuedTx || {
+                reference,
+                status: "PENDING",
+                amount,
+                phone: recipientPhone,
+                description: timeoutDescription,
+                createdAt: new Date().toISOString(),
+              },
+            },
+            { status: 200 }
+          );
+        }
+
         const errorMessage = normalizeProviderFailureMessage(apiResult.message);
 
         const airtimeDesc = `${networkId} Airtime - ₦${amount}`;
@@ -378,8 +427,52 @@ export async function POST(req: NextRequest) {
         },
         { status: 200 }
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("[AIRTIME PURCHASE API ERROR]", error);
+
+      if (isTimeoutError(error)) {
+        const timeoutDescription = `${TIMEOUT_PREFIX} Request timed out in flight: ${error?.message || "Execution timeout"}`;
+
+        await prisma.transaction.updateMany({
+          where: { reference },
+          data: {
+            status: "PENDING",
+            description: timeoutDescription,
+          },
+        });
+
+        notifyAdminTimeoutOccurred({
+          phone: recipientPhone,
+          type: "AIRTIME_PURCHASE",
+          amount,
+          network: network.toUpperCase(),
+          provider: apiUsed,
+          reference,
+          message: error?.message,
+        }).catch((err) => console.error("[TIMEOUT QUEUE] Admin alert error:", err));
+
+        const queuedTx = await prisma.transaction.findFirst({
+          where: { reference },
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            status: "PENDING",
+            message: TIMEOUT_QUEUED_USER_MESSAGE,
+            reference,
+            transaction: queuedTx || {
+              reference,
+              status: "PENDING",
+              amount,
+              phone: recipientPhone,
+              description: timeoutDescription,
+              createdAt: new Date().toISOString(),
+            },
+          },
+          { status: 200 }
+        );
+      }
 
       await prisma.$transaction(async (tx) => {
         await tx.user.update({

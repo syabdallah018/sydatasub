@@ -10,12 +10,15 @@ import { getPlanPriceForUser } from "@/lib/pricing";
 import {
   normalizeProviderFailureMessage,
   isSimDispenseError,
+  isTimeoutError,
   SIM_CONFIG_PREFIX,
   SIM_QUEUED_USER_MESSAGE,
+  TIMEOUT_PREFIX,
+  TIMEOUT_QUEUED_USER_MESSAGE,
   DATA_PURCHASE_SUCCESS_MESSAGE,
   PURCHASE_FAILED_GENERIC_MESSAGE,
 } from "@/lib/purchase-utils";
-import { notifyAdminSimConfigNeeded } from "@/lib/push";
+import { notifyAdminSimConfigNeeded, notifyAdminTimeoutOccurred } from "@/lib/push";
 import { z } from "zod";
 
 const guestPurchaseSchema = z.object({
@@ -90,46 +93,115 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (isSimDispenseError(apiResult.message)) {
-        const queuedDescription = `${SIM_CONFIG_PREFIX} ${apiResult.message || "Awaiting SIM configuration"}`;
+      if (!apiResult.success) {
+        if ((apiResult as any).isTimeout || isTimeoutError(apiResult.message)) {
+          const timeoutDescription = `${TIMEOUT_PREFIX} ${apiResult.message || "Provider gateway timeout - request in flight"}`;
+
+          await prisma.transaction.update({
+            where: { reference },
+            data: {
+              status: "PENDING",
+              description: timeoutDescription,
+              externalReference: apiResult.externalReference || undefined,
+            },
+          });
+
+          notifyAdminTimeoutOccurred({
+            phone,
+            type: "DATA_PURCHASE",
+            planName: plan.name,
+            sizeLabel: plan.sizeLabel,
+            network: plan.network,
+            provider: plan.apiSource,
+            reference,
+            message: apiResult.message,
+          }).catch((err) => console.error("[TIMEOUT QUEUE] Admin alert error:", err));
+
+          return NextResponse.json(
+            {
+              success: true,
+              status: "PENDING",
+              message: TIMEOUT_QUEUED_USER_MESSAGE,
+              reference,
+            },
+            { status: 200 }
+          );
+        }
+
+        if (isSimDispenseError(apiResult.message)) {
+          const queuedDescription = `${SIM_CONFIG_PREFIX} ${apiResult.message || "Awaiting SIM configuration"}`;
+          await prisma.transaction.update({
+            where: { reference },
+            data: {
+              status: "PENDING",
+              description: queuedDescription,
+              externalReference: apiResult.externalReference || undefined,
+            },
+          });
+
+          notifyAdminSimConfigNeeded({
+            phone,
+            planName: plan.name,
+            sizeLabel: plan.sizeLabel,
+            network: plan.network,
+            provider: plan.apiSource,
+            reference,
+          }).catch((err) => console.error("[SIM CONFIG QUEUE] Admin alert error:", err));
+
+          return NextResponse.json(
+            {
+              success: true,
+              status: "PENDING",
+              message: SIM_QUEUED_USER_MESSAGE,
+              reference,
+            },
+            { status: 200 }
+          );
+        }
+
+        const errorMessage = normalizeProviderFailureMessage(apiResult.message);
+        await prisma.transaction.update({
+          where: { reference },
+          data: { status: "FAILED", description: errorMessage },
+        });
+
+        return NextResponse.json({ error: PURCHASE_FAILED_GENERIC_MESSAGE, reference }, { status: 400 });
+      }
+    } catch (apiError: any) {
+      console.error("[GUEST DATA PURCHASE API ERROR]", apiError);
+
+      if (isTimeoutError(apiError)) {
+        const timeoutDescription = `${TIMEOUT_PREFIX} Request timed out in flight: ${apiError?.message || "Execution timeout"}`;
+
         await prisma.transaction.update({
           where: { reference },
           data: {
             status: "PENDING",
-            description: queuedDescription,
-            externalReference: apiResult.externalReference || undefined,
+            description: timeoutDescription,
           },
         });
 
-        notifyAdminSimConfigNeeded({
+        notifyAdminTimeoutOccurred({
           phone,
+          type: "DATA_PURCHASE",
           planName: plan.name,
           sizeLabel: plan.sizeLabel,
           network: plan.network,
           provider: plan.apiSource,
           reference,
-        }).catch((err) => console.error("[SIM CONFIG QUEUE] Admin alert error:", err));
+          message: apiError?.message,
+        }).catch((err) => console.error("[TIMEOUT QUEUE] Admin alert error:", err));
 
         return NextResponse.json(
           {
             success: true,
             status: "PENDING",
-            message: SIM_QUEUED_USER_MESSAGE,
+            message: TIMEOUT_QUEUED_USER_MESSAGE,
             reference,
           },
           { status: 200 }
         );
       }
-
-      const errorMessage = normalizeProviderFailureMessage(apiResult.message);
-      await prisma.transaction.update({
-        where: { reference },
-        data: { status: "FAILED", description: errorMessage },
-      });
-
-      return NextResponse.json({ error: PURCHASE_FAILED_GENERIC_MESSAGE, reference }, { status: 400 });
-    } catch (apiError) {
-      console.error("[GUEST DATA PURCHASE API ERROR]", apiError);
 
       await prisma.transaction.update({
         where: { reference },

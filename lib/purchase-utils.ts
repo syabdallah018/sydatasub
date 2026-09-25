@@ -41,6 +41,34 @@ export const SIM_CONFIG_PREFIX = "SIM_CONFIG_QUEUED:";
 export const SIM_QUEUED_USER_MESSAGE =
   "Due to high network traffic and latency, your data order has been queued and will be delivered shortly.";
 
+export const TIMEOUT_PREFIX = "TIMEOUT_QUEUED:";
+export const TIMEOUT_QUEUED_USER_MESSAGE =
+  "Your order was received and is processing. Delivery may take a few minutes due to provider network latency.";
+
+export function isTimeoutError(messageOrError?: any): boolean {
+  if (!messageOrError) return false;
+  if (typeof messageOrError === "object") {
+    if (messageOrError.isTimeout === true) return true;
+    const code = messageOrError.code;
+    if (code === "ECONNABORTED" || code === "ETIMEDOUT" || code === "ESOCKETTIMEDOUT") return true;
+    const status = messageOrError.response?.status || messageOrError.status;
+    if ([408, 502, 504, 524].includes(status)) return true;
+    const msg = messageOrError.message || messageOrError.error || "";
+    return isTimeoutError(String(msg));
+  }
+  const lower = String(messageOrError).toLowerCase();
+  return (
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("gateway timeout") ||
+    lower.includes("econnaborted") ||
+    lower.includes("etimedout") ||
+    lower.includes("socket hang up") ||
+    lower.includes("in flight") ||
+    lower.includes("deadline exceeded")
+  );
+}
+
 export function isSimDispenseError(message?: string | null): boolean {
   if (!message) return false;
   const lower = message.toLowerCase();

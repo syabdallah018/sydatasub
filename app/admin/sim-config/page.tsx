@@ -16,6 +16,11 @@ import {
   DollarSign,
   Radio,
   ExternalLink,
+  Timer,
+  Smartphone,
+  Check,
+  X,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +32,7 @@ interface QueuedTransaction {
   status: string;
   description: string;
   apiUsed?: string;
+  type?: string;
   createdAt: string;
   plan?: {
     id: string;
@@ -46,6 +52,12 @@ interface QueuedTransaction {
 }
 
 interface SummaryStats {
+  simCount: number;
+  simAmount: number;
+  timeoutCount: number;
+  timeoutAmount: number;
+  airtimeCount: number;
+  airtimeAmount: number;
   totalQueuedCount: number;
   totalQueuedAmount: number;
   networkBreakdown: Record<string, number>;
@@ -53,47 +65,70 @@ interface SummaryStats {
 }
 
 export default function AdminSimConfigPage() {
-  const [queued, setQueued] = useState<QueuedTransaction[]>([]);
+  const [activeTab, setActiveTab] = useState<"sim" | "timeout" | "airtime">("sim");
+
+  // Queues
+  const [simList, setSimList] = useState<QueuedTransaction[]>([]);
+  const [timeoutList, setTimeoutList] = useState<QueuedTransaction[]>([]);
+  const [airtimeList, setAirtimeList] = useState<QueuedTransaction[]>([]);
   const [summary, setSummary] = useState<SummaryStats | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedNetwork, setSelectedNetwork] = useState<string>("ALL");
 
-  // Single item action states
+  // Action processing state
   const [processingRef, setProcessingRef] = useState<string | null>(null);
+
+  // Manual Confirmation Modal state (for Mark Success or Mark Failed)
+  const [actionModal, setActionModal] = useState<{
+    isOpen: boolean;
+    tx: QueuedTransaction | null;
+    actionType: "mark_success" | "mark_failed";
+    note: string;
+  }>({
+    isOpen: false,
+    tx: null,
+    actionType: "mark_success",
+    note: "",
+  });
 
   // Batch retry state
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
-  const [batchLogs, setBatchLogs] = useState<Array<{ ref: string; phone: string; status: "success" | "pending" | "error"; message: string }>>([]);
+  const [batchLogs, setBatchLogs] = useState<
+    Array<{ ref: string; phone: string; status: "success" | "pending" | "error"; message: string }>
+  >([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
 
-  const fetchQueued = useCallback(async (showToast = false) => {
+  const fetchQueues = useCallback(async (showToast = false) => {
     try {
       setLoading(true);
       const res = await fetch("/api/admin/sim-config");
       const data = await res.json();
 
       if (res.ok && data.success) {
-        setQueued(data.data.queuedTransactions || []);
+        setSimList(data.data.simConfigTransactions || data.data.queuedTransactions || []);
+        setTimeoutList(data.data.timeoutTransactions || []);
+        setAirtimeList(data.data.airtimeTransactions || []);
         setSummary(data.data.summary || null);
         if (showToast) {
-          toast.success("Queued SIM orders refreshed");
+          toast.success("Queues refreshed successfully");
         }
       } else {
-        toast.error(data.error || "Failed to load queued SIM orders");
+        toast.error(data.error || "Failed to load queued orders");
       }
     } catch (err) {
       console.error("[FETCH QUEUED ERROR]", err);
-      toast.error("Network error while loading queued SIM orders");
+      toast.error("Network error while loading queued orders");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchQueued();
-  }, [fetchQueued]);
+    fetchQueues();
+  }, [fetchQueues]);
 
   // Single Retry
   const handleSingleRetry = async (reference: string) => {
@@ -108,10 +143,10 @@ export default function AdminSimConfigPage() {
 
       if (res.ok && data.success) {
         toast.success(`Ref ${reference}: ${data.message || "Delivered successfully!"}`);
-        fetchQueued();
+        fetchQueues();
       } else {
-        toast.warning(`Ref ${reference}: ${data.message || "Still waiting for SIM config"}`);
-        fetchQueued();
+        toast.warning(`Ref ${reference}: ${data.message || "Provider still processing"}`);
+        fetchQueues();
       }
     } catch (err) {
       console.error("[SINGLE RETRY ERROR]", err);
@@ -121,56 +156,91 @@ export default function AdminSimConfigPage() {
     }
   };
 
-  // Single Refund
-  const handleSingleRefund = async (reference: string, amount: number) => {
-    const confirm = window.confirm(
-      `Are you sure you want to CANCEL and REFUND ₦${amount} for reference ${reference}? This will immediately credit the customer wallet and cancel the order.`
-    );
-    if (!confirm) return;
+  // Open confirmation modal for Mark Success or Mark Failed
+  const openActionModal = (tx: QueuedTransaction, actionType: "mark_success" | "mark_failed") => {
+    setActionModal({
+      isOpen: true,
+      tx,
+      actionType,
+      note: "",
+    });
+  };
+
+  // Execute Mark Success / Mark Failed with optional admin note
+  const handleExecuteModalAction = async () => {
+    if (!actionModal.tx) return;
+    const { reference, amount } = actionModal.tx;
+    const action = actionModal.actionType;
+    const adminNote = actionModal.note;
 
     setProcessingRef(reference);
+    setActionModal((prev) => ({ ...prev, isOpen: false }));
+
     try {
       const res = await fetch("/api/admin/sim-config/retry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference, action: "refund" }),
+        body: JSON.stringify({ reference, action, adminNote }),
       });
       const data = await res.json();
 
       if (res.ok && data.success) {
-        toast.success(`Ref ${reference} cancelled and refunded successfully.`);
-        fetchQueued();
+        if (action === "mark_success") {
+          toast.success(`Ref ${reference}: Marked as SUCCESS! Buyer notified via push.`);
+        } else {
+          toast.success(`Ref ${reference}: Marked as FAILED. ₦${amount} refunded to wallet.`);
+        }
+        fetchQueues();
       } else {
-        toast.error(data.error || data.message || "Failed to refund transaction");
+        toast.error(data.error || data.message || "Action failed to execute");
       }
     } catch (err) {
-      console.error("[REFUND ERROR]", err);
-      toast.error("Error processing refund");
+      console.error("[ACTION ERROR]", err);
+      toast.error("Error executing admin action");
     } finally {
       setProcessingRef(null);
     }
   };
 
-  // Batch Retry All
-  const handleRetryAll = async () => {
-    if (queued.length === 0) {
-      toast.info("No queued transactions to retry.");
+  // Current active list
+  const currentList =
+    activeTab === "sim" ? simList : activeTab === "timeout" ? timeoutList : airtimeList;
+
+  // Filter current active list
+  const filteredList = currentList.filter((tx) => {
+    const matchesSearch =
+      tx.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tx.phone.includes(searchQuery) ||
+      (tx.user?.fullName && tx.user.fullName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (tx.plan?.name && tx.plan.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (tx.description && tx.description.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const txNetwork = tx.plan?.network || (tx.description?.toUpperCase().includes("MTN") ? "MTN" : tx.description?.toUpperCase().includes("AIRTEL") ? "AIRTEL" : tx.description?.toUpperCase().includes("GLO") ? "GLO" : tx.description?.toUpperCase().includes("9MOBILE") ? "NINEMOBILE" : "OTHER");
+    const matchesNetwork = selectedNetwork === "ALL" || txNetwork === selectedNetwork;
+
+    return matchesSearch && matchesNetwork;
+  });
+
+  // Batch Retry for current active queue
+  const handleRetryAllCurrent = async () => {
+    if (filteredList.length === 0) {
+      toast.info("No queued transactions to retry in this tab.");
       return;
     }
 
     const confirm = window.confirm(
-      `Start sequential retry for ${queued.length} queued data purchase(s)? The system will process each order one after another with automatic throttling.`
+      `Start sequential retry for ${filteredList.length} order(s) in the "${activeTab.toUpperCase()}" queue? Throttled automatically with 1.5s delay.`
     );
     if (!confirm) return;
 
     setBatchRunning(true);
     setShowBatchModal(true);
     setBatchLogs([]);
-    setBatchProgress({ current: 0, total: queued.length });
+    setBatchProgress({ current: 0, total: filteredList.length });
 
-    for (let i = 0; i < queued.length; i++) {
-      const tx = queued[i];
-      setBatchProgress({ current: i + 1, total: queued.length });
+    for (let i = 0; i < filteredList.length; i++) {
+      const tx = filteredList[i];
+      setBatchProgress({ current: i + 1, total: filteredList.length });
 
       try {
         const res = await fetch("/api/admin/sim-config/retry", {
@@ -213,59 +283,49 @@ export default function AdminSimConfigPage() {
         ]);
       }
 
-      // Small throttle delay between provider calls (1.5s) to avoid vendor rate-limiting
-      if (i < queued.length - 1) {
+      if (i < filteredList.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }
     }
 
     setBatchRunning(false);
     toast.success("Sequential retry cycle completed.");
-    fetchQueued();
+    fetchQueues();
   };
-
-  // Filter queued list
-  const filteredList = queued.filter((tx) => {
-    const matchesSearch =
-      tx.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.phone.includes(searchQuery) ||
-      (tx.user?.fullName && tx.user.fullName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (tx.plan?.name && tx.plan.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    const matchesNetwork = selectedNetwork === "ALL" || tx.plan?.network === selectedNetwork;
-
-    return matchesSearch && matchesNetwork;
-  });
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
-              <Cpu size={24} />
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+              <Cpu size={26} />
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">SIM Config & Queued Orders</h1>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                SIM Config & Queued Orders
+              </h1>
+              <p className="text-slate-500 text-sm mt-0.5">
+                Manage dispensing SIM queues, SMEPlug timeouts, and airtime orders with instant admin prerogatives.
+              </p>
+            </div>
           </div>
-          <p className="text-slate-600 mt-1 text-sm">
-            Manage data purchases queued when provider SIM servers (SMEPlug / AmySub) are offline or need configuration.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => fetchQueued(true)}
+            onClick={() => fetchQueues(true)}
             disabled={loading || batchRunning}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-sm flex items-center gap-2 transition disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm flex items-center gap-2 shadow-sm transition disabled:opacity-50"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Refresh
           </button>
 
           <button
-            onClick={handleRetryAll}
-            disabled={batchRunning || queued.length === 0}
+            onClick={handleRetryAllCurrent}
+            disabled={batchRunning || filteredList.length === 0}
             className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition disabled:opacity-50"
           >
             {batchRunning ? (
@@ -276,69 +336,183 @@ export default function AdminSimConfigPage() {
             ) : (
               <>
                 <Play size={16} />
-                Retry All Queued ({queued.length})
+                Retry Current Tab ({filteredList.length})
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Admin Action Notice Banner */}
-      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-amber-900">
-        <div className="flex items-start gap-3">
-          <AlertTriangle size={22} className="text-amber-600 mt-0.5 shrink-0" />
-          <div className="text-sm">
-            <span className="font-bold">Admin Workflow:</span> Whenever you receive a queued order alert on{" "}
-            <span className="font-mono bg-amber-100 px-1.5 py-0.5 rounded font-semibold text-amber-800">07068614426</span>,
-            log in to your <span className="font-semibold">SMEPlug</span> or <span className="font-semibold">AmySub</span>{" "}
-            SIM server to configure or fund the dispensing SIMs. Once configured, click{" "}
-            <span className="font-bold">Retry All</span> below to deliver all waiting orders sequentially.
+      {/* Modern Tab Selector */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100/80 rounded-2xl border border-slate-200/80 w-fit">
+        <button
+          onClick={() => setActiveTab("sim")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            activeTab === "sim"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <Cpu size={16} className={activeTab === "sim" ? "text-amber-500" : "text-slate-400"} />
+          SIM Config Queue
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              activeTab === "sim"
+                ? "bg-amber-100 text-amber-800"
+                : "bg-slate-200 text-slate-700"
+            }`}
+          >
+            {summary?.simCount ?? simList.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("timeout")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            activeTab === "timeout"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <Timer size={16} className={activeTab === "timeout" ? "text-rose-500" : "text-slate-400"} />
+          Timeout Queue
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              (summary?.timeoutCount ?? timeoutList.length) > 0
+                ? "bg-rose-100 text-rose-700 animate-pulse"
+                : "bg-slate-200 text-slate-700"
+            }`}
+          >
+            {summary?.timeoutCount ?? timeoutList.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("airtime")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            activeTab === "airtime"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <Smartphone size={16} className={activeTab === "airtime" ? "text-blue-500" : "text-slate-400"} />
+          Airtime Queue
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              activeTab === "airtime"
+                ? "bg-blue-100 text-blue-800"
+                : "bg-slate-200 text-slate-700"
+            }`}
+          >
+            {summary?.airtimeCount ?? airtimeList.length}
+          </span>
+        </button>
+      </div>
+
+      {/* Contextual Notice Banner depending on Active Tab */}
+      {activeTab === "timeout" ? (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-rose-950">
+          <div className="flex items-start gap-3">
+            <Timer size={22} className="text-rose-600 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <span className="font-extrabold text-rose-900">SMEPlug Timeout Protection:</span>{" "}
+              These transactions experienced provider timeouts. The customer{"'"}s wallet is{" "}
+              <span className="font-bold underline text-rose-900">DEBITED</span> so the platform is safe. Check your{" "}
+              <span className="font-semibold">SMEPlug portal</span>: if the data/airtime was delivered, click{" "}
+              <span className="font-bold text-emerald-700">Mark Success</span> to send a push to the buyer. If not delivered,
+              click <span className="font-bold text-amber-700">Retry</span> or{" "}
+              <span className="font-bold text-rose-700">Mark Failed</span> (which will refund the customer).
+            </div>
           </div>
         </div>
-      </div>
+      ) : activeTab === "sim" ? (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-amber-900">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={22} className="text-amber-600 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <span className="font-bold">SIM Config Workflow:</span> When an alert is received on{" "}
+              <span className="font-mono bg-amber-100 px-1.5 py-0.5 rounded font-semibold text-amber-800">
+                07068614426
+              </span>
+              , log in to your <span className="font-semibold">SMEPlug</span> or <span className="font-semibold">AmySub</span>{" "}
+              dashboard to configure the dispensing SIMs. Once set up, click <span className="font-bold">Retry All</span> to deliver
+              all waiting orders sequentially.
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-blue-900">
+          <div className="flex items-start gap-3">
+            <Smartphone size={22} className="text-blue-600 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <span className="font-bold">Airtime Queue:</span> Manage pending airtime top-ups. You can retry delivery through the provider,
+              mark as delivered manually if dispatched externally, or cancel and refund to the user{"'"}s wallet.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+        <div
+          onClick={() => setActiveTab("sim")}
+          className={`p-5 rounded-2xl bg-white border cursor-pointer transition shadow-sm hover:shadow ${
+            activeTab === "sim" ? "border-amber-400 ring-2 ring-amber-400/20" : "border-slate-200"
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Queued Purchases</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">SIM Queued</span>
             <Clock size={18} className="text-amber-500" />
           </div>
-          <div className="text-2xl font-black text-slate-900">{summary?.totalQueuedCount ?? 0}</div>
-          <div className="text-xs text-slate-500 mt-1">Awaiting active SIM delivery</div>
+          <div className="text-2xl font-black text-slate-900">{summary?.simCount ?? simList.length}</div>
+          <div className="text-xs text-slate-500 mt-1">
+            ₦{(summary?.simAmount ?? 0).toLocaleString()} • Awaiting SIM config
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveTab("timeout")}
+          className={`p-5 rounded-2xl bg-white border cursor-pointer transition shadow-sm hover:shadow ${
+            activeTab === "timeout" ? "border-rose-400 ring-2 ring-rose-400/20" : "border-slate-200"
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Timeout Queue</span>
+            <Timer size={18} className="text-rose-500" />
+          </div>
+          <div className="text-2xl font-black text-slate-900">{summary?.timeoutCount ?? timeoutList.length}</div>
+          <div className="text-xs text-rose-600 font-medium mt-1">
+            ₦{(summary?.timeoutAmount ?? 0).toLocaleString()} • Needs manual check
+          </div>
+        </div>
+
+        <div
+          onClick={() => setActiveTab("airtime")}
+          className={`p-5 rounded-2xl bg-white border cursor-pointer transition shadow-sm hover:shadow ${
+            activeTab === "airtime" ? "border-blue-400 ring-2 ring-blue-400/20" : "border-slate-200"
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Airtime Queued</span>
+            <Smartphone size={18} className="text-blue-500" />
+          </div>
+          <div className="text-2xl font-black text-slate-900">{summary?.airtimeCount ?? airtimeList.length}</div>
+          <div className="text-xs text-slate-500 mt-1">
+            ₦{(summary?.airtimeAmount ?? 0).toLocaleString()} • Pending top-ups
+          </div>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Queued Value</span>
+            <span className="text-xs font-semibold uppercase tracking-wider">Total Value Held</span>
             <DollarSign size={18} className="text-emerald-500" />
           </div>
           <div className="text-2xl font-black text-slate-900">
-            ₦{summary?.totalQueuedAmount?.toLocaleString() ?? 0}
+            ₦{(summary?.totalQueuedAmount ?? 0).toLocaleString()}
           </div>
-          <div className="text-xs text-slate-500 mt-1">Paid by customers</div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">MTN Orders</span>
-            <Radio size={18} className="text-yellow-500" />
+          <div className="text-xs text-slate-500 mt-1">
+            {summary?.totalQueuedCount ?? 0} total transactions held
           </div>
-          <div className="text-2xl font-black text-slate-900">
-            {summary?.networkBreakdown?.MTN ?? 0}
-          </div>
-          <div className="text-xs text-slate-500 mt-1">MTN SME & Gifting</div>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Other Networks</span>
-            <Radio size={18} className="text-blue-500" />
-          </div>
-          <div className="text-2xl font-black text-slate-900">
-            {(summary?.totalQueuedCount ?? 0) - (summary?.networkBreakdown?.MTN ?? 0)}
-          </div>
-          <div className="text-xs text-slate-500 mt-1">Airtel, Glo, 9mobile</div>
         </div>
       </div>
 
@@ -348,10 +522,10 @@ export default function AdminSimConfigPage() {
           <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by recipient phone, reference, or customer name..."
+            placeholder="Search by phone, reference, or customer name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
           />
         </div>
 
@@ -360,7 +534,7 @@ export default function AdminSimConfigPage() {
           <select
             value={selectedNetwork}
             onChange={(e) => setSelectedNetwork(e.target.value)}
-            className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white text-slate-700 font-medium focus:outline-none focus:border-blue-500"
+            className="px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white text-slate-700 font-medium focus:outline-none focus:border-amber-500"
           >
             <option value="ALL">All Networks</option>
             <option value="MTN">MTN</option>
@@ -379,10 +553,10 @@ export default function AdminSimConfigPage() {
               <tr className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="px-5 py-3.5">Time / Ref</th>
                 <th className="px-5 py-3.5">Customer / Recipient</th>
-                <th className="px-5 py-3.5">Plan & Network</th>
+                <th className="px-5 py-3.5">Service / Plan</th>
                 <th className="px-5 py-3.5">Amount</th>
                 <th className="px-5 py-3.5">Provider</th>
-                <th className="px-5 py-3.5">Error Message</th>
+                <th className="px-5 py-3.5">Queue Status / Note</th>
                 <th className="px-5 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
@@ -391,7 +565,7 @@ export default function AdminSimConfigPage() {
                 <tr>
                   <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
                     <Loader2 size={24} className="animate-spin mx-auto mb-2 text-amber-500" />
-                    Loading queued SIM orders...
+                    Loading orders...
                   </td>
                 </tr>
               ) : filteredList.length === 0 ? (
@@ -400,15 +574,32 @@ export default function AdminSimConfigPage() {
                     <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
                       <CheckCircle2 size={24} />
                     </div>
-                    <div className="font-bold text-slate-900 text-base">No Queued Purchases</div>
+                    <div className="font-bold text-slate-900 text-base">No Orders in this Queue</div>
                     <div className="text-slate-500 text-xs mt-1">
-                      All provider dispensing SIMs are active and data orders are running normally.
+                      {activeTab === "timeout"
+                        ? "Great! No timeout orders waiting for manual review."
+                        : activeTab === "sim"
+                        ? "All SIM servers are active and dispensing normally."
+                        : "No pending airtime orders in queue."}
                     </div>
                   </td>
                 </tr>
               ) : (
                 filteredList.map((tx) => {
                   const isProcessing = processingRef === tx.reference;
+                  const isTimeoutItem =
+                    tx.description?.startsWith("TIMEOUT_QUEUED:") ||
+                    tx.description?.toLowerCase().includes("timeout");
+                  const network =
+                    tx.plan?.network ||
+                    (tx.description?.toUpperCase().includes("MTN")
+                      ? "MTN"
+                      : tx.description?.toUpperCase().includes("AIRTEL")
+                      ? "AIRTEL"
+                      : tx.description?.toUpperCase().includes("GLO")
+                      ? "GLO"
+                      : "DATA");
+
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50/70 transition">
                       <td className="px-5 py-4">
@@ -432,23 +623,23 @@ export default function AdminSimConfigPage() {
                         <div className="flex items-center gap-1.5">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              tx.plan?.network === "MTN"
+                              network === "MTN"
                                 ? "bg-yellow-100 text-yellow-800"
-                                : tx.plan?.network === "AIRTEL"
+                                : network === "AIRTEL"
                                 ? "bg-red-100 text-red-800"
-                                : tx.plan?.network === "GLO"
+                                : network === "GLO"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : "bg-slate-100 text-slate-800"
                             }`}
                           >
-                            {tx.plan?.network || "DATA"}
+                            {network}
                           </span>
                           <span className="font-semibold text-slate-800 text-xs">
-                            {tx.plan?.sizeLabel || tx.plan?.name || "Data Bundle"}
+                            {tx.plan?.sizeLabel || (tx.type === "AIRTIME_PURCHASE" ? "Airtime Top-up" : tx.plan?.name || "Data")}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
-                          {tx.plan?.category || "Standard"}
+                          {tx.type === "AIRTIME_PURCHASE" ? "Airtime Recharge" : tx.plan?.category || "Standard"}
                         </div>
                       </td>
 
@@ -463,17 +654,25 @@ export default function AdminSimConfigPage() {
                       </td>
 
                       <td className="px-5 py-4">
-                        <div className="text-xs text-amber-700 max-w-[220px] font-medium truncate" title={tx.description}>
-                          {tx.description.replace(/^SIM_CONFIG_QUEUED:\s*/, "")}
+                        <div
+                          className={`text-xs font-medium max-w-[240px] truncate ${
+                            isTimeoutItem ? "text-rose-700" : "text-amber-700"
+                          }`}
+                          title={tx.description}
+                        >
+                          {tx.description
+                            ?.replace(/^TIMEOUT_QUEUED:\s*/, "[TIMEOUT] ")
+                            ?.replace(/^SIM_CONFIG_QUEUED:\s*/, "[SIM QUEUE] ")}
                         </div>
                       </td>
 
                       <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Retry Button */}
                           <button
                             onClick={() => handleSingleRetry(tx.reference)}
                             disabled={isProcessing || batchRunning}
-                            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                            className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-1 shadow-sm transition disabled:opacity-50"
                             title="Retry purchase with provider"
                           >
                             {isProcessing ? (
@@ -484,14 +683,26 @@ export default function AdminSimConfigPage() {
                             Retry
                           </button>
 
+                          {/* Mark Success Button */}
                           <button
-                            onClick={() => handleSingleRefund(tx.reference, tx.amount)}
+                            onClick={() => openActionModal(tx, "mark_success")}
                             disabled={isProcessing || batchRunning}
-                            className="px-3 py-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold flex items-center gap-1 transition disabled:opacity-50"
-                            title="Cancel order and refund to customer wallet"
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shadow-sm transition disabled:opacity-50"
+                            title="Mark as Delivered manually (Sends push to buyer)"
                           >
-                            <XCircle size={13} />
-                            Refund
+                            <Check size={13} />
+                            Success
+                          </button>
+
+                          {/* Mark Failed Button */}
+                          <button
+                            onClick={() => openActionModal(tx, "mark_failed")}
+                            disabled={isProcessing || batchRunning}
+                            className="px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold flex items-center gap-1 transition disabled:opacity-50"
+                            title="Cancel order & refund user wallet"
+                          >
+                            <X size={13} />
+                            Fail/Refund
                           </button>
                         </div>
                       </td>
@@ -503,6 +714,105 @@ export default function AdminSimConfigPage() {
           </table>
         </div>
       </div>
+
+      {/* Confirmation & Note Modal */}
+      {actionModal.isOpen && actionModal.tx && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-3 rounded-xl ${
+                  actionModal.actionType === "mark_success"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-red-100 text-red-700"
+                }`}
+              >
+                {actionModal.actionType === "mark_success" ? (
+                  <CheckCircle2 size={24} />
+                ) : (
+                  <XCircle size={24} />
+                )}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg">
+                  {actionModal.actionType === "mark_success"
+                    ? "Confirm Manual Delivery"
+                    : "Cancel & Refund Order"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Ref: <span className="font-mono font-semibold">{actionModal.tx.reference}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5 text-slate-700">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Recipient Phone:</span>
+                <span className="font-bold text-slate-900">{actionModal.tx.phone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Amount:</span>
+                <span className="font-bold text-slate-900">₦{actionModal.tx.amount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Action Impact:</span>
+                <span className="font-semibold text-slate-900">
+                  {actionModal.actionType === "mark_success"
+                    ? "Order set to SUCCESS • Buyer sent delivered push"
+                    : "Order set to FAILED • ₦" + actionModal.tx.amount + " refunded to wallet"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Admin Note / External Portal Reference (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder={
+                  actionModal.actionType === "mark_success"
+                    ? "e.g. Verified on SMEPlug order #83921"
+                    : "e.g. Cancelled: SMEPlug unable to process"
+                }
+                value={actionModal.note}
+                onChange={(e) => setActionModal((prev) => ({ ...prev, note: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setActionModal((prev) => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleExecuteModalAction}
+                className={`px-5 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 shadow-md ${
+                  actionModal.actionType === "mark_success"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {actionModal.actionType === "mark_success" ? (
+                  <>
+                    <Check size={14} />
+                    Confirm Success
+                  </>
+                ) : (
+                  <>
+                    <X size={14} />
+                    Confirm Fail & Refund
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Batch Retry Live Progress Modal */}
       {showBatchModal && (

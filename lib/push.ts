@@ -403,7 +403,7 @@ export async function notifyAdminSimConfigNeeded(params: {
   provider?: string;
   reference: string;
 }): Promise<void> {
-  const adminPhone = "07068614426";
+  const adminPhone = process.env.ADMIN_ALERT_PHONE || "07068614426";
   const title = "🚨 Queued Order - SIM Config Needed";
   const body = `Data order ${params.sizeLabel || ""} ${params.network || ""} for ${params.phone} is queued on ${params.provider || "provider"}. SIM configuration required. Ref: ${params.reference}`;
 
@@ -420,6 +420,45 @@ export async function notifyAdminSimConfigNeeded(params: {
     }
   } catch (err) {
     console.error("[SIM CONFIG ALERT] Error dispatching admin alert:", err);
+  }
+}
+
+/**
+ * Notifies admin (07068614426) when a transaction encounters a provider timeout and is held in PENDING
+ */
+export async function notifyAdminTimeoutOccurred(params: {
+  phone: string;
+  type?: string;
+  planName?: string;
+  sizeLabel?: string;
+  amount?: number;
+  network?: string;
+  provider?: string;
+  reference: string;
+  message?: string;
+}): Promise<void> {
+  const adminPhone = process.env.ADMIN_ALERT_PHONE || "07068614426";
+  const orderDesc = params.sizeLabel
+    ? `${params.sizeLabel} ${params.network || ""}`
+    : params.amount
+    ? `₦${params.amount} ${params.network || ""}`
+    : params.planName || "Order";
+  const title = "⏱️ Provider Timeout - Manual Check Needed";
+  const body = `${params.type === "AIRTIME_PURCHASE" ? "Airtime" : "Data"} order ${orderDesc} for ${params.phone} timed out on ${params.provider || "provider"}. User debited & queued in Timeout tab. Ref: ${params.reference}`;
+
+  try {
+    const pushSent = await sendPushToPhone(adminPhone, title, body, {
+      type: "TIMEOUT_ALERT",
+      reference: params.reference,
+      provider: params.provider || "UNKNOWN",
+      phone: params.phone,
+    });
+
+    if (!pushSent) {
+      console.log(`[TIMEOUT ALERT] Push logged for admin ${adminPhone} (recipient device offline or token unregistered). Msg: ${body}`);
+    }
+  } catch (err) {
+    console.error("[TIMEOUT ALERT] Error dispatching admin alert:", err);
   }
 }
 

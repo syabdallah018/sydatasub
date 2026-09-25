@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
-import { SIM_CONFIG_PREFIX } from "@/lib/purchase-utils";
+import { SIM_CONFIG_PREFIX, TIMEOUT_PREFIX } from "@/lib/purchase-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -9,49 +9,97 @@ export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
 
-    // Fetch queued SIM config data purchases
-    const queuedTransactions = await prisma.transaction.findMany({
+    // Common inclusion for transactions
+    const transactionInclude = {
+      plan: {
+        select: {
+          id: true,
+          name: true,
+          network: true,
+          category: true,
+          sizeLabel: true,
+          user_price: true,
+          apiSource: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          email: true,
+        },
+      },
+    };
+
+    // 1. Fetch queued SIM config data purchases (excluding timeout-specific entries)
+    const simConfigTransactions = await prisma.transaction.findMany({
       where: {
         status: "PENDING",
         type: "DATA_PURCHASE",
-        OR: [
-          { description: { startsWith: SIM_CONFIG_PREFIX } },
-          { description: { contains: "sim", mode: "insensitive" } },
-          { description: { contains: "dispense", mode: "insensitive" } },
+        AND: [
+          { NOT: { description: { startsWith: TIMEOUT_PREFIX } } },
+          {
+            OR: [
+              { description: { startsWith: SIM_CONFIG_PREFIX } },
+              { description: { contains: "sim", mode: "insensitive" } },
+              { description: { contains: "dispense", mode: "insensitive" } },
+            ],
+          },
         ],
       },
       orderBy: { createdAt: "desc" },
-      include: {
-        plan: {
-          select: {
-            id: true,
-            name: true,
-            network: true,
-            category: true,
-            sizeLabel: true,
-            user_price: true,
-            apiSource: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            phone: true,
-            email: true,
-          },
-        },
-      },
+      include: transactionInclude,
       take: 100,
     });
 
-    const totalQueuedCount = queuedTransactions.length;
-    const totalQueuedAmount = queuedTransactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
+    // 2. Fetch Timeout Queue (Data & Airtime transactions with timeout indicator)
+    const timeoutTransactions = await prisma.transaction.findMany({
+      where: {
+        status: "PENDING",
+        OR: [
+          { description: { startsWith: TIMEOUT_PREFIX } },
+          { description: { contains: "timeout", mode: "insensitive" } },
+          { description: { contains: "timed out", mode: "insensitive" } },
+          { description: { contains: "gateway timeout", mode: "insensitive" } },
+          { description: { contains: "in flight", mode: "insensitive" } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      include: transactionInclude,
+      take: 100,
+    });
+
+    // 3. Fetch Airtime Queue (Pending Airtime purchases not already in timeout queue)
+    const airtimeTransactions = await prisma.transaction.findMany({
+      where: {
+        status: "PENDING",
+        type: "AIRTIME_PURCHASE",
+        NOT: { description: { startsWith: TIMEOUT_PREFIX } },
+      },
+      orderBy: { createdAt: "desc" },
+      include: transactionInclude,
+      take: 100,
+    });
+
+    // Compute summaries
+    const simCount = simConfigTransactions.length;
+    const simAmount = simConfigTransactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
+
+    const timeoutCount = timeoutTransactions.length;
+    const timeoutAmount = timeoutTransactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
+
+    const airtimeCount = airtimeTransactions.length;
+    const airtimeAmount = airtimeTransactions.reduce((acc, tx) => acc + (tx.amount || 0), 0);
+
+    const totalQueuedCount = simCount + timeoutCount + airtimeCount;
+    const totalQueuedAmount = simAmount + timeoutAmount + airtimeAmount;
 
     const networkBreakdown: Record<string, number> = {};
     const providerBreakdown: Record<string, number> = {};
 
-    for (const tx of queuedTransactions) {
+    const allQueued = [...simConfigTransactions, ...timeoutTransactions, ...airtimeTransactions];
+    for (const tx of allQueued) {
       const net = tx.plan?.network || "OTHER";
       networkBreakdown[net] = (networkBreakdown[net] || 0) + 1;
 
@@ -62,8 +110,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        queuedTransactions,
+        // queuedTransactions provides backward compatibility for existing consumer
+        queuedTransactions: simConfigTransactions,
+        simConfigTransactions,
+        timeoutTransactions,
+        airtimeTransactions,
         summary: {
+          simCount,
+          simAmount,
+          timeoutCount,
+          timeoutAmount,
+          airtimeCount,
+          airtimeAmount,
           totalQueuedCount,
           totalQueuedAmount,
           networkBreakdown,

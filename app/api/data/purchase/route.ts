@@ -10,8 +10,11 @@ import {
   findRecentDuplicateTransaction,
   normalizeProviderFailureMessage,
   isSimDispenseError,
+  isTimeoutError,
   SIM_CONFIG_PREFIX,
   SIM_QUEUED_USER_MESSAGE,
+  TIMEOUT_PREFIX,
+  TIMEOUT_QUEUED_USER_MESSAGE,
   DATA_INSUFFICIENT_FUNDS_MESSAGE,
   DATA_PURCHASE_SUCCESS_MESSAGE,
   PURCHASE_FAILED_GENERIC_MESSAGE,
@@ -23,7 +26,7 @@ import bcryptjs from "bcryptjs";
 import { z } from "zod";
 import { enforceRateLimit, rejectCrossSiteMutation } from "@/lib/security";
 import { getUserSelectCompat, withCompatibleUserFields } from "@/lib/user-compat";
-import { sendPushToUser, notifyAdminSimConfigNeeded } from "@/lib/push";
+import { sendPushToUser, notifyAdminSimConfigNeeded, notifyAdminTimeoutOccurred } from "@/lib/push";
 
 const purchaseSchema = z.object({
   planId: z.string().min(1, "Plan ID is required"),
@@ -349,6 +352,55 @@ export async function POST(req: NextRequest) {
       });
 
       if (!apiResult.success) {
+        // Handle provider timeout: KEEP DEBITED, MARK PENDING, ALERT ADMIN
+        if ((apiResult as any).isTimeout || isTimeoutError(apiResult.message)) {
+          const timeoutDescription = `${TIMEOUT_PREFIX} ${apiResult.message || "Provider gateway timeout - request in flight"}`;
+
+          // Keep transaction in PENDING status - DO NOT REFUND USER
+          await prisma.transaction.updateMany({
+            where: { reference },
+            data: {
+              status: "PENDING",
+              description: timeoutDescription,
+              externalReference: apiResult.externalReference || undefined,
+            },
+          });
+
+          // Alert admin phone 07068614426 via push notification
+          notifyAdminTimeoutOccurred({
+            phone: recipientPhone,
+            type: "DATA_PURCHASE",
+            planName: plan.name,
+            sizeLabel: plan.sizeLabel,
+            network: plan.network,
+            provider: plan.apiSource,
+            reference,
+            message: apiResult.message,
+          }).catch((err) => console.error("[TIMEOUT QUEUE] Admin alert error:", err));
+
+          const queuedTx = await prisma.transaction.findFirst({
+            where: { reference },
+          });
+
+          return NextResponse.json(
+            {
+              success: true,
+              status: "PENDING",
+              message: TIMEOUT_QUEUED_USER_MESSAGE,
+              reference,
+              transaction: queuedTx || {
+                reference,
+                status: "PENDING",
+                amount: planPrice,
+                phone: recipientPhone,
+                description: timeoutDescription,
+                createdAt: new Date().toISOString(),
+              },
+            },
+            { status: 200 }
+          );
+        }
+
         // Handle provider active SIM / dispensing server offline errors
         if (isSimDispenseError(apiResult.message)) {
           const queuedDescription = `${SIM_CONFIG_PREFIX} ${apiResult.message || "Awaiting SIM configuration"}`;
@@ -473,8 +525,53 @@ export async function POST(req: NextRequest) {
         },
         { status: 200 }
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("[DATA PURCHASE API ERROR]", error);
+
+      if (isTimeoutError(error)) {
+        const timeoutDescription = `${TIMEOUT_PREFIX} Request timed out in flight: ${error?.message || "Execution timeout"}`;
+
+        await prisma.transaction.updateMany({
+          where: { reference },
+          data: {
+            status: "PENDING",
+            description: timeoutDescription,
+          },
+        });
+
+        notifyAdminTimeoutOccurred({
+          phone: recipientPhone,
+          type: "DATA_PURCHASE",
+          planName: plan.name,
+          sizeLabel: plan.sizeLabel,
+          network: plan.network,
+          provider: plan.apiSource,
+          reference,
+          message: error?.message,
+        }).catch((err) => console.error("[TIMEOUT QUEUE] Admin alert error:", err));
+
+        const queuedTx = await prisma.transaction.findFirst({
+          where: { reference },
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            status: "PENDING",
+            message: TIMEOUT_QUEUED_USER_MESSAGE,
+            reference,
+            transaction: queuedTx || {
+              reference,
+              status: "PENDING",
+              amount: planPrice,
+              phone: recipientPhone,
+              description: timeoutDescription,
+              createdAt: new Date().toISOString(),
+            },
+          },
+          { status: 200 }
+        );
+      }
 
       await prisma.$transaction(async (tx) => {
         await tx.user.update({

@@ -7,7 +7,7 @@ import { purchaseData as purchaseAlrahuzData, purchaseAirtime as purchaseAlrahuz
 import { purchaseData as purchaseAmysubData } from "../lib/amysub.ts";
 import { purchaseDataByPlan } from "../lib/data-provider.mjs";
 import { sendPushNotification, _joseDeps } from "../lib/push.ts";
-import { isSimDispenseError, SIM_CONFIG_PREFIX, SIM_QUEUED_USER_MESSAGE } from "../lib/purchase-utils.ts";
+import { isSimDispenseError, isTimeoutError, SIM_CONFIG_PREFIX, SIM_QUEUED_USER_MESSAGE, TIMEOUT_PREFIX, TIMEOUT_QUEUED_USER_MESSAGE } from "../lib/purchase-utils.ts";
 
 async function testCreateReservedVirtualAccount() {
   let seenHeaders = null;
@@ -562,6 +562,32 @@ async function testSimDispenseErrorDetection() {
   assert.ok(SIM_QUEUED_USER_MESSAGE.includes("queued"));
 }
 
+async function testTimeoutErrorDetectionAndQueueConstants() {
+  // String message detections
+  assert.equal(isTimeoutError("Provider gateway timeout - request in flight or processing"), true);
+  assert.equal(isTimeoutError("Gateway Timeout 504"), true);
+  assert.equal(isTimeoutError("Request timed out"), true);
+  assert.equal(isTimeoutError("ECONNABORTED"), true);
+  assert.equal(isTimeoutError("socket hang up"), true);
+  assert.equal(isTimeoutError("request in flight"), true);
+  assert.equal(isTimeoutError("insufficient balance"), false);
+  assert.equal(isTimeoutError("phone number invalid"), false);
+  assert.equal(isTimeoutError(null), false);
+
+  // Object / error detections
+  assert.equal(isTimeoutError({ isTimeout: true }), true);
+  assert.equal(isTimeoutError({ code: "ECONNABORTED" }), true);
+  assert.equal(isTimeoutError({ code: "ETIMEDOUT" }), true);
+  assert.equal(isTimeoutError({ status: 504 }), true);
+  assert.equal(isTimeoutError({ status: 524 }), true);
+  assert.equal(isTimeoutError({ response: { status: 504 } }), true);
+  assert.equal(isTimeoutError({ message: "timeout of 12000ms exceeded" }), true);
+
+  // Constants
+  assert.equal(TIMEOUT_PREFIX, "TIMEOUT_QUEUED:");
+  assert.ok(TIMEOUT_QUEUED_USER_MESSAGE.includes("processing"));
+}
+
 async function main() {
   const tests = [
     ["BillStack create account client", testCreateReservedVirtualAccount],
@@ -578,6 +604,7 @@ async function main() {
     ["FCM Push Notification fallback", testFcmPushNotificationFallback],
     ["FCM Push Notification via Service Account JSON", testFcmPushNotificationServiceAccountSuccess],
     ["SIM Dispense Error Detection and Queue Constants", testSimDispenseErrorDetection],
+    ["Timeout Error Detection and Queue Constants", testTimeoutErrorDetectionAndQueueConstants],
   ];
 
   let passed = 0;

@@ -7,10 +7,11 @@ interface SmeplugPurchaseParams {
   reference: string;
 }
 
-interface SmeplugResponse {
+export interface SmeplugResponse {
   success: boolean;
   message: string;
   externalReference?: string;
+  isTimeout?: boolean;
 }
 
 interface SmeplugAirtimeParams {
@@ -77,7 +78,7 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       reference,
     });
 
-    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 30000);
+    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 12000);
 
     const response = await axios.post(
       `${baseUrl}/data/purchase`,
@@ -131,14 +132,36 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       };
       logProviderTraffic("[SMEPLUG SUCCESS]", returnData);
       return returnData;
-    } else {
-      logProviderTraffic("[SMEPLUG FAILED]", { message: returnMsg, response: response.data });
-      return {
+    }
+
+    const isHttpStatusTimeout = [408, 502, 504, 524].includes(response.status);
+    const rawDataStr = typeof response.data === "string"
+      ? response.data.toLowerCase()
+      : JSON.stringify(response.data || "").toLowerCase();
+    const isPayloadTimeout =
+      rawDataStr.includes("timeout") ||
+      rawDataStr.includes("gateway") ||
+      rawDataStr.includes("in flight") ||
+      rawDataStr.includes("processing") ||
+      rawDataStr.includes("econnaborted");
+
+    if (isHttpStatusTimeout || isPayloadTimeout) {
+      const timeoutData = {
         success: false,
-        message: returnMsg,
+        isTimeout: true,
+        message: returnMsg && returnMsg !== "Data purchase failed" ? returnMsg : "Provider gateway timeout - request in flight or processing",
         externalReference: extRef,
       };
+      logProviderTraffic("[SMEPLUG TIMEOUT]", timeoutData);
+      return timeoutData;
     }
+
+    logProviderTraffic("[SMEPLUG FAILED]", { message: returnMsg, response: response.data });
+    return {
+      success: false,
+      message: returnMsg,
+      externalReference: extRef,
+    };
   } catch (error: any) {
     console.error("[SMEPLUG API ERROR]", {
       message: error.message,
@@ -146,6 +169,25 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       status: error.response?.status,
       timestamp: new Date().toISOString(),
     });
+
+    const errorMsgLower = (error.message || "").toLowerCase();
+    const isTimeout =
+      error.code === "ECONNABORTED" ||
+      error.code === "ETIMEDOUT" ||
+      error.code === "ESOCKETTIMEDOUT" ||
+      errorMsgLower.includes("timeout") ||
+      errorMsgLower.includes("socket hang up") ||
+      error.response?.status === 504 ||
+      error.response?.status === 524 ||
+      error.response?.status === 408;
+
+    if (isTimeout) {
+      return {
+        success: false,
+        isTimeout: true,
+        message: "Provider gateway timeout - request in flight or processing",
+      };
+    }
 
     if (error.response) {
       const errorMessage =
@@ -156,11 +198,6 @@ export async function purchaseData(params: SmeplugPurchaseParams): Promise<Smepl
       return {
         success: false,
         message: errorMessage,
-      };
-    } else if (error.code === "ECONNABORTED" || error.message?.toLowerCase().includes("timeout")) {
-      return {
-        success: false,
-        message: "Provider gateway timeout - request in flight or processing",
       };
     } else {
       return {
@@ -193,7 +230,7 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
       })
     );
 
-    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 30000);
+    const timeoutMs = Number(process.env.SMEPLUG_TIMEOUT_MS || 12000);
 
     const response = await axios.post(
       `${baseUrl}/airtime/purchase`,
@@ -251,6 +288,26 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
       };
     }
 
+    const isHttpStatusTimeout = [408, 502, 504, 524].includes(response.status);
+    const rawDataStr = typeof response.data === "string"
+      ? response.data.toLowerCase()
+      : JSON.stringify(response.data || "").toLowerCase();
+    const isPayloadTimeout =
+      rawDataStr.includes("timeout") ||
+      rawDataStr.includes("gateway") ||
+      rawDataStr.includes("in flight") ||
+      rawDataStr.includes("processing") ||
+      rawDataStr.includes("econnaborted");
+
+    if (isHttpStatusTimeout || isPayloadTimeout) {
+      return {
+        success: false,
+        isTimeout: true,
+        message: returnMsg && returnMsg !== "Airtime purchase failed" ? returnMsg : "Provider gateway timeout - request in flight or processing",
+        externalReference: extRef,
+      };
+    }
+
     return {
       success: false,
       message: returnMsg,
@@ -269,6 +326,25 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
       })
     );
 
+    const errorMsgLower = (error.message || "").toLowerCase();
+    const isTimeout =
+      error.code === "ECONNABORTED" ||
+      error.code === "ETIMEDOUT" ||
+      error.code === "ESOCKETTIMEDOUT" ||
+      errorMsgLower.includes("timeout") ||
+      errorMsgLower.includes("socket hang up") ||
+      error.response?.status === 504 ||
+      error.response?.status === 524 ||
+      error.response?.status === 408;
+
+    if (isTimeout) {
+      return {
+        success: false,
+        isTimeout: true,
+        message: "Provider gateway timeout - request in flight or processing",
+      };
+    }
+
     if (error.response) {
       return {
         success: false,
@@ -277,13 +353,6 @@ export async function purchaseAirtime(params: SmeplugAirtimeParams): Promise<Sme
           error.response.data?.msg ||
           error.response.data?.message ||
           `API Error: ${error.response.status}`,
-      };
-    }
-
-    if (error.code === "ECONNABORTED" || error.message?.toLowerCase().includes("timeout")) {
-      return {
-        success: false,
-        message: "Provider gateway timeout - request in flight or processing",
       };
     }
 
