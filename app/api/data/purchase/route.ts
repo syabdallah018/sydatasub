@@ -7,7 +7,6 @@ import { purchaseData as purchaseFromAmysub } from "@/lib/amysub";
 import { purchaseData as purchaseFromDatabills } from "@/lib/databills";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
 import {
-  findRecentDuplicateTransaction,
   normalizeProviderFailureMessage,
   isSimDispenseError,
   isTimeoutError,
@@ -42,8 +41,6 @@ const purchaseSchema = z.object({
 });
 
 export const maxDuration = 120;
-
-const IDEMPOTENCY_WINDOW_MINUTES = 5;
 
 async function acquirePurchaseLock(tx: any, lockKey: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
@@ -136,30 +133,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const duplicateTransaction = await findRecentDuplicateTransaction({
-      userId: user.id,
-      type: "DATA_PURCHASE",
-      phone: recipientPhone,
-      planId,
-      amount: planPrice,
-    });
-
-    if (duplicateTransaction && !confirmDuplicate) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Duplicate transaction detected. Confirm to continue.",
-          requiresConfirmation: true,
-          duplicateTransaction,
-        },
-        { status: 409 }
-      );
-    }
-
     const reference = `DATA-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const lockKey = idempotencyKey
       ? `data:idemp:${user.id}:${idempotencyKey}`
-      : `data:${user.id}:${planId}:${recipientPhone}:${planPrice}`;
+      : `data:${user.id}:${reference}`;
     const txResult = await prisma.$transaction(async (tx) => {
       await acquirePurchaseLock(tx, lockKey);
 
@@ -186,44 +163,6 @@ export async function POST(req: NextRequest) {
             transaction: existingByIdemp,
           };
         }
-      }
-
-      const existingDuplicate = await tx.transaction.findFirst({
-        where: {
-          userId: user.id,
-          type: "DATA_PURCHASE",
-          phone: recipientPhone,
-          amount: planPrice,
-          planId,
-          createdAt: {
-            gte: new Date(Date.now() - IDEMPOTENCY_WINDOW_MINUTES * 60 * 1000),
-          },
-          status: { in: ["PENDING", "SUCCESS"] },
-        },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          reference: true,
-          status: true,
-          amount: true,
-          phone: true,
-          createdAt: true,
-          description: true,
-        },
-      });
-
-      if (existingDuplicate?.status === "PENDING") {
-        return {
-          kind: "pending_duplicate" as const,
-          duplicateTransaction: existingDuplicate,
-        };
-      }
-
-      if (existingDuplicate && !confirmDuplicate) {
-        return {
-          kind: "needs_confirmation" as const,
-          duplicateTransaction: existingDuplicate,
-        };
       }
 
       const latestUser = await tx.user.findUnique({
@@ -286,29 +225,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (txResult.kind === "pending_duplicate") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "A similar data purchase is already processing.",
-          requiresConfirmation: false,
-          duplicateTransaction: txResult.duplicateTransaction,
-        },
-        { status: 409 }
-      );
-    }
-
-    if (txResult.kind === "needs_confirmation") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Duplicate transaction detected. Confirm to continue.",
-          requiresConfirmation: true,
-          duplicateTransaction: txResult.duplicateTransaction,
-        },
-        { status: 409 }
-      );
-    }
 
     if (txResult.kind === "insufficient_funds") {
       return NextResponse.json(

@@ -4,7 +4,6 @@ import { purchaseAirtime as purchaseAirtimeAlrahuz } from "@/lib/alrahuz.mjs";
 import { purchaseAirtime as purchaseAirtimeSmeplug } from "@/lib/smeplug";
 import { purchaseAirtime as purchaseAirtimeSaiful } from "@/lib/saiful";
 import {
-  findRecentDuplicateTransaction,
   normalizeProviderFailureMessage,
   isTimeoutError,
   TIMEOUT_PREFIX,
@@ -38,8 +37,6 @@ const networkIds: Record<string, number> = {
   airtel: 4,
   glo: 2,
 };
-
-const IDEMPOTENCY_WINDOW_MINUTES = 5;
 
 async function acquirePurchaseLock(tx: any, lockKey: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
@@ -119,25 +116,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Insufficient balance" }, { status: 400 });
     }
 
-    const duplicateTransaction = await findRecentDuplicateTransaction({
-      userId: user.id,
-      type: "AIRTIME_PURCHASE",
-      phone: recipientPhone,
-      amount,
-    });
-
-    if (duplicateTransaction && !confirmDuplicate) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Duplicate transaction detected. Confirm to continue.",
-          requiresConfirmation: true,
-          duplicateTransaction,
-        },
-        { status: 409 }
-      );
-    }
-
     // Determine configured provider dynamically
     const alrahuzToken = process.env.ALRAHUZ_API_TOKEN || process.env.ALRAHUZ_TOKEN || process.env.ALRAHUZ_API_KEY;
     const isSmeplugConfigured = process.env.SMEPLUG_API_KEY && !process.env.SMEPLUG_API_KEY.includes("your-");
@@ -155,7 +133,7 @@ export async function POST(req: NextRequest) {
     const reference = `AIRTIME-${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const lockKey = idempotencyKey
       ? `airtime:idemp:${user.id}:${idempotencyKey}`
-      : `airtime:${user.id}:${recipientPhone}:${amount}:${network}`;
+      : `airtime:${user.id}:${reference}`;
 
     const txResult = await prisma.$transaction(async (tx) => {
       await acquirePurchaseLock(tx, lockKey);
@@ -183,37 +161,6 @@ export async function POST(req: NextRequest) {
             transaction: existingByIdemp,
           };
         }
-      }
-
-      const existingDuplicate = await tx.transaction.findFirst({
-        where: {
-          userId: user.id,
-          type: "AIRTIME_PURCHASE",
-          phone: recipientPhone,
-          amount,
-          createdAt: {
-            gte: new Date(Date.now() - IDEMPOTENCY_WINDOW_MINUTES * 60 * 1000),
-          },
-          status: { in: ["PENDING", "SUCCESS"] },
-        },
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          reference: true,
-          status: true,
-          amount: true,
-          phone: true,
-          createdAt: true,
-          description: true,
-        },
-      });
-
-      if (existingDuplicate?.status === "PENDING") {
-        return { kind: "pending_duplicate" as const, duplicateTransaction: existingDuplicate };
-      }
-
-      if (existingDuplicate && !confirmDuplicate) {
-        return { kind: "needs_confirmation" as const, duplicateTransaction: existingDuplicate };
       }
 
       const latestUser = await tx.user.findUnique({
@@ -262,29 +209,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (txResult.kind === "pending_duplicate") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "A similar airtime purchase is already processing.",
-          requiresConfirmation: false,
-          duplicateTransaction: txResult.duplicateTransaction,
-        },
-        { status: 409 }
-      );
-    }
-
-    if (txResult.kind === "needs_confirmation") {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Duplicate transaction detected. Confirm to continue.",
-          requiresConfirmation: true,
-          duplicateTransaction: txResult.duplicateTransaction,
-        },
-        { status: 409 }
-      );
-    }
 
     if (txResult.kind === "insufficient_funds") {
       return NextResponse.json({ success: false, error: "Insufficient balance" }, { status: 400 });
