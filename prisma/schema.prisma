@@ -284,6 +284,36 @@ model ServiceNotice {
   @@map("service_notices")
 }
 
+model Celebration {
+  id          String    @id @default(cuid())
+  title       String
+  subtitle    String
+  badge       String
+  tag         String?   @default("OFFICIAL CELEBRATION")
+  icon        String    @default("🇳🇬")
+  theme       String    @default("NIGERIA_GREEN") // "NIGERIA_GREEN" | "GOLD" | "BLUE" | "PURPLE" | "RED"
+  accentColor String?
+  message     String
+  stat1Top    String?
+  stat1Bottom String?
+  stat2Top    String?
+  stat2Bottom String?
+  stat3Top    String?
+  stat3Bottom String?
+  actionText  String?   @default("Share with Friends & Community")
+  shareText   String?
+  dismissText String?   @default("Keep Celebrating 🚀")
+  isActive    Boolean   @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  priority    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("celebrations")
+}
+
 model DeveloperProfile {
   id            String                 @id @default(cuid())
   userId        String                 @unique

@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   User,
+  PartyPopper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { icon: Users, label: "Users", href: "/admin/users" },
   { icon: CreditCard, label: "Transactions", href: "/admin/transactions" },
   { icon: Gift, label: "Rewards", href: "/admin/rewards" },
+  { icon: PartyPopper, label: "Celebrations", href: "/admin/celebrations" },
   { icon: Bell, label: "Broadcasts", href: "/admin/notices" },
 ];
 
