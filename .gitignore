@@ -48,3 +48,5 @@ release_builds/
 /mobile/build/
 *.aab
 *.apk
+
+/backups/

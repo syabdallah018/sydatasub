@@ -2,9 +2,13 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 
 const dbUrl =
+  process.env.DATABASE_URL_UNPOOLED ||
   process.env.POSTGRES_URL_NON_POOLING ||
-  process.env.DATABASE_URL ||
-  "postgresql://neondb_owner:npg_Cd7IRop3XYqK@ep-lively-mountain-amx3wb6a.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require";
+  process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  throw new Error("Missing DATABASE_URL or DATABASE_URL_UNPOOLED environment variable");
+}
 
 const prisma = new PrismaClient({
   datasources: {

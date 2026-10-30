@@ -213,12 +213,12 @@ export default function DashboardClient({
   }, [activeTab]);
 
   useEffect(() => {
-    // Periodically sync balance every 90s only when tab is actively visible
+    // Periodically sync balance every 6m (above Neon's 5m scale-to-zero window) only when tab is visible
     const interval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         refreshUserData(true);
       }
-    }, 90000);
+    }, 360000);
 
     // Revalidate immediately when user switches back to the tab
     const handleVisibilityChange = () => {
