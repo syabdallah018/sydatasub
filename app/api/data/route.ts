@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const maxDuration = 120;
 import { prisma } from "@/lib/db";
 import { verifyDeveloperRequest } from "@/lib/developer-auth";
 import { purchaseData as purchaseFromSmeplug } from "@/lib/smeplug";

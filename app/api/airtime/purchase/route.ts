@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const maxDuration = 120;
 import { prisma } from "@/lib/db";
 import { purchaseAirtime as purchaseAirtimeAlrahuz } from "@/lib/alrahuz.mjs";
 import { purchaseAirtime as purchaseAirtimeSmeplug } from "@/lib/smeplug";
