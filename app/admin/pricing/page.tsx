@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Users, Tag } from 'lucide-react';
+import IndividualPricingManager from '@/components/admin/IndividualPricingManager';
 
 interface Plan {
   id: string;
@@ -21,6 +22,7 @@ interface EditedPrice {
 }
 
 export default function PricingPage() {
+  const [pricingView, setPricingView] = useState<'tier' | 'individual'>('tier');
   const [groupedPlans, setGroupedPlans] = useState<Record<string, Plan[]>>({});
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -166,11 +168,42 @@ export default function PricingPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Tier Pricing Management</h2>
-        <p className="text-slate-600">Manage both regular-user and agent prices, and the backend will charge exactly these values.</p>
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-1">Pricing & Rate Management</h2>
+          <p className="text-slate-600 text-sm">Configure global user/agent tier rates and individual user custom pricing.</p>
+        </div>
+
+        <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200 w-fit">
+          <button
+            onClick={() => setPricingView('tier')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              pricingView === 'tier'
+                ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Tag size={14} />
+            Tier Pricing (Global)
+          </button>
+          <button
+            onClick={() => setPricingView('individual')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              pricingView === 'individual'
+                ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users size={14} />
+            Individual User Pricing
+          </button>
+        </div>
       </div>
 
+      {pricingView === 'individual' ? (
+        <IndividualPricingManager />
+      ) : (
+        <>
       <div className="mb-6 rounded-lg border border-slate-200 bg-white p-5 shadow">
         <h3 className="text-lg font-bold text-slate-900 mb-2">Airtime To Cash Settings</h3>
         <p className="text-sm text-slate-600 mb-4">
@@ -296,6 +329,8 @@ export default function PricingPage() {
             )}
           </button>
         </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { getDbCapabilities } from "@/lib/db-capabilities";
+import { invalidateCache } from "@/lib/cache";
 import { z } from "zod";
 
 const noticeSchema = z.object({
@@ -66,6 +67,8 @@ export async function POST(req: NextRequest) {
         endsAt: data.endsAt ? new Date(data.endsAt) : null,
       },
     });
+
+    invalidateCache("active_service_notices");
 
     return NextResponse.json({ success: true, data: notice }, { status: 201 });
   } catch (error) {

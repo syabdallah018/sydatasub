@@ -61,9 +61,13 @@ interface DevProfile {
 
 interface DataPlan {
   id: string;
+  planId?: number;
+  developerPlanId?: number;
+  planCode?: string;
   externalPlanId: number;
   name: string;
   network: string;
+  category?: string;
   size: string;
   validity: string;
   user_price: number;
@@ -1221,11 +1225,14 @@ export default function DashboardClient({
                                   <option value="">-- Select --</option>
                                   {plans
                                     .filter((p) => NETWORK_CODES[p.network] === sandboxNetworkId)
-                                    .map((p) => (
-                                      <option key={p.id} value={p.externalPlanId}>
-                                        {p.name} ({p.size}) - ₦{p.user_price}
-                                      </option>
-                                    ))}
+                                    .map((p) => {
+                                      const devId = p.developerPlanId || p.planId || p.externalPlanId;
+                                      return (
+                                        <option key={p.id} value={devId}>
+                                          {p.name} ({p.size}) - ₦{p.user_price} [ID: {devId}]
+                                        </option>
+                                      );
+                                    })}
                                 </select>
                               </div>
                             </div>
@@ -1324,11 +1331,22 @@ export default function DashboardClient({
                   </div>
                 </div>
 
+                <div className="p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex items-start gap-3 text-emerald-950 text-xs">
+                  <span className="p-1.5 bg-emerald-600 text-white rounded-lg shrink-0 mt-0.5 font-bold text-[10px]">INDEPENDENT</span>
+                  <div>
+                    <strong className="text-emerald-900 font-bold block text-sm">Provider-Independent Plan ID Architecture</strong>
+                    <p className="mt-0.5 text-emerald-800 leading-relaxed">
+                      All Plan IDs and Plan Codes shown below are permanent and decoupled from external telecom vendors. Even if SY DATA SUB switches or reroutes backend providers, these IDs remain 100% constant, preventing any disruption or breaking changes to your automated integrations.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-500">
                     <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs text-nowrap">
                       <tr>
-                        <th className="px-4 py-3">Plan ID</th>
+                        <th className="px-4 py-3">Independent Plan ID</th>
+                        <th className="px-4 py-3">Plan Code (Slug)</th>
                         <th className="px-4 py-3">Plan Name</th>
                         <th className="px-4 py-3">Network</th>
                         <th className="px-4 py-3">Network ID</th>
@@ -1345,23 +1363,34 @@ export default function DashboardClient({
                             p.name.toLowerCase().includes(searchPlan.toLowerCase()) &&
                             (filterNetwork === "" || p.network === filterNetwork)
                         )
-                        .map((p) => (
-                          <tr key={p.id} className="hover:bg-slate-50/50">
-                            <td className="px-4 py-3 font-mono text-xs text-slate-900 flex items-center gap-1.5">
-                              {p.externalPlanId}
-                              <button onClick={() => copyText(String(p.externalPlanId))} className="text-slate-400 hover:text-blue-500 p-0.5">
-                                <Copy size={10} />
-                              </button>
-                            </td>
-                            <td className="px-4 py-3 text-slate-900">{p.name}</td>
-                            <td className="px-4 py-3">{p.network}</td>
-                            <td className="px-4 py-3 font-mono text-xs">{NETWORK_CODES[p.network]}</td>
-                            <td className="px-4 py-3">{p.size}</td>
-                            <td className="px-4 py-3">{p.validity}</td>
-                            <td className="px-4 py-3 text-blue-600 font-bold">₦{p.user_price}</td>
-                            <td className="px-4 py-3 text-green-600 font-bold">₦{p.agent_price}</td>
-                          </tr>
-                        ))}
+                        .map((p) => {
+                          const devId = p.developerPlanId || p.planId || p.externalPlanId;
+                          const code = p.planCode || `${p.network}-${p.size.replace(/\s+/g, '')}-${p.category || 'SME'}`.toUpperCase();
+                          return (
+                            <tr key={p.id} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-3 font-mono text-xs text-slate-900 flex items-center gap-1.5">
+                                <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                  {devId}
+                                </span>
+                                <button onClick={() => copyText(String(devId))} className="text-slate-400 hover:text-blue-500 p-0.5" title="Copy Plan ID">
+                                  <Copy size={10} />
+                                </button>
+                              </td>
+                              <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                                <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 text-[11px] font-semibold">
+                                  {code}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-900">{p.name}</td>
+                              <td className="px-4 py-3">{p.network}</td>
+                              <td className="px-4 py-3 font-mono text-xs">{NETWORK_CODES[p.network]}</td>
+                              <td className="px-4 py-3">{p.size}</td>
+                              <td className="px-4 py-3">{p.validity}</td>
+                              <td className="px-4 py-3 text-blue-600 font-bold">₦{p.user_price}</td>
+                              <td className="px-4 py-3 text-green-600 font-bold">₦{p.agent_price}</td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -1539,7 +1568,7 @@ export default function DashboardClient({
                           1. Retrieve Active Plans
                         </h3>
                         <p className="text-sm text-slate-600 leading-relaxed">
-                          Retrieve all active mobile data subscription plans, containing prices adjusted to your customer tier (Retail vs. Agent). Note that the returned plan ID is an **Integer** (not a long database string).
+                          Retrieve all active mobile data subscription plans, with prices reflecting your customer tier (Retail, Agent, or your individual custom rates set by Admin). Returned Plan IDs and Plan Codes are **100% provider-independent**: backend provider changes will never alter your plan IDs.
                         </p>
                         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-150 max-w-xs">
                           <span className="px-2 py-0.5 bg-blue-600 text-white font-bold rounded text-[10px]">GET</span>
@@ -1562,7 +1591,12 @@ export default function DashboardClient({
                               <tr>
                                 <td className="px-4 py-3 font-mono text-blue-600 text-xs">id</td>
                                 <td className="px-4 py-3 text-slate-405 text-xs">Integer</td>
-                                <td className="px-4 py-3 text-xs">The unique Plan ID. Use this integer key in purchase requests.</td>
+                                <td className="px-4 py-3 text-xs">Permanent, provider-independent Plan ID. Use this in purchase requests.</td>
+                              </tr>
+                              <tr>
+                                <td className="px-4 py-3 font-mono text-blue-600 text-xs">planCode</td>
+                                <td className="px-4 py-3 text-slate-405 text-xs">String</td>
+                                <td className="px-4 py-3 text-xs">Permanent slug code (e.g. "MTN-1GB-SME"). Also accepted in purchase requests.</td>
                               </tr>
                               <tr>
                                 <td className="px-4 py-3 font-mono text-blue-600 text-xs">name</td>
@@ -1582,7 +1616,7 @@ export default function DashboardClient({
                               <tr>
                                 <td className="px-4 py-3 font-mono text-blue-600 text-xs">price</td>
                                 <td className="px-4 py-3 text-slate-405 text-xs">Integer</td>
-                                <td className="px-4 py-3 text-xs">Cost of the plan in Naira.</td>
+                                <td className="px-4 py-3 text-xs">Cost in Naira (automatically adjusted to your tier / custom pricing).</td>
                               </tr>
                             </tbody>
                           </table>
@@ -1599,6 +1633,7 @@ export default function DashboardClient({
   "plans": [
     {
       "id": 125,
+      "planCode": "MTN-1GB-SME",
       "name": "MTN SME 1GB",
       "network": "MTN",
       "networkId": 1,
@@ -1608,6 +1643,7 @@ export default function DashboardClient({
     },
     {
       "id": 126,
+      "planCode": "GLO-1.5GB-MONTHLY",
       "name": "GLO 1.5GB Data Plan",
       "network": "GLO",
       "networkId": 2,
@@ -1633,7 +1669,7 @@ export default function DashboardClient({
                           2. Buy Data Subscription
                         </h3>
                         <p className="text-sm text-slate-600 leading-relaxed">
-                          Submit a data purchase transaction. The reference identifier must be unique globally across your transactions history logs. Pass the integer `planId` key retrieved from `/api/plans`.
+                          Submit a data purchase transaction. The reference identifier must be unique globally. Pass either the independent integer `planId` key or the semantic `planCode` string (e.g. 125 or "MTN-1GB-SME").
                         </p>
                         <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-150 max-w-xs">
                           <span className="px-2.5 py-0.5 bg-emerald-600 text-white font-bold rounded text-[10px]">POST</span>
@@ -1668,9 +1704,9 @@ export default function DashboardClient({
                               </tr>
                               <tr>
                                 <td className="px-4 py-3 font-mono text-blue-600 text-xs">planId</td>
-                                <td className="px-4 py-3 text-slate-405 text-xs">Integer</td>
+                                <td className="px-4 py-3 text-slate-405 text-xs">Integer / String</td>
                                 <td className="px-4 py-3 text-red-500 font-bold text-xs">Yes</td>
-                                <td className="px-4 py-3 text-xs">The integer Plan ID retrieved from `/api/plans`</td>
+                                <td className="px-4 py-3 text-xs">The independent Plan ID (e.g. 125) or Plan Code (e.g. "MTN-1GB-SME")</td>
                               </tr>
                               <tr>
                                 <td className="px-4 py-3 font-mono text-blue-600 text-xs">reference</td>

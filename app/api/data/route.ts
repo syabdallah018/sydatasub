@@ -7,7 +7,7 @@ import { purchaseData as purchaseFromAlrahuz } from "@/lib/alrahuz.mjs";
 import { purchaseData as purchaseFromAmysub } from "@/lib/amysub";
 import { purchaseData as purchaseFromDatabills } from "@/lib/databills";
 import { purchaseDataByPlan } from "@/lib/data-provider.mjs";
-import { getPlanPriceForUser } from "@/lib/pricing";
+import { getPlanPriceForUser, getUserCustomPriceForPlan } from "@/lib/pricing";
 import { checkAndAwardRewards } from "@/lib/rewards";
 import { sendPushToUser, notifyAdminSimConfigNeeded, notifyAdminTimeoutOccurred } from "@/lib/push";
 import { dispatchDeveloperWebhook } from "@/lib/webhook-dispatcher";
@@ -26,7 +26,7 @@ import { z } from "zod";
 const purchaseSchema = z.object({
   phone: z.string().regex(/^0[0-9]{10}$/, "Invalid phone number"),
   networkId: z.number().int().min(1).max(4, "Invalid network ID"),
-  planId: z.union([z.number().int(), z.string().regex(/^\d+$/).transform(val => parseInt(val, 10))]),
+  planId: z.union([z.number().int(), z.string().min(1)]),
   reference: z.string().min(1, "Unique transaction reference is required"),
 });
 
@@ -84,14 +84,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch Plan by externalPlanId and network mapping
+    // Fetch Plan by independent developerPlanId, planCode, cuid, or fallback externalPlanId
+    const numericPlanId = typeof planId === "number" ? planId : !isNaN(Number(planId)) ? Number(planId) : null;
+    const stringPlanId = String(planId).trim();
+
     const plan = await prisma.plan.findFirst({
       where: {
-        externalPlanId: planId,
         network: expectedNetwork as any,
         isActive: true,
+        OR: [
+          ...(numericPlanId !== null ? [
+            { developerPlanId: numericPlanId },
+            { externalPlanId: numericPlanId },
+          ] : []),
+          { id: stringPlanId },
+          { planCode: stringPlanId },
+          { planCode: { equals: stringPlanId, mode: "insensitive" } },
+        ],
       },
     });
+
     if (!plan) {
       return NextResponse.json(
         { success: false, error: "Plan not found or inactive" },
@@ -99,7 +111,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const planPrice = getPlanPriceForUser(plan, user);
+    const customPrice = await getUserCustomPriceForPlan(user.id, plan.id);
+    const planPrice = getPlanPriceForUser(plan, user, customPrice);
     const priceInKobo = planPrice * 100;
 
     const rewardBalance = user.rewardBalance ?? 0;

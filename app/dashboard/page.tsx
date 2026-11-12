@@ -80,9 +80,12 @@ export default async function DashboardPage() {
       where: { isActive: true },
       select: {
         id: true,
+        developerPlanId: true,
+        planCode: true,
         externalPlanId: true,
         name: true,
         network: true,
+        category: true,
         sizeLabel: true,
         validity: true,
         user_price: true,
@@ -95,16 +98,24 @@ export default async function DashboardPage() {
       ],
     });
 
-    parsedPlans = plans.map(p => ({
-      id: p.id,
-      externalPlanId: p.externalPlanId,
-      name: p.name,
-      network: p.network,
-      size: p.sizeLabel,
-      validity: p.validity,
-      user_price: p.user_price || p.price,
-      agent_price: p.agent_price || p.price,
-    }));
+    parsedPlans = plans.map(p => {
+      const independentPlanId = p.developerPlanId ?? p.externalPlanId;
+      const canonicalCode = p.planCode || `${p.network}-${p.sizeLabel.replace(/\s+/g, "")}-${p.category || "SME"}`.toUpperCase();
+      return {
+        id: p.id,
+        planId: independentPlanId,
+        developerPlanId: independentPlanId,
+        planCode: canonicalCode,
+        externalPlanId: p.externalPlanId,
+        name: p.name,
+        network: p.network,
+        category: p.category,
+        size: p.sizeLabel,
+        validity: p.validity,
+        user_price: p.user_price || p.price,
+        agent_price: p.agent_price || p.price,
+      };
+    });
   } catch (error) {
     console.error("[DASHBOARD PLANS FETCH ERROR]", error);
   }

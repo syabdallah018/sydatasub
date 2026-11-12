@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
-import { ensureDefaultCelebration } from "@/lib/celebrations";
+import { ensureDefaultCelebration, invalidateActiveCelebrationCache } from "@/lib/celebrations";
 import { z } from "zod";
 
 const celebrationSchema = z.object({
@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
         priority: data.priority,
       },
     });
+
+    invalidateActiveCelebrationCache();
 
     return NextResponse.json({ success: true, data: celebration }, { status: 201 });
   } catch (error: any) {

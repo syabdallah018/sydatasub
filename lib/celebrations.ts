@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { getOrSetCache, invalidateCache } from "@/lib/cache";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -27,29 +28,40 @@ export const DEFAULT_NIGERIA_CELEBRATION = {
   priority: 100,
 };
 
+let defaultCelebrationChecked = false;
+
 export async function ensureDefaultCelebration(db: DbClient = prisma) {
+  if (defaultCelebrationChecked) return;
   try {
     const count = await db.celebration.count();
     if (count === 0) {
-      return await db.celebration.create({
+      await db.celebration.create({
         data: DEFAULT_NIGERIA_CELEBRATION,
       });
+      invalidateCache("active_celebration");
     }
+    defaultCelebrationChecked = true;
   } catch (error) {
     console.error("[ENSURE DEFAULT CELEBRATION ERROR]", error);
   }
 }
 
 export async function getActiveCelebration(db: DbClient = prisma) {
-  await ensureDefaultCelebration(db);
+  return getOrSetCache("active_celebration", 60, async () => {
+    await ensureDefaultCelebration(db);
 
-  const now = new Date();
-  return db.celebration.findFirst({
-    where: {
-      isActive: true,
-      OR: [{ startsAt: null }, { startsAt: { lte: now } }],
-      AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
-    },
-    orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    const now = new Date();
+    return db.celebration.findFirst({
+      where: {
+        isActive: true,
+        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+        AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
+      },
+      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    });
   });
+}
+
+export function invalidateActiveCelebrationCache() {
+  invalidateCache("active_celebration");
 }

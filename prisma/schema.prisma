@@ -119,10 +119,13 @@ model User {
   beneficiaries    Beneficiary[]
   scheduledTopUps  ScheduledTopUp[]
   preference       UserPreference?
+  customPrices     UserCustomPrice[]
 
   @@index([phone])
   @@index([email])
   @@index([tier])
+  @@index([role, isBanned])
+  @@index([fcmToken])
   @@map("users")
 }
 
@@ -194,14 +197,20 @@ model Plan {
   externalNetworkId   Int
   category            String     @default("SME") // e.g. "SME", "CG", "GIFTING", "PROMO", "AWOOF"
   isActive            Boolean    @default(true)
+  developerPlanId     Int?       @unique // Provider-independent integer ID for API developers
+  planCode            String?    @unique // Provider-independent code (e.g., "MTN-1GB-SME")
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
 
   transactions Transaction[]
+  customPrices UserCustomPrice[]
 
   @@unique([apiSource, externalPlanId, externalNetworkId])
   @@index([network])
   @@index([isActive])
+  @@index([isActive, network])
+  @@index([developerPlanId])
+  @@index([planCode])
   @@map("plans")
 }
 
@@ -235,6 +244,8 @@ model Transaction {
   @@index([phone])
   @@index([reference])
   @@index([externalReference])
+  @@index([status, type])
+  @@index([userId, type, status])
   @@map("transactions")
 }
 
@@ -432,5 +443,22 @@ model AirtimeCashConfig {
 
   @@map("airtime_cash_config")
 }
+
+model UserCustomPrice {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  price     Int      // Custom price in NAIRA for this user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, planId])
+  @@index([userId])
+  @@index([planId])
+  @@map("user_custom_prices")
+}
+
 
 

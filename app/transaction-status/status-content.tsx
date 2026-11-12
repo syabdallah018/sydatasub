@@ -55,14 +55,18 @@ export default function StatusContent() {
 
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const maxAttempts = 12; // ~2.5 mins max auto-polling to save Neon compute
 
     const poll = async () => {
       const status = await fetchTransaction();
       if (cancelled) return;
-      if (status === "PENDING") {
+      attempts++;
+      if (status === "PENDING" && attempts < maxAttempts) {
+        const delay = Math.min(4000 * Math.pow(1.3, attempts - 1), 15000);
         timeoutId = setTimeout(() => {
           void poll();
-        }, 4000);
+        }, delay);
       }
     };
 
@@ -198,13 +202,29 @@ export default function StatusContent() {
           )}
 
           <div className="flex gap-3">
-          <Button
-            onClick={() => router.replace("/app")}
-            variant="outline"
-            className="flex-1 border-gray-300"
-          >
+            <Button
+              onClick={() => router.replace("/app")}
+              variant="outline"
+              className="flex-1 border-gray-300"
+            >
               Back to Login
             </Button>
+            {transaction.status === "PENDING" && (
+              <Button
+                onClick={() => {
+                  setIsLoading(true);
+                  fetch(`/api/transactions/status?ref=${encodeURIComponent(transaction.reference)}`)
+                    .then((r) => r.json())
+                    .then((d) => {
+                      if (d.status) setTransaction((prev: any) => ({ ...prev, status: d.status, description: d.description || prev?.description }));
+                    })
+                    .finally(() => setIsLoading(false));
+                }}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+              >
+                Refresh Status
+              </Button>
+            )}
             {transaction.status === "FAILED" && (
               <Button
                 onClick={() => router.replace("/app/checkout")}

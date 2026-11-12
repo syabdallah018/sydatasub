@@ -265,14 +265,23 @@ async function main() {
     // Delete existing plans to avoid duplicates
     await prisma.plan.deleteMany();
 
-    // Create plans
-    for (const plan of allPlans) {
+    // Create plans with developerPlanId and planCode
+    for (let i = 0; i < allPlans.length; i++) {
+      const plan = allPlans[i];
+      const devId = 101 + i;
+      const cleanSize = plan.sizeLabel.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+      const code = `${plan.network}_${cleanSize}_${devId}`;
+
       await prisma.plan.create({
-        data: plan,
+        data: {
+          ...plan,
+          developerPlanId: devId,
+          planCode: code,
+        },
       });
     }
 
-    console.log(`✅ Seeded ${allPlans.length} data plans`);
+    console.log(`✅ Seeded ${allPlans.length} data plans with independent Developer Plan IDs and Plan Codes`);
 
     // ========================================================================
     // SEED REWARDS

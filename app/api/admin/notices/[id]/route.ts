@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { getDbCapabilities } from "@/lib/db-capabilities";
+import { invalidateCache } from "@/lib/cache";
 import { z } from "zod";
 
 const noticeSchema = z.object({
@@ -44,6 +45,8 @@ export async function PATCH(
       },
     });
 
+    invalidateCache("active_service_notices");
+
     return NextResponse.json({ success: true, data: updated }, { status: 200 });
   } catch (error) {
     console.error("[ADMIN UPDATE NOTICE ERROR]", error);
@@ -75,6 +78,8 @@ export async function DELETE(
     await prisma.serviceNotice.delete({
       where: { id },
     });
+
+    invalidateCache("active_service_notices");
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {

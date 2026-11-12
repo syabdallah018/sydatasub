@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
+import { invalidateActiveCelebrationCache } from "@/lib/celebrations";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -50,6 +51,8 @@ export async function PATCH(
       },
     });
 
+    invalidateActiveCelebrationCache();
+
     return NextResponse.json({ success: true, data: updated }, { status: 200 });
   } catch (error: any) {
     console.error("[ADMIN UPDATE CELEBRATION ERROR]", error);
@@ -77,6 +80,8 @@ export async function DELETE(
     await prisma.celebration.delete({
       where: { id },
     });
+
+    invalidateActiveCelebrationCache();
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {

@@ -23,6 +23,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
+import IndividualPricingManager from "@/components/admin/IndividualPricingManager";
 
 interface QueuedTransaction {
   id: string;
@@ -65,7 +66,7 @@ interface SummaryStats {
 }
 
 export default function AdminSimConfigPage() {
-  const [activeTab, setActiveTab] = useState<"sim" | "timeout" | "airtime">("sim");
+  const [activeTab, setActiveTab] = useState<"sim" | "timeout" | "airtime" | "pricing">("sim");
 
   // Queues
   const [simList, setSimList] = useState<QueuedTransaction[]>([]);
@@ -91,6 +92,19 @@ export default function AdminSimConfigPage() {
     tx: null,
     actionType: "mark_success",
     note: "",
+  });
+
+  // Bulk Refund All Modal state
+  const [refundAllModal, setRefundAllModal] = useState<{
+    isOpen: boolean;
+    queueType: "sim" | "timeout" | "airtime" | "all";
+    note: string;
+    loading: boolean;
+  }>({
+    isOpen: false,
+    queueType: "sim",
+    note: "",
+    loading: false,
   });
 
   // Batch retry state
@@ -204,7 +218,13 @@ export default function AdminSimConfigPage() {
 
   // Current active list
   const currentList =
-    activeTab === "sim" ? simList : activeTab === "timeout" ? timeoutList : airtimeList;
+    activeTab === "sim"
+      ? simList
+      : activeTab === "timeout"
+      ? timeoutList
+      : activeTab === "airtime"
+      ? airtimeList
+      : [];
 
   // Filter current active list
   const filteredList = currentList.filter((tx) => {
@@ -293,6 +313,45 @@ export default function AdminSimConfigPage() {
     fetchQueues();
   };
 
+  // Open Refund All Modal
+  const openRefundAllModal = () => {
+    setRefundAllModal({
+      isOpen: true,
+      queueType: activeTab === "timeout" ? "timeout" : activeTab === "airtime" ? "airtime" : "sim",
+      note: "",
+      loading: false,
+    });
+  };
+
+  // Execute Bulk Refund
+  const handleExecuteRefundAll = async () => {
+    try {
+      setRefundAllModal((prev) => ({ ...prev, loading: true }));
+      const res = await fetch("/api/admin/sim-config/refund-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          queueType: refundAllModal.queueType,
+          adminNote: refundAllModal.note,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        toast.success(data.message || `Successfully refunded ${data.count} transaction(s)!`);
+        setRefundAllModal((prev) => ({ ...prev, isOpen: false }));
+        fetchQueues();
+      } else {
+        toast.error(data.error || "Failed to execute bulk refund");
+      }
+    } catch (err: any) {
+      console.error("[REFUND ALL ERROR]", err);
+      toast.error("Network error executing bulk refund");
+    } finally {
+      setRefundAllModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -307,13 +366,13 @@ export default function AdminSimConfigPage() {
                 SIM Config & Queued Orders
               </h1>
               <p className="text-slate-500 text-sm mt-0.5">
-                Manage dispensing SIM queues, SMEPlug timeouts, and airtime orders with instant admin prerogatives.
+                Manage dispensing SIM queues, SMEPlug timeouts, airtime orders, and custom individual pricing.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={() => fetchQueues(true)}
             disabled={loading || batchRunning}
@@ -323,23 +382,36 @@ export default function AdminSimConfigPage() {
             Refresh
           </button>
 
-          <button
-            onClick={handleRetryAllCurrent}
-            disabled={batchRunning || filteredList.length === 0}
-            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition disabled:opacity-50"
-          >
-            {batchRunning ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Retrying ({batchProgress.current}/{batchProgress.total})...
-              </>
-            ) : (
-              <>
-                <Play size={16} />
-                Retry Current Tab ({filteredList.length})
-              </>
-            )}
-          </button>
+          {activeTab !== "pricing" && (
+            <>
+              <button
+                onClick={openRefundAllModal}
+                disabled={loading || batchRunning || filteredList.length === 0}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition disabled:opacity-50"
+              >
+                <RotateCcw size={16} />
+                Refund All ({filteredList.length})
+              </button>
+
+              <button
+                onClick={handleRetryAllCurrent}
+                disabled={batchRunning || filteredList.length === 0}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition disabled:opacity-50"
+              >
+                {batchRunning ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Retrying ({batchProgress.current}/{batchProgress.total})...
+                  </>
+                ) : (
+                  <>
+                    <Play size={16} />
+                    Retry Current Tab ({filteredList.length})
+                  </>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -407,10 +479,26 @@ export default function AdminSimConfigPage() {
             {summary?.airtimeCount ?? airtimeList.length}
           </span>
         </button>
+
+        <button
+          onClick={() => setActiveTab("pricing")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+            activeTab === "pricing"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <DollarSign size={16} className={activeTab === "pricing" ? "text-emerald-500" : "text-slate-400"} />
+          Individual Pricing System
+        </button>
       </div>
 
-      {/* Contextual Notice Banner depending on Active Tab */}
-      {activeTab === "timeout" ? (
+      {activeTab === "pricing" ? (
+        <IndividualPricingManager />
+      ) : (
+        <>
+          {/* Contextual Notice Banner depending on Active Tab */}
+          {activeTab === "timeout" ? (
         <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-rose-950">
           <div className="flex items-start gap-3">
             <Timer size={22} className="text-rose-600 mt-0.5 shrink-0" />
@@ -714,6 +802,8 @@ export default function AdminSimConfigPage() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Confirmation & Note Modal */}
       {actionModal.isOpen && actionModal.tx && (
@@ -886,6 +976,98 @@ export default function AdminSimConfigPage() {
                   Done
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Refund All Modal */}
+      {refundAllModal.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-rose-600 font-extrabold text-base">
+                <RotateCcw size={20} />
+                <h3>Bulk Refund Queued Orders</h3>
+              </div>
+              <button
+                onClick={() => setRefundAllModal((prev) => ({ ...prev, isOpen: false }))}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-900 text-xs space-y-1.5">
+              <div className="font-extrabold flex items-center gap-1.5 text-rose-700">
+                <AlertTriangle size={15} />
+                Customer Wallet Credit
+              </div>
+              <p>
+                This will cancel all <strong>{filteredList.length}</strong> pending orders in this view, mark them as <strong>FAILED</strong>, and immediately credit <strong>₦{filteredList.reduce((acc, tx) => acc + (tx.amount || 0), 0).toLocaleString()}</strong> back to customer wallets.
+              </p>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>Target Queue:</span>
+                <span className="font-bold text-slate-900 uppercase">
+                  {activeTab === "timeout" ? "Timeout Queue" : activeTab === "airtime" ? "Airtime Queue" : "SIM Config Queue"}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Orders to Refund:</span>
+                <span className="font-bold text-slate-900">{filteredList.length} orders</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Total Amount to Return:</span>
+                <span className="font-bold text-rose-600 text-sm">
+                  ₦{filteredList.reduce((acc, tx) => acc + (tx.amount || 0), 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Admin Refund Note (Optional - visible in customer history & push)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Bulk refunded due to provider downtime"
+                value={refundAllModal.note}
+                onChange={(e) => setRefundAllModal((prev) => ({ ...prev, note: e.target.value }))}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setRefundAllModal((prev) => ({ ...prev, isOpen: false }))}
+                disabled={refundAllModal.loading}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExecuteRefundAll}
+                disabled={refundAllModal.loading || filteredList.length === 0}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition disabled:opacity-50"
+              >
+                {refundAllModal.loading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Refunding...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw size={14} />
+                    Confirm Refund All ({filteredList.length})
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

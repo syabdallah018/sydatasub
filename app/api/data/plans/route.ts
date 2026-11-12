@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
+import { getUserCustomPriceMap } from "@/lib/pricing";
+import { getOrSetCache } from "@/lib/cache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,25 +18,44 @@ export async function GET(req: NextRequest) {
       network = networkMap[network.toLowerCase()] || network.toUpperCase();
     }
 
-    const plans = await prisma.plan.findMany({
-      where: {
-        isActive: true,
-        ...(network ? { network: network as any } : {}),
-      },
-      orderBy: [{ user_price: "asc" }, { price: "asc" }],
+    const cacheKey = `plans_list_${network || "ALL"}`;
+
+    // Use in-memory cache for the base plans list to reduce Neon DB reads
+    const plans = await getOrSetCache(cacheKey, 60, async () => {
+      return prisma.plan.findMany({
+        where: {
+          isActive: true,
+          ...(network ? { network: network as any } : {}),
+        },
+        orderBy: [{ user_price: "asc" }, { price: "asc" }],
+      });
     });
 
-    const serializedPlans = plans.map((plan) => ({
-      ...plan,
-      price: plan.user_price > 0 ? plan.user_price : plan.price,
-    }));
+    const user = await getSessionUser(req).catch(() => null);
+    const customPriceMap = user ? await getUserCustomPriceMap(user.id) : new Map<string, number>();
+
+    const serializedPlans = plans.map((plan) => {
+      const customPrice = customPriceMap.get(plan.id);
+      let effectivePrice = plan.user_price > 0 ? plan.user_price : plan.price;
+      if (customPrice && customPrice > 0) {
+        effectivePrice = customPrice;
+      } else if (user?.tier === "agent" && plan.agent_price > 0) {
+        effectivePrice = plan.agent_price;
+      }
+
+      return {
+        ...plan,
+        price: effectivePrice,
+        customPrice: customPrice ?? null,
+      };
+    });
 
     return NextResponse.json(
       { success: true, data: serializedPlans, plans: serializedPlans },
       {
         status: 200,
         headers: {
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=86400",
+          "Cache-Control": user ? "private, no-cache" : "public, s-maxage=60, stale-while-revalidate=300",
         },
       }
     );
@@ -56,6 +78,8 @@ export async function POST(req: NextRequest) {
       apiSource,
       externalPlanId,
       externalNetworkId,
+      developerPlanId,
+      planCode,
     } = body;
 
     const fallbackPrice = Number(user_price || agent_price || 0);
@@ -72,6 +96,8 @@ export async function POST(req: NextRequest) {
         apiSource,
         externalPlanId: parseInt(externalPlanId, 10),
         externalNetworkId: parseInt(externalNetworkId, 10),
+        developerPlanId: developerPlanId ? parseInt(developerPlanId, 10) : undefined,
+        planCode: planCode?.trim() || undefined,
         isActive: true,
       },
     });

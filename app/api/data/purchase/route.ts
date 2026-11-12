@@ -18,7 +18,7 @@ import {
   DATA_PURCHASE_SUCCESS_MESSAGE,
   PURCHASE_FAILED_GENERIC_MESSAGE,
 } from "@/lib/purchase-utils";
-import { getPlanPriceForUser } from "@/lib/pricing";
+import { getPlanPriceForUser, getUserCustomPriceForPlan } from "@/lib/pricing";
 import { checkAndAwardRewards } from "@/lib/rewards";
 import { getSessionUser } from "@/lib/auth";
 import bcryptjs from "bcryptjs";
@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Plan not found" }, { status: 404 });
     }
 
-    const planPrice = getPlanPriceForUser(plan, user);
+    const customPrice = await getUserCustomPriceForPlan(user.id, plan.id);
+    const planPrice = getPlanPriceForUser(plan, user, customPrice);
     const priceInKobo = planPrice * 100;
 
     const rewardBalance = "rewardBalance" in user ? user.rewardBalance ?? 0 : 0;

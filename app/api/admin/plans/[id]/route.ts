@@ -3,6 +3,8 @@ import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
+import { invalidateCache } from "@/lib/cache";
+
 const updatePlanSchema = z.object({
   name: z.string().min(1).optional(),
   network: z.enum(["MTN", "GLO", "AIRTEL", "NINEMOBILE"]).optional(),
@@ -14,6 +16,8 @@ const updatePlanSchema = z.object({
   category: z.string().optional(),
   externalPlanId: z.number().int().positive().optional(),
   externalNetworkId: z.number().int().positive().optional(),
+  developerPlanId: z.number().int().positive().nullable().optional(),
+  planCode: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -57,6 +61,9 @@ export async function PATCH(
       },
     });
 
+    invalidateCache("plans_list_");
+    invalidateCache("active_plans_dev");
+
     return NextResponse.json(updated, { status: 200 });
   } catch (error: any) {
     console.error("[UPDATE PLAN ERROR]", error);
@@ -99,6 +106,9 @@ export async function DELETE(
     await prisma.plan.delete({
       where: { id },
     });
+
+    invalidateCache("plans_list_");
+    invalidateCache("active_plans_dev");
 
     return NextResponse.json({ success: true, message: "Plan deleted" }, { status: 200 });
   } catch (error: any) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getDbCapabilities } from "@/lib/db-capabilities";
+import { getOrSetCache } from "@/lib/cache";
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,14 +10,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: [] }, { status: 200 });
     }
 
-    const now = new Date();
-    const notices = await prisma.serviceNotice.findMany({
-      where: {
-        isActive: true,
-        OR: [{ startsAt: null }, { startsAt: { lte: now } }],
-        AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
-      },
-      orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
+    const notices = await getOrSetCache("active_service_notices", 60, async () => {
+      const now = new Date();
+      return prisma.serviceNotice.findMany({
+        where: {
+          isActive: true,
+          OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+          AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
+        },
+        orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
+      });
     });
 
     return NextResponse.json(

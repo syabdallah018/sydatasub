@@ -3,6 +3,8 @@ import { enforceAdminMutationGuard, requireAdmin } from "@/lib/adminAuth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
+import { invalidateCache } from "@/lib/cache";
+
 const planSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
@@ -15,6 +17,8 @@ const planSchema = z
     category: z.string().default("SME"),
     externalPlanId: z.number().int().positive(),
     externalNetworkId: z.number().int().positive(),
+    developerPlanId: z.number().int().positive().optional(),
+    planCode: z.string().optional(),
   })
   .refine((data) => data.agent_price <= data.user_price, {
     message: "Agent price cannot exceed user price",
@@ -76,6 +80,9 @@ export async function POST(req: NextRequest) {
         isActive: true,
       },
     });
+
+    invalidateCache("plans_list_");
+    invalidateCache("active_plans_dev");
 
     return NextResponse.json(plan, { status: 201 });
   } catch (error: any) {
